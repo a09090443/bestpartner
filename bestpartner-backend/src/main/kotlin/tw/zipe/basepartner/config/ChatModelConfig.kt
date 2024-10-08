@@ -7,35 +7,43 @@ import dev.langchain4j.model.ollama.OllamaStreamingChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.ws.rs.Produces
 import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 import tw.zipe.basepartner.properties.OllamaProp
 import tw.zipe.basepartner.properties.OpenaiProp
+import tw.zipe.basepartner.util.logger
 
+/**
+ * @author Gary
+ * @created 2024/10/07
+ */
 @ApplicationScoped
 class ChatModelConfig(
     var aiPlatformOllamaConfig: AIPlatformOllamaConfig,
     var aiPlatformOpenaiConfig: AIPlatformOpenaiConfig
 ) {
 
-    @Produces
+    private val logger = logger()
+    private val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
+
     fun getChatModel(): Map<String, ChatLanguageModel> {
-        val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
-        aiPlatformOllamaConfig.defaultConfig().map { chatModelMap["ollama"] = ollamaChatModel(it) }
-        aiPlatformOpenaiConfig.defaultConfig().map { chatModelMap["openai"] = openaiChatModel(it) }
+        logger.info("根據設定檔建立llm連線: $aiPlatformOllamaConfig")
+        chatModelMap.ifEmpty {
+            aiPlatformOllamaConfig.defaultConfig().map { chatModelMap["ollama"] = ollamaChatModel(it) }
+            aiPlatformOpenaiConfig.defaultConfig().map { chatModelMap["openai"] = openaiChatModel(it) }
 
-        aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
-            chatModelMap[key] = ollamaChatModel(value)
+            aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
+                chatModelMap[key] = ollamaChatModel(value)
+            }
+
+            aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
+                chatModelMap[key] = openaiChatModel(value)
+            }
         }
 
-        aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
-            chatModelMap[key] = openaiChatModel(value)
-        }
         return chatModelMap
     }
 
-    @Produces
     fun getStreamingChatModel(): Map<String, StreamingChatLanguageModel> {
         val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
         aiPlatformOllamaConfig.defaultConfig().map { streamingChatModelMap["ollama"] = ollamaStreamingChatModel(it) }

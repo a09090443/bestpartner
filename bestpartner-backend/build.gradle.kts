@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.0.10"
+    kotlin("plugin.serialization") version "2.0.10"
     kotlin("plugin.allopen") version "2.0.10"
     id("io.quarkus")
 }
@@ -22,10 +23,14 @@ dependencies {
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-websockets-next")
     implementation("io.quarkus:quarkus-kotlin")
+    implementation("io.quarkus:quarkus-rest-kotlin-serialization")
 
+    implementation("dev.langchain4j:langchain4j:0.35.0")
     implementation("dev.langchain4j:langchain4j-core:0.35.0")
     implementation("dev.langchain4j:langchain4j-ollama:0.35.0")
     implementation("dev.langchain4j:langchain4j-open-ai:0.35.0")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Add this line
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
