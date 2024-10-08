@@ -1,6 +1,8 @@
 package tw.zipe.basepartner.dto
 
 import kotlinx.serialization.Serializable
+import tw.zipe.basepartner.enumerate.Platform
+import tw.zipe.basepartner.model.ChatModel
 
 /**
  * @author Gary
@@ -8,7 +10,8 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 open class BaseDTO(
-    var model: String = "ollama",
+    val defaultPlatform: Platform = Platform.OLLAMA,
+    val chatModel: ChatModel? = null,
     val isRemember: Boolean = false
 )
 

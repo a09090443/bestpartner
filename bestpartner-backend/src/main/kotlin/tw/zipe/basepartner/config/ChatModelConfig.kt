@@ -2,11 +2,11 @@ package tw.zipe.basepartner.config
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
-import dev.langchain4j.model.ollama.OllamaChatModel
-import dev.langchain4j.model.ollama.OllamaStreamingChatModel
-import dev.langchain4j.model.openai.OpenAiChatModel
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import jakarta.enterprise.context.ApplicationScoped
+import tw.zipe.basepartner.builder.chatmodel.OllamaBuilder
+import tw.zipe.basepartner.builder.chatmodel.OpenaiBuilder
+import tw.zipe.basepartner.enumerate.Platform
+import tw.zipe.basepartner.model.ChatModel
 import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 import tw.zipe.basepartner.properties.OllamaProp
@@ -29,8 +29,8 @@ class ChatModelConfig(
     fun getChatModel(): Map<String, ChatLanguageModel> {
         logger.info("根據設定檔建立llm連線: $aiPlatformOllamaConfig")
         chatModelMap.ifEmpty {
-            aiPlatformOllamaConfig.defaultConfig().map { chatModelMap["ollama"] = ollamaChatModel(it) }
-            aiPlatformOpenaiConfig.defaultConfig().map { chatModelMap["openai"] = openaiChatModel(it) }
+            aiPlatformOllamaConfig.defaultConfig().map { chatModelMap[Platform.OLLAMA.name] = ollamaChatModel(it) }
+            aiPlatformOpenaiConfig.defaultConfig().map { chatModelMap[Platform.OPENAI.name] = openaiChatModel(it) }
 
             aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
                 chatModelMap[key] = ollamaChatModel(value)
@@ -60,40 +60,60 @@ class ChatModelConfig(
     }
 
     fun ollamaChatModel(ollama: OllamaProp): ChatLanguageModel {
-        return OllamaChatModel.builder()
-            .baseUrl(ollama.url())
-            .modelName(ollama.modelName())
-            .temperature(ollama.temperature())
-            .timeout(ollama.timeout())
-            .build()
+        return run {
+            ChatModel(
+                platform = Platform.OLLAMA,
+                url = ollama.url(),
+                modelName = ollama.modelName(),
+                temperature = ollama.temperature(),
+                timeout = ollama.timeout().toMillis()
+            )
+        }.run {
+            OllamaBuilder().chatModel(this)
+        }
     }
 
     fun ollamaStreamingChatModel(ollama: OllamaProp): StreamingChatLanguageModel {
-        return OllamaStreamingChatModel.builder()
-            .baseUrl(ollama.url())
-            .modelName(ollama.modelName())
-            .temperature(ollama.temperature())
-            .timeout(ollama.timeout())
-            .build()
+        return run {
+            ChatModel(
+                platform = Platform.OLLAMA,
+                url = ollama.url(),
+                modelName = ollama.modelName(),
+                temperature = ollama.temperature(),
+                timeout = ollama.timeout().toMillis()
+            )
+        }.run {
+            OllamaBuilder().chatModelStreaming(this)
+        }
     }
 
     fun openaiChatModel(openai: OpenaiProp): ChatLanguageModel {
-        return OpenAiChatModel.builder()
-            .baseUrl(openai.url())
-            .apiKey(openai.apiKey())
-            .modelName(openai.modelName())
-            .temperature(openai.temperature())
-            .timeout(openai.timeout())
-            .build()
+        return run {
+            ChatModel(
+                platform = Platform.OPENAI,
+                url = openai.url(),
+                apiKey = openai.apiKey(),
+                modelName = openai.modelName(),
+                temperature = openai.temperature(),
+                timeout = openai.timeout().toMillis()
+            )
+        }.run {
+            OpenaiBuilder().chatModel(this)
+        }
     }
 
     fun openaiStreamingChatModel(openai: OpenaiProp): StreamingChatLanguageModel {
-        return OpenAiStreamingChatModel.builder()
-            .baseUrl(openai.url())
-            .apiKey(openai.apiKey())
-            .modelName(openai.modelName())
-            .temperature(openai.temperature())
-            .timeout(openai.timeout())
-            .build()
+        return run {
+            ChatModel(
+                platform = Platform.OPENAI,
+                url = openai.url(),
+                apiKey = openai.apiKey(),
+                modelName = openai.modelName(),
+                temperature = openai.temperature(),
+                timeout = openai.timeout().toMillis()
+            )
+        }.run {
+            OpenaiBuilder().chatModelStreaming(this)
+        }
     }
 }

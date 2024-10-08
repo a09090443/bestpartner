@@ -10,7 +10,6 @@ import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
-import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
@@ -38,10 +37,12 @@ class LLMResource(
 
     @POST
     @Path("/chat")
-    fun chat(llmRequestDTO: ChatRequestDTO): String {
-        logger.info("llmRequestDTO: ${llmRequestDTO.message}")
-        return AiServices.create(AIAssistant::class.java, chatModelConfig.getChatModel()[llmRequestDTO.model])
-            .chat(llmRequestDTO.message)
+    fun chat(chatRequestDTO: ChatRequestDTO): String {
+        logger.info("llmRequestDTO: ${chatRequestDTO.message}")
+        return AiServices.create(
+            AIAssistant::class.java,
+            chatModelConfig.getChatModel()[chatRequestDTO.defaultPlatform.name]
+        ).chat(chatRequestDTO.message)
     }
 
     @POST
@@ -80,7 +81,7 @@ class LLMResource(
         }
 
         return AiServices.builder(DynamicAssistant::class.java)
-            .chatLanguageModel(chatModelConfig.getChatModel()[chatRequestDTO.model])
+            .chatLanguageModel(chatModelConfig.getChatModel()[chatRequestDTO.defaultPlatform.name])
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
             .chatMemoryProvider(chatMemoryProvider)
             .build().chat(chatRequestDTO.message)
