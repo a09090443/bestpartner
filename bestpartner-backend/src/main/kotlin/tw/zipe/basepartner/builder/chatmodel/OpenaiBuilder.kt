@@ -2,10 +2,13 @@ package tw.zipe.basepartner.builder.chatmodel
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiChatModel
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import java.time.Duration
-import tw.zipe.basepartner.model.ChatModel
+import tw.zipe.basepartner.model.LLMChatModel
+import tw.zipe.basepartner.model.LLMEmbeddingModel
 import tw.zipe.basepartner.provider.ModelProvider
 
 /**
@@ -13,7 +16,7 @@ import tw.zipe.basepartner.provider.ModelProvider
  * @created 2024/10/8
  */
 class OpenaiBuilder : ModelProvider {
-    override fun chatModel(chatModel: ChatModel): ChatLanguageModel =
+    override fun chatModel(chatModel: LLMChatModel): ChatLanguageModel =
         OpenAiChatModel.builder()
             .baseUrl(chatModel.url)
             .apiKey(chatModel.apiKey)
@@ -24,7 +27,7 @@ class OpenaiBuilder : ModelProvider {
             .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
             .build()
 
-    override fun chatModelStreaming(chatModel: ChatModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(chatModel: LLMChatModel): StreamingChatLanguageModel =
         OpenAiStreamingChatModel.builder()
             .baseUrl(chatModel.url)
             .modelName(chatModel.modelName)
@@ -32,5 +35,14 @@ class OpenaiBuilder : ModelProvider {
             .topP(chatModel.topP)
             .maxTokens(chatModel.maxTokens)
             .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
+            .build()
+
+    override fun embeddingModel(embeddingModel: LLMEmbeddingModel): EmbeddingModel =
+        OpenAiEmbeddingModel.builder()
+            .baseUrl(embeddingModel.url)
+            .apiKey(embeddingModel.apiKey)
+            .modelName(embeddingModel.modelName)
+            .timeout(embeddingModel.timeout.let { Duration.ofSeconds(it) })
+            .dimensions(embeddingModel.dimensions)
             .build()
 }

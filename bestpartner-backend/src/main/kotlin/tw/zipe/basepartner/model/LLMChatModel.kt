@@ -8,7 +8,7 @@ import tw.zipe.basepartner.enumerate.Platform
  * @created 2024/10/8
  */
 @Serializable
-data class ChatModel(
+data class LLMChatModel(
     val platform: Platform,
     val url: String,
     val apiKey: String? = null,

@@ -6,7 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.basepartner.builder.chatmodel.OllamaBuilder
 import tw.zipe.basepartner.builder.chatmodel.OpenaiBuilder
 import tw.zipe.basepartner.enumerate.Platform
-import tw.zipe.basepartner.model.ChatModel
+import tw.zipe.basepartner.model.LLMChatModel
 import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 import tw.zipe.basepartner.properties.OllamaProp
@@ -27,7 +27,7 @@ class ChatModelConfig(
     private val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
 
     fun getChatModel(): Map<String, ChatLanguageModel> {
-        logger.info("根據設定檔建立llm連線: $aiPlatformOllamaConfig")
+        logger.info("根據設定檔建立llm連線")
         chatModelMap.ifEmpty {
             aiPlatformOllamaConfig.defaultConfig().map { chatModelMap[Platform.OLLAMA.name] = ollamaChatModel(it) }
             aiPlatformOpenaiConfig.defaultConfig().map { chatModelMap[Platform.OPENAI.name] = openaiChatModel(it) }
@@ -61,7 +61,7 @@ class ChatModelConfig(
 
     fun ollamaChatModel(ollama: OllamaProp): ChatLanguageModel {
         return run {
-            ChatModel(
+            LLMChatModel(
                 platform = Platform.OLLAMA,
                 url = ollama.url(),
                 modelName = ollama.modelName(),
@@ -75,7 +75,7 @@ class ChatModelConfig(
 
     fun ollamaStreamingChatModel(ollama: OllamaProp): StreamingChatLanguageModel {
         return run {
-            ChatModel(
+            LLMChatModel(
                 platform = Platform.OLLAMA,
                 url = ollama.url(),
                 modelName = ollama.modelName(),
@@ -89,7 +89,7 @@ class ChatModelConfig(
 
     fun openaiChatModel(openai: OpenaiProp): ChatLanguageModel {
         return run {
-            ChatModel(
+            LLMChatModel(
                 platform = Platform.OPENAI,
                 url = openai.url(),
                 apiKey = openai.apiKey(),
@@ -104,7 +104,7 @@ class ChatModelConfig(
 
     fun openaiStreamingChatModel(openai: OpenaiProp): StreamingChatLanguageModel {
         return run {
-            ChatModel(
+            LLMChatModel(
                 platform = Platform.OPENAI,
                 url = openai.url(),
                 apiKey = openai.apiKey(),

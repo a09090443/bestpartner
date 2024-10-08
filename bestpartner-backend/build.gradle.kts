@@ -29,6 +29,8 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-core:0.35.0")
     implementation("dev.langchain4j:langchain4j-ollama:0.35.0")
     implementation("dev.langchain4j:langchain4j-open-ai:0.35.0")
+    implementation("dev.langchain4j:langchain4j-chroma:0.35.0")
+    implementation("dev.langchain4j:langchain4j-milvus:0.35.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Add this line
 

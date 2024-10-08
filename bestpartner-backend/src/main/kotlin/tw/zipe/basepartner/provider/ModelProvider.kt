@@ -2,7 +2,9 @@ package tw.zipe.basepartner.provider
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
-import tw.zipe.basepartner.model.ChatModel
+import dev.langchain4j.model.embedding.EmbeddingModel
+import tw.zipe.basepartner.model.LLMChatModel
+import tw.zipe.basepartner.model.LLMEmbeddingModel
 
 /**
  * @author Gary
@@ -10,7 +12,10 @@ import tw.zipe.basepartner.model.ChatModel
  */
 interface ModelProvider {
 
-    fun chatModel(chatModel: ChatModel): ChatLanguageModel
+    fun chatModel(chatModel: LLMChatModel): ChatLanguageModel
 
-    fun chatModelStreaming(chatModel: ChatModel): StreamingChatLanguageModel
+    fun chatModelStreaming(chatModel: LLMChatModel): StreamingChatLanguageModel
+
+    fun embeddingModel(embeddingModel: LLMEmbeddingModel): EmbeddingModel
+
 }
