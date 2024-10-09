@@ -11,6 +11,9 @@ interface BaseAIPlatform {
     @WithName("url")
     fun url(): String
 
+    @WithName("api-key")
+    fun apiKey(): Optional<String>
+
     @WithName("model-name")
     fun modelName(): String
 
@@ -20,6 +23,6 @@ interface BaseAIPlatform {
     @WithName("timeout")
     fun timeout(): Duration
 
-    @WithName("embedding-model")
-    fun embeddingModel(): Optional<String>
+    @WithName("embedding-model-name")
+    fun embeddingModelName(): Optional<String>
 }

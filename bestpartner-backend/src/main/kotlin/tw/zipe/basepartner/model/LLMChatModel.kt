@@ -9,7 +9,7 @@ import tw.zipe.basepartner.enumerate.Platform
  */
 @Serializable
 data class LLMChatModel(
-    val platform: Platform,
+    val platform: Platform? = null,
     val url: String,
     val apiKey: String? = null,
     val modelName: String,

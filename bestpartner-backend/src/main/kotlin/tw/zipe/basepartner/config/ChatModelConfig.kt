@@ -2,118 +2,44 @@ package tw.zipe.basepartner.config
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
-import jakarta.enterprise.context.ApplicationScoped
-import tw.zipe.basepartner.builder.chatmodel.OllamaBuilder
-import tw.zipe.basepartner.builder.chatmodel.OpenaiBuilder
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.model.LLMChatModel
-import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
-import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
-import tw.zipe.basepartner.properties.OllamaProp
-import tw.zipe.basepartner.properties.OpenaiProp
-import tw.zipe.basepartner.util.logger
+import tw.zipe.basepartner.properties.BaseAIPlatform
+import tw.zipe.basepartner.provider.ModelProvider
 
 /**
  * @author Gary
- * @created 2024/10/07
+ * @created 2024/10/9
  */
-@ApplicationScoped
-class ChatModelConfig(
-    var aiPlatformOllamaConfig: AIPlatformOllamaConfig,
-    var aiPlatformOpenaiConfig: AIPlatformOpenaiConfig
-) {
+abstract class ChatModelConfig {
 
-    private val logger = logger()
-    private val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
-
-    fun getChatModel(): Map<String, ChatLanguageModel> {
-        logger.info("根據設定檔建立llm連線")
-        chatModelMap.ifEmpty {
-            aiPlatformOllamaConfig.defaultConfig().map { chatModelMap[Platform.OLLAMA.name] = ollamaChatModel(it) }
-            aiPlatformOpenaiConfig.defaultConfig().map { chatModelMap[Platform.OPENAI.name] = openaiChatModel(it) }
-
-            aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
-                chatModelMap[key] = ollamaChatModel(value)
-            }
-
-            aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
-                chatModelMap[key] = openaiChatModel(value)
-            }
-        }
-
-        return chatModelMap
+    fun convertChatModelSetting(baseAIPlatform: BaseAIPlatform): LLMChatModel = run {
+        LLMChatModel(
+            platform = Platform.OLLAMA,
+            url = baseAIPlatform.url(),
+            apiKey = baseAIPlatform.apiKey().orElse(null),
+            modelName = baseAIPlatform.modelName(),
+            temperature = baseAIPlatform.temperature(),
+            timeout = baseAIPlatform.timeout().toMillis()
+        )
     }
 
-    fun getStreamingChatModel(): Map<String, StreamingChatLanguageModel> {
-        val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
-        aiPlatformOllamaConfig.defaultConfig().map { streamingChatModelMap["ollama"] = ollamaStreamingChatModel(it) }
-        aiPlatformOpenaiConfig.defaultConfig().map { streamingChatModelMap["openai"] = openaiStreamingChatModel(it) }
-
-        aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
-            streamingChatModelMap[key] = ollamaStreamingChatModel(value)
-        }
-
-        aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
-            streamingChatModelMap[key] = openaiStreamingChatModel(value)
-        }
-        return streamingChatModelMap
+    fun buildChatModel(llmConfig: LLMChatModel, modelProvider: ModelProvider): ChatLanguageModel {
+        return modelProvider.chatModel(llmConfig)
     }
 
-    fun ollamaChatModel(ollama: OllamaProp): ChatLanguageModel {
-        return run {
-            LLMChatModel(
-                platform = Platform.OLLAMA,
-                url = ollama.url(),
-                modelName = ollama.modelName(),
-                temperature = ollama.temperature(),
-                timeout = ollama.timeout().toMillis()
-            )
-        }.run {
-            OllamaBuilder().chatModel(this)
-        }
+    fun buildStreamingChatModel(llmConfig: LLMChatModel, modelProvider: ModelProvider): StreamingChatLanguageModel {
+        return modelProvider.chatModelStreaming(llmConfig)
     }
 
-    fun ollamaStreamingChatModel(ollama: OllamaProp): StreamingChatLanguageModel {
-        return run {
-            LLMChatModel(
-                platform = Platform.OLLAMA,
-                url = ollama.url(),
-                modelName = ollama.modelName(),
-                temperature = ollama.temperature(),
-                timeout = ollama.timeout().toMillis()
-            )
-        }.run {
-            OllamaBuilder().chatModelStreaming(this)
-        }
-    }
+    /**
+     * 建立ChatModel
+     */
+    abstract fun buildChatModel(): ChatLanguageModel?
 
-    fun openaiChatModel(openai: OpenaiProp): ChatLanguageModel {
-        return run {
-            LLMChatModel(
-                platform = Platform.OPENAI,
-                url = openai.url(),
-                apiKey = openai.apiKey(),
-                modelName = openai.modelName(),
-                temperature = openai.temperature(),
-                timeout = openai.timeout().toMillis()
-            )
-        }.run {
-            OpenaiBuilder().chatModel(this)
-        }
-    }
+    /**
+     * 建立StreamingChatModel
+     */
+    abstract fun buildStreamingChatModel(): StreamingChatLanguageModel?
 
-    fun openaiStreamingChatModel(openai: OpenaiProp): StreamingChatLanguageModel {
-        return run {
-            LLMChatModel(
-                platform = Platform.OPENAI,
-                url = openai.url(),
-                apiKey = openai.apiKey(),
-                modelName = openai.modelName(),
-                temperature = openai.temperature(),
-                timeout = openai.timeout().toMillis()
-            )
-        }.run {
-            OpenaiBuilder().chatModelStreaming(this)
-        }
-    }
 }

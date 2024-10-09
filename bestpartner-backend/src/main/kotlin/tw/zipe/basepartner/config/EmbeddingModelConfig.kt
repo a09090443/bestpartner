@@ -1,7 +1,6 @@
 package tw.zipe.basepartner.config
 
 import dev.langchain4j.model.embedding.EmbeddingModel
-import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.basepartner.builder.chatmodel.OllamaBuilder
 import tw.zipe.basepartner.builder.chatmodel.OpenaiBuilder
 import tw.zipe.basepartner.enumerate.Platform
@@ -16,7 +15,7 @@ import tw.zipe.basepartner.util.logger
  * @author Gary
  * @created 2024/10/08
  */
-@ApplicationScoped
+//@ApplicationScoped
 class EmbeddingModelConfig(
     var aiPlatformOllamaConfig: AIPlatformOllamaConfig,
     var aiPlatformOpenaiConfig: AIPlatformOpenaiConfig
@@ -29,13 +28,13 @@ class EmbeddingModelConfig(
         logger.info("根據設定檔建立llm連線")
         embeddingModelMap.ifEmpty {
             aiPlatformOllamaConfig.defaultConfig()
-                .map { it.embeddingModel().let {
+                .map { it.embeddingModelName().let {
                     embeddingModelMap[Platform.OLLAMA.name] =
                         ollamaEmbeddingModel(aiPlatformOllamaConfig.defaultConfig().get())
                 }
                 }
             aiPlatformOpenaiConfig.defaultConfig()
-                .map { it.embeddingModel().let {
+                .map { it.embeddingModelName().let {
                     embeddingModelMap[Platform.OPENAI.name] =
                         openaiEmbeddingModel(aiPlatformOpenaiConfig.defaultConfig().get())
                 }
@@ -72,7 +71,7 @@ class EmbeddingModelConfig(
             LLMEmbeddingModel(
                 platform = Platform.OPENAI,
                 url = openai.url(),
-                apiKey = openai.apiKey(),
+                apiKey = openai.apiKey().orElse(null),
                 modelName = openai.modelName(),
                 temperature = openai.temperature(),
                 timeout = openai.timeout().toMillis()

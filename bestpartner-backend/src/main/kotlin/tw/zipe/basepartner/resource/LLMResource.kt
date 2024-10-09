@@ -4,11 +4,14 @@ import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.StreamingResponseHandler
+import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.output.Response
 import dev.langchain4j.service.AiServices
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.inject.Named
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
@@ -17,7 +20,6 @@ import jakarta.ws.rs.core.MediaType
 import org.jboss.resteasy.reactive.RestStreamElementType
 import tw.zipe.basepartner.assistant.AIAssistant
 import tw.zipe.basepartner.assistant.DynamicAssistant
-import tw.zipe.basepartner.config.ChatModelConfig
 import tw.zipe.basepartner.dto.ChatRequestDTO
 import tw.zipe.basepartner.service.PersistentChatMemoryStore
 import tw.zipe.basepartner.util.logger
@@ -31,7 +33,8 @@ import tw.zipe.basepartner.util.logger
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class LLMResource(
-    var chatModelConfig: ChatModelConfig
+    @Named("chatModelMap") var chatModelMap: Map<String, ChatLanguageModel>,
+    @Named("streamingChatModelMap") var streamingChatModelMap: Map<String, StreamingChatLanguageModel>
 ) {
     private val logger = logger()
 
@@ -41,7 +44,7 @@ class LLMResource(
         logger.info("llmRequestDTO: ${chatRequestDTO.message}")
         return AiServices.create(
             AIAssistant::class.java,
-            chatModelConfig.getChatModel()[chatRequestDTO.defaultPlatform.name]
+            chatModelMap[chatRequestDTO.defaultPlatform.name]
         ).chat(chatRequestDTO.message)
     }
 
@@ -51,7 +54,7 @@ class LLMResource(
     fun chatStreamingTest(llmRequestDTO: ChatRequestDTO): Multi<String?> {
 
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
-            chatModelConfig.getStreamingChatModel()["ollama"]?.generate(
+            streamingChatModelMap["ollama"]?.generate(
                 llmRequestDTO.message,
                 object : StreamingResponseHandler<AiMessage> {
                     override fun onNext(token: String) {
@@ -81,7 +84,7 @@ class LLMResource(
         }
 
         return AiServices.builder(DynamicAssistant::class.java)
-            .chatLanguageModel(chatModelConfig.getChatModel()[chatRequestDTO.defaultPlatform.name])
+            .chatLanguageModel(chatModelMap[chatRequestDTO.defaultPlatform.name])
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
             .chatMemoryProvider(chatMemoryProvider)
             .build().chat(chatRequestDTO.message)

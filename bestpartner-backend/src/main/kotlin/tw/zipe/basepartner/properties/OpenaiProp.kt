@@ -3,6 +3,4 @@ package tw.zipe.basepartner.properties
 import io.quarkus.runtime.annotations.ConfigGroup
 
 @ConfigGroup
-interface OpenaiProp : BaseAIPlatform {
-    fun apiKey(): String
-}
+interface OpenaiProp : BaseAIPlatform
