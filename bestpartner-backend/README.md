@@ -1,68 +1,33 @@
-# bestpartner-backend
+[![official JetBrains project](https://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+BestPartner project
+======================
+## 說明
+1. 該專案為一個AI應用大平台，會結合客製 AI agent 創建工作留
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## 事前準備
+安裝 Ollama 並下載 LLM models
+- Ollama 安裝: [連結](https://blog.darkthread.net/blog/ollam-open-webui/)
+- Docker compose 運行: [連結](https://blog.darkthread.net/blog/ollam-open-webui/)
 
-## Running the application in dev mode
+安裝 Chroma
+- Chroma 安裝: [連結](https://cookbook.chromadb.dev/core/install/#chroma-jsts-client)
 
-You can run your application in dev mode that enables live coding using:
+安裝 Milvus
+- Milvus 安裝: [連結](https://www.milvus-io.com/getstarted/standalone/install_standalone-docker)
 
-```shell script
-./gradlew quarkusDev
-```
+## 開發環境
+* OpenJDK 21
+* Ollama latest
+* LLM models
+* Chroma latest
+* Milvus latest
+* Kotlin 2.0.10
+* Quarkus 3.15.1
+* Langchain4j 0.35.0
+* Gradle latest
+* Postman latest
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
-
-## Packaging and running the application
-
-The application can be packaged using:
-
-```shell script
-./gradlew build
-```
-
-It produces the `quarkus-run.jar` file in the `build/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `build/quarkus-app/lib/` directory.
-
-The application is now runnable using `java -jar build/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./gradlew build -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./gradlew build -Dquarkus.native.enabled=true
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./build/bestpartner-backend-1.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
-
-## Related Guides
-
-- Kotlin ([guide](https://quarkus.io/guides/kotlin)): Write your services in Kotlin
-- RESTEasy Classic ([guide](https://quarkus.io/guides/resteasy)): REST endpoint framework implementing Jakarta REST and
-  more
-
-## Provided Code
-
-### RESTEasy JAX-RS
-
-Easily start your RESTful Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started#the-jax-rs-resources)
+## 備註
+* Langchain4j 官網說明:[連結](https://docs.langchain4j.dev/)
+* 如有有興趣想討論，或有任何想法想加入開發，可跟我聯絡，信箱:zipe.daden@gmail.com
