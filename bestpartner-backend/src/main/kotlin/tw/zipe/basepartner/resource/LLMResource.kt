@@ -21,7 +21,7 @@ import org.jboss.resteasy.reactive.RestStreamElementType
 import tw.zipe.basepartner.assistant.AIAssistant
 import tw.zipe.basepartner.assistant.DynamicAssistant
 import tw.zipe.basepartner.dto.ChatRequestDTO
-import tw.zipe.basepartner.service.PersistentChatMemoryStore
+import tw.zipe.basepartner.config.PersistentChatMemoryStore
 import tw.zipe.basepartner.util.logger
 
 /**

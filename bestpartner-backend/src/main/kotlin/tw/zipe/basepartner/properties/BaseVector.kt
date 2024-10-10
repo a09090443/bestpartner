@@ -15,4 +15,7 @@ interface BaseVector {
     @WithName("collection-name")
     fun collectionName(): Optional<String>
 
+    @WithName("dimension")
+    fun dimension(): Optional<Int>
+
 }

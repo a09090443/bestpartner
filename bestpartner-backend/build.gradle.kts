@@ -13,6 +13,7 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
+val langchain4jVersion = "0.35.0"
 
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
@@ -31,6 +32,9 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-open-ai:0.35.0")
     implementation("dev.langchain4j:langchain4j-chroma:0.35.0")
     implementation("dev.langchain4j:langchain4j-milvus:0.35.0")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:0.35.0")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:0.35.0")
+    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:0.35.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Add this line
 

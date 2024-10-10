@@ -1,4 +1,4 @@
-package tw.zipe.basepartner.builder.chatmodel
+package tw.zipe.basepartner.builder.aigcmodel
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
@@ -15,7 +15,7 @@ import tw.zipe.basepartner.provider.ModelProvider
  * @author Gary
  * @created 2024/10/8
  */
-class OllamaBuilder : ModelProvider {
+class OllamaModelBuilder : ModelProvider {
     override fun chatModel(chatModel: LLMChatModel): ChatLanguageModel =
         OllamaChatModel.builder()
             .baseUrl(chatModel.url)

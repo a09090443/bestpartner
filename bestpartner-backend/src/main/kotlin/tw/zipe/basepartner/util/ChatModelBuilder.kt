@@ -1,7 +1,7 @@
 package tw.zipe.basepartner.util
 
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
-import tw.zipe.basepartner.service.PersistentChatMemoryStore
+import tw.zipe.basepartner.config.PersistentChatMemoryStore
 
 /**
  * @author Gary

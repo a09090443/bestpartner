@@ -1,4 +1,4 @@
-package tw.zipe.basepartner.service
+package tw.zipe.basepartner.config
 
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.store.memory.chat.ChatMemoryStore
