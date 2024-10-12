@@ -75,12 +75,14 @@ class LLMResource(
     @POST
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): String {
-        val chatMemoryProvider = ChatMemoryProvider { memoryId: Any? ->
-            MessageWindowChatMemory.builder()
-                .id(chatRequestDTO.memoryId)
-                .maxMessages(10)
-                .chatMemoryStore(PersistentChatMemoryStore())
-                .build()
+        val chatMemoryProvider = chatRequestDTO.memoryId?.let {
+            ChatMemoryProvider { _: Any? ->
+                MessageWindowChatMemory.builder()
+                    .id(chatRequestDTO.memoryId)
+                    .maxMessages(10)
+                    .chatMemoryStore(PersistentChatMemoryStore())
+                    .build()
+            }
         }
 
         return AiServices.builder(DynamicAssistant::class.java)

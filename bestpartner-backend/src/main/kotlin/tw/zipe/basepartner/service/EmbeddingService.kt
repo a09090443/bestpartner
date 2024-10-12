@@ -9,6 +9,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Named
+import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.basepartner.util.logger
 
@@ -24,6 +25,7 @@ class EmbeddingService(
 
     private val logger = logger()
 
+    @Transactional
     fun embeddingDocs(
         files: List<FileUpload>,
         knowledgeId: String,
@@ -46,10 +48,7 @@ class EmbeddingService(
         val embeddingStore = vectorStoreMap[embeddingModelType] ?: vectorStoreMap["default"]
         val ids = embeddingStore?.addAll(embeddings, segments)
 
-        ids?.let {
-            println("ids = $it")
-        }
-
-        return ids?.toList() ?: emptyList()
+        logger.info("embeddingDocs: ids = $ids")
+        return ids ?: emptyList()
     }
 }
