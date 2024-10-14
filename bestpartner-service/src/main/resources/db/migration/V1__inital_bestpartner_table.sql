@@ -1,0 +1,23 @@
+CREATE TABLE `llm_model`
+(
+    `id` VARCHAR(36) NOT NULL COMMENT '主鍵',
+    `type` VARCHAR(100) DEFAULT NULL COMMENT '類型: CHAT、EMBEDDING',
+    `model` VARCHAR(100) DEFAULT NULL COMMENT '模型名稱',
+    `provider` VARCHAR(100) DEFAULT NULL COMMENT '平台',
+    `api_key` VARCHAR(100) DEFAULT NULL COMMENT '平台API KEY',
+    `base_url` VARCHAR(100) DEFAULT NULL COMMENT '平台API URL',
+    `name` VARCHAR(100) DEFAULT NULL COMMENT '別名',
+    `response_limit` INT DEFAULT NULL COMMENT '響應長度',
+    `temperature` DOUBLE DEFAULT NULL COMMENT '溫度',
+    `top_p` DOUBLE DEFAULT NULL,
+    `dimension` INT DEFAULT NULL COMMENT '向量維數',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='模型配置表';
+
+CREATE TABLE `llm_tool`
+(
+    `id` VARCHAR(36) NOT NULL COMMENT '主鍵',
+    `name` VARCHAR(100) NOT NULL COMMENT '工具名稱',
+    `class_path` VARCHAR(100) NOT NULL COMMENT 'Class path',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='模型配置表';

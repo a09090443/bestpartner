@@ -9,14 +9,14 @@ import org.junit.jupiter.api.Test
  * @created 2024/10/12
  */
 @QuarkusTest
-class AigcModelRepositoryTest {
+class LlmModelRepositoryTest {
 
     @Inject
-    lateinit var aigcModelRepository: AigcModelRepository
+    lateinit var llmModelRepository: LlmModelRepository
 
     @Test
-    fun findAllTest() {
-        val movies = aigcModelRepository.findAll().list()
-        println(movies)
+    internal fun `find_all_llm_models`() {
+        val llmModels = llmModelRepository.findAll().list()
+        assert(llmModels.isEmpty())
     }
 }

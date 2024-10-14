@@ -10,8 +10,8 @@ import jakarta.persistence.Table
  * @created 2024/10/12
  */
 @Entity
-@Table(name = "aigc_model")
-class AigcModel {
+@Table(name = "llm_model")
+class LlmModel {
     /**
      * 主鍵
      */
@@ -32,10 +32,22 @@ class AigcModel {
     var model: String? = null
 
     /**
-     * 供應商
+     * 平台
      */
     @Column(name = "provider",nullable = true)
     var provider: String? = null
+
+    /**
+     * 平台 API Key
+     */
+    @Column(name = "api_key",nullable = true)
+    var apiKey: String? = null
+
+    /**
+     * 平台 URL
+     */
+    @Column(name = "base_url",nullable = true)
+    var baseUrl: String? = null
 
     /**
      * 別名
@@ -60,18 +72,6 @@ class AigcModel {
      */
     @Column(name = "top_p",nullable = true)
     var topP: String? = null
-
-    /**
-     * 供應商 API Key
-     */
-    @Column(name = "api_key",nullable = true)
-    var apiKey: String? = null
-
-    /**
-     * 供應商 URL
-     */
-    @Column(name = "base_url",nullable = true)
-    var baseUrl: String? = null
 
     /**
      * 模型維度
