@@ -1,4 +1,4 @@
-package tw.zipe.basepartner.builder.aigcmodel
+package tw.zipe.basepartner.builder.llm
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel

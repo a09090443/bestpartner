@@ -7,8 +7,8 @@ import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15Quantize
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Named
-import tw.zipe.basepartner.builder.aigcmodel.OllamaModelBuilder
-import tw.zipe.basepartner.builder.aigcmodel.OpenaiModelBuilder
+import tw.zipe.basepartner.builder.llm.OllamaModelBuilder
+import tw.zipe.basepartner.builder.llm.OpenaiModelBuilder
 import tw.zipe.basepartner.config.chatmodel.OllamaChatModelConfig
 import tw.zipe.basepartner.config.chatmodel.OpenaiChatModelConfig
 import tw.zipe.basepartner.config.embedding.OllamaEmbeddingModelConfig

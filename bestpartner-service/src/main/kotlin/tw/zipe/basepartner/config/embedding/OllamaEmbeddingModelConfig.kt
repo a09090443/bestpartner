@@ -2,7 +2,7 @@ package tw.zipe.basepartner.config.embedding
 
 import dev.langchain4j.model.embedding.EmbeddingModel
 import jakarta.enterprise.context.ApplicationScoped
-import tw.zipe.basepartner.builder.aigcmodel.OllamaModelBuilder
+import tw.zipe.basepartner.builder.llm.OllamaModelBuilder
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 

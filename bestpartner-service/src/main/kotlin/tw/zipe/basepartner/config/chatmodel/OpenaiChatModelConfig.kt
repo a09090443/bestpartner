@@ -3,7 +3,7 @@ package tw.zipe.basepartner.config.chatmodel
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import jakarta.enterprise.context.ApplicationScoped
-import tw.zipe.basepartner.builder.aigcmodel.OpenaiModelBuilder
+import tw.zipe.basepartner.builder.llm.OpenaiModelBuilder
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 
