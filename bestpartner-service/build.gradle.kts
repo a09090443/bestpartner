@@ -20,6 +20,7 @@ dependencies {
     implementation("io.quarkus:quarkus-resteasy-reactive")
     implementation("io.quarkus:quarkus-resteasy-reactive-jackson")
     implementation("io.quarkus:quarkus-resteasy-reactive-kotlin")
+    implementation("io.quarkus:quarkus-container-image-docker")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-websockets-next")
@@ -30,15 +31,15 @@ dependencies {
     implementation("io.quarkus:quarkus-jdbc-h2")
     implementation("io.quarkus:quarkus-flyway")
 
-    implementation("dev.langchain4j:langchain4j:0.35.0")
-    implementation("dev.langchain4j:langchain4j-core:0.35.0")
-    implementation("dev.langchain4j:langchain4j-ollama:0.35.0")
-    implementation("dev.langchain4j:langchain4j-open-ai:0.35.0")
-    implementation("dev.langchain4j:langchain4j-chroma:0.35.0")
-    implementation("dev.langchain4j:langchain4j-milvus:0.35.0")
-    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:0.35.0")
-    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:0.35.0")
-    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:0.35.0")
+    implementation("dev.langchain4j:langchain4j:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-core:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-ollama:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-open-ai:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-chroma:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-milvus:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Add this line
 
@@ -47,7 +48,7 @@ dependencies {
 }
 
 group = "tw.zipe.basepartner"
-version = "1.0-SNAPSHOT"
+version = "0.10-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -57,6 +58,7 @@ java {
 tasks.withType<Test> {
     systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
 }
+
 allOpen {
     annotation("jakarta.ws.rs.Path")
     annotation("jakarta.enterprise.context.ApplicationScoped")
