@@ -3,7 +3,7 @@
 BestPartner project
 ======================
 ## 說明
-1. 該專案為一個AI應用大平台，會結合客製 AI agent
+1. 該專案為一個AI應用大平台，可動態建立 AI agent 並支援多種 AI 模型
 2. 目前僅支援 OpenAI 及 Ollama 平台
 3. 皆以 Ollama 為預設平台
 
