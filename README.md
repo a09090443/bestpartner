@@ -69,6 +69,9 @@ BestPartner project
 選擇2. OpenAI 申請 api key [官網](https://openai.com/)
 
 向量資料庫(建議使用 docker 並可擇一使用):
+
+預設使用InMemoryEmbeddingStore
+
 安裝 Chroma
 - Chroma 安裝: [連結](https://cookbook.chromadb.dev/core/install/#chroma-jsts-client)
 
