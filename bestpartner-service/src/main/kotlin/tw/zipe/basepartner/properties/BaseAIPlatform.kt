@@ -9,7 +9,7 @@ import java.util.Optional
 interface BaseAIPlatform {
 
     @WithName("url")
-    fun url(): String
+    fun url(): Optional<String>
 
     @WithName("api-key")
     fun apiKey(): Optional<String>

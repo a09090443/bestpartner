@@ -18,7 +18,6 @@ import tw.zipe.basepartner.provider.ModelProvider
 class OpenaiModelBuilder : ModelProvider {
     override fun chatModel(chatModel: LLMChatModel): ChatLanguageModel =
         OpenAiChatModel.builder()
-            .baseUrl(chatModel.url)
             .apiKey(chatModel.apiKey)
             .modelName(chatModel.modelName)
             .temperature(chatModel.temperature)
@@ -29,7 +28,7 @@ class OpenaiModelBuilder : ModelProvider {
 
     override fun chatModelStreaming(chatModel: LLMChatModel): StreamingChatLanguageModel =
         OpenAiStreamingChatModel.builder()
-            .baseUrl(chatModel.url)
+            .apiKey(chatModel.apiKey)
             .modelName(chatModel.modelName)
             .temperature(chatModel.temperature)
             .topP(chatModel.topP)
@@ -39,7 +38,6 @@ class OpenaiModelBuilder : ModelProvider {
 
     override fun embeddingModel(embeddingModel: LLMEmbeddingModel): EmbeddingModel =
         OpenAiEmbeddingModel.builder()
-            .baseUrl(embeddingModel.url)
             .apiKey(embeddingModel.apiKey)
             .modelName(embeddingModel.modelName)
             .timeout(embeddingModel.timeout.let { Duration.ofSeconds(it) })

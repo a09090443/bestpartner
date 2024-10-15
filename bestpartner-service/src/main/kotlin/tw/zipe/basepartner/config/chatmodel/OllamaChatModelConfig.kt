@@ -4,6 +4,7 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.basepartner.builder.aigcmodel.OllamaModelBuilder
+import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 
 /**
@@ -14,12 +15,12 @@ import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 class OllamaChatModelConfig(var aiPlatformOllamaConfig: AIPlatformOllamaConfig) : ChatModelConfig() {
 
     override fun buildChatModel(): ChatLanguageModel? {
-        val llmConfig = aiPlatformOllamaConfig.defaultConfig().map { convertChatModelSetting(it) }.orElse(null)
+        val llmConfig = aiPlatformOllamaConfig.defaultConfig().map { convertChatModelSetting(it, Platform.OLLAMA) }.orElse(null)
         return llmConfig?.let { OllamaModelBuilder().chatModel(it) }
     }
 
     override fun buildStreamingChatModel(): StreamingChatLanguageModel? {
-        val llmConfig = aiPlatformOllamaConfig.defaultConfig().map { convertChatModelSetting(it) }.orElse(null)
+        val llmConfig = aiPlatformOllamaConfig.defaultConfig().map { convertChatModelSetting(it, Platform.OLLAMA) }.orElse(null)
         return llmConfig?.let { OllamaModelBuilder().chatModelStreaming(it) }
     }
 

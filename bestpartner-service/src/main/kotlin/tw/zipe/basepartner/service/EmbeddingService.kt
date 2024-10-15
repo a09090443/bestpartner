@@ -9,7 +9,6 @@ import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Named
-import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.basepartner.util.logger
 
@@ -25,15 +24,14 @@ class EmbeddingService(
 
     private val logger = logger()
 
-    @Transactional
     fun embeddingDocs(
         files: List<FileUpload>,
         knowledgeId: String,
         embeddingModelName: String,
-        embeddingModelType: String
+        embeddingStoreName: String
     ): List<String> {
 
-        logger.info("embeddingDocs: files = $files, knowledgeId = $knowledgeId, embeddingModelName = $embeddingModelName, embeddingModelType = $embeddingModelType")
+        logger.info("embeddingDocs: files = $files, knowledgeId = $knowledgeId, embeddingModelName = $embeddingModelName, embeddingStoreName = $embeddingStoreName")
 
         val documents = files.map { file ->
             val document = FileSystemDocumentLoader.loadDocument(file.uploadedFile(), ApacheTikaDocumentParser())
@@ -45,7 +43,7 @@ class EmbeddingService(
         val segments = splitter.splitAll(documents)
         val embeddingModel = embeddingModelMap[embeddingModelName] ?: embeddingModelMap["default"]
         val embeddings: List<Embedding> = embeddingModel?.embedAll(segments)?.content() ?: emptyList()
-        val embeddingStore = vectorStoreMap[embeddingModelType] ?: vectorStoreMap["default"]
+        val embeddingStore = vectorStoreMap[embeddingStoreName] ?: vectorStoreMap["default"]
         val ids = embeddingStore?.addAll(embeddings, segments)
 
         logger.info("embeddingDocs: ids = $ids")

@@ -3,6 +3,7 @@ package tw.zipe.basepartner.config.embedding
 import dev.langchain4j.model.embedding.EmbeddingModel
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.basepartner.builder.aigcmodel.OpenaiModelBuilder
+import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 
 /**
@@ -13,7 +14,7 @@ import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 class OpenaiEmbeddingModelConfig(var aiPlatformOpenaiConfig: AIPlatformOpenaiConfig) : EmbeddingModelConfig() {
 
     override fun buildEmbeddingModel(): EmbeddingModel? {
-        val llmConfig = aiPlatformOpenaiConfig.defaultConfig().map { convertEmbeddingModelSetting(it) }.orElse(null)
+        val llmConfig = aiPlatformOpenaiConfig.defaultConfig().map { convertEmbeddingModelSetting(it, Platform.OPENAI) }.orElse(null)
         return llmConfig?.let { OpenaiModelBuilder().embeddingModel(it) }
     }
 

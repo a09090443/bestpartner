@@ -2,6 +2,7 @@ package tw.zipe.basepartner.config.chatmodel
 
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import io.netty.util.internal.StringUtil
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.model.LLMChatModel
 import tw.zipe.basepartner.properties.BaseAIPlatform
@@ -13,10 +14,10 @@ import tw.zipe.basepartner.provider.ModelProvider
  */
 abstract class ChatModelConfig {
 
-    fun convertChatModelSetting(baseAIPlatform: BaseAIPlatform): LLMChatModel = run {
+    fun convertChatModelSetting(baseAIPlatform: BaseAIPlatform, platform: Platform): LLMChatModel = run {
         LLMChatModel(
-            platform = Platform.OLLAMA,
-            url = baseAIPlatform.url(),
+            platform = platform,
+            url = baseAIPlatform.url().orElse(StringUtil.EMPTY_STRING),
             apiKey = baseAIPlatform.apiKey().orElse(null),
             modelName = baseAIPlatform.modelName(),
             temperature = baseAIPlatform.temperature(),

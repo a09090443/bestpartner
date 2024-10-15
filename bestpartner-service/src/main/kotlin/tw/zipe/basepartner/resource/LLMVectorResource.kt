@@ -27,7 +27,6 @@ class LLMVectorResource(
     @Path("/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest) {
-
         filesForm.file?.let {
             embeddingService.embeddingDocs(
                 it,
