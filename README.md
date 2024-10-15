@@ -50,6 +50,18 @@ BestPartner project
 │      └─tw
 │          └─zipe
 │              └─basepartner
+├─docs
+│  ├─images
+│  │      service-start.png
+│  │
+│  ├─postman
+│  │      basepartner.postman_collection.json
+│  │
+│  └─rag
+│      └─doc
+│          ├─profile
+│          ├─scb
+│          └─tcb
 ├─ .gitignore
 ├─ build.gradle.kts
 ├─ gradle.properties

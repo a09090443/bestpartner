@@ -1,0 +1,154 @@
+{
+	"info": {
+		"_postman_id": "bbd2c389-331f-429d-8e0f-fd9d89c6b8bd",
+		"name": "basepartner",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "3129584"
+	},
+	"item": [
+		{
+			"name": "chat",
+			"item": [
+				{
+					"name": "chat",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"defaultPlatform\": \"OPENAI\",\r\n    \"message\": \"我是Gary\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/chat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"chat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "chat_streaming",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"defaultPlatform\": \"OLLAMA\",\r\n    \"message\": \"我是Gary\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/chatStreaming",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"chatStreaming"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "custom_assistant_chat",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Gary\",\r\n    \"promptContent\":\"你是專業的AI助理\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/customAssistantChat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"customAssistantChat"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "doc",
+			"item": [
+				{
+					"name": "rag_doc_upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "desc",
+									"value": "將文件上傳至向量資料庫",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": "postman-cloud:///1ef861ff-195a-48c0-861f-4f443fa8b50f"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
+								},
+								{
+									"key": "embeddingModelName",
+									"value": "",
+									"type": "text"
+								},
+								{
+									"key": "embeddingStoreName",
+									"value": "",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost/llm/vector/upload",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"upload"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
