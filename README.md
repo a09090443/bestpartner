@@ -5,6 +5,7 @@ BestPartner project
 ## 說明
 1. 該專案為一個AI應用大平台，會結合客製 AI agent
 2. 目前僅支援 OpenAI 及 Ollama 平台
+3. 皆以 Ollama 為預設平台
 
 ## 目錄結構
 ```
