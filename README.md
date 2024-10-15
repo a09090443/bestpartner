@@ -9,7 +9,7 @@ BestPartner project
 
 ## 目錄結構
 ```
-D:.
+/
 ├─bestpartner-service
 └─src
 ├─main
