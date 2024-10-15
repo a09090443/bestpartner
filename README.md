@@ -95,6 +95,9 @@ D:.
 4. 運行畫面:(http://localhost)
 ![](docs/images/service-start.png)
 
+## 開發紀錄
+* 2024.10.15 BestPartner 0.1.0 初版完成
+
 ## 版權聲明
 可以免費學習使用，個人可以免費是接取使用，商業應用請聯絡作者授權。
 

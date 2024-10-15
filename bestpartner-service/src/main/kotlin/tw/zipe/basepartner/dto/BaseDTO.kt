@@ -12,6 +12,7 @@ import tw.zipe.basepartner.model.LLMChatModel
 open class BaseDTO(
     val defaultPlatform: Platform = Platform.OLLAMA,
     val chatModel: LLMChatModel? = null,
-    val isRemember: Boolean = false
+    val isRemember: Boolean = false,
+    val memory: Memory? = null
 )
 

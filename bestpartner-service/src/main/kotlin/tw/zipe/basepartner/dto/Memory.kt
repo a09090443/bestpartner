@@ -4,11 +4,10 @@ import kotlinx.serialization.Serializable
 
 /**
  * @author Gary
- * @created 2024/10/14
+ * @created 2024/10/15
  */
 @Serializable
-class ToolDTO(
-    var id: String? = null,
-    val name: String,
-    val classPath: String
+class Memory(
+    val id: String? = null,
+    val maxSize: Int = 10
 )

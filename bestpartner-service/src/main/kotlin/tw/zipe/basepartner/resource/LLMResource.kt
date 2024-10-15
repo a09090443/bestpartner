@@ -1,12 +1,8 @@
 package tw.zipe.basepartner.resource
 
-import dev.langchain4j.agent.tool.JsonSchemaProperty.description
-import dev.langchain4j.agent.tool.JsonSchemaProperty.type
-import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
-import dev.langchain4j.model.StreamingResponseHandler
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.output.Response
@@ -20,7 +16,6 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
-import kotlin.reflect.full.primaryConstructor
 import org.jboss.resteasy.reactive.RestStreamElementType
 import tw.zipe.basepartner.assistant.AIAssistant
 import tw.zipe.basepartner.assistant.DynamicAssistant
@@ -59,62 +54,49 @@ class LLMResource(
     @POST
     @Path("/chatStreaming")
     @RestStreamElementType(MediaType.TEXT_PLAIN)
-    fun chatStreamingTest(llmRequestDTO: ChatRequestDTO): Multi<String?> {
+    fun chatStreamingTest(chatRequestDTO: ChatRequestDTO): Multi<String?> {
+        val assistant = AiServices.builder(AIAssistant::class.java)
+            .streamingChatLanguageModel(streamingChatModelMap[chatRequestDTO.defaultPlatform.name])
+            .build()
 
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
-            streamingChatModelMap["ollama"]?.generate(
-                llmRequestDTO.message,
-                object : StreamingResponseHandler<AiMessage> {
-                    override fun onNext(token: String) {
-                        emitter.emit(token)
-                    }
-
-                    override fun onError(error: Throwable) {
-                        emitter.fail(error)
-                    }
-
-                    override fun onComplete(response: Response<AiMessage?>?) {
-                        emitter.complete()
-                    }
-                }) ?: emitter.fail(RuntimeException("No model found"))
+            assistant.streamingChat(chatRequestDTO.message)
+                .onNext { emitter.emit(it) }
+                .onComplete { emitter.complete() }
+                .onError { emitter.fail(it) }.start()
         }
     }
 
     @POST
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): String {
-        ToolSpecification.builder().name("get_booking_details")
-            .description("Returns booking details")
-            .addParameter("bookingNumber", type("string"), description("Booking number in B-12345 format"))
-            .build()
-        val chatMemoryProvider = chatRequestDTO.memoryId?.let {
-            ChatMemoryProvider { _: Any? ->
-                MessageWindowChatMemory.builder()
-                    .id(chatRequestDTO.memoryId)
-                    .maxMessages(10)
-                    .chatMemoryStore(PersistentChatMemoryStore())
-                    .build()
-            }
-        }
 
-        return AiServices.builder(DynamicAssistant::class.java)
+        val aiService = AiServices.builder(DynamicAssistant::class.java)
             .chatLanguageModel(chatModelMap[chatRequestDTO.defaultPlatform.name])
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
-            .chatMemoryProvider(chatMemoryProvider)
-            .build().chat(chatRequestDTO.message).content().text()
-    }
 
-    @POST
-    @Path("/agentChat")
-    fun agentChat(chatRequestDTO: ChatRequestDTO): String {
+        val tools = chatRequestDTO.tools?.map {
+            instantiate(it.classPath)
+        } ?: emptyList()
 
-        val test = instantiate("tw.zipe.basepartner.tool.DateTool")
-        val toolClass = Class.forName("tw.zipe.basepartner.tool.DateTool")
-        val kClass = toolClass.kotlin
-        val constructor = kClass.primaryConstructor
-        val instance = constructor?.call()
+        tools.isNotEmpty().let {
+            aiService.tools(tools)
+        }
 
-        return "Agent chat"
+        if (chatRequestDTO.isRemember) {
+            val chatMemoryProvider = chatRequestDTO.memory?.let {
+                ChatMemoryProvider { _: Any? ->
+                    MessageWindowChatMemory.builder()
+                        .id(it.id)
+                        .maxMessages(it.maxSize)
+                        .chatMemoryStore(PersistentChatMemoryStore())
+                        .build()
+                }
+            }
+            aiService.chatMemoryProvider(chatMemoryProvider)
+        }
+
+        return aiService.build().chat(chatRequestDTO.message).content().text()
     }
 
 }

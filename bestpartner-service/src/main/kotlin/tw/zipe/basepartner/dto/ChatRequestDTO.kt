@@ -9,7 +9,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ChatRequestDTO(
     val message: String,
-    val memoryId: String? = null,
     val promptContent: String? = null,
     val tools: List<ToolDTO>? = null
 ) : BaseDTO()

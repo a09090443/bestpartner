@@ -26,7 +26,7 @@ fun instantiate(className: String, vararg constructorArgs: Any?): Any? {
             return null
         }
 
-        // 创建参数映射
+        //建立參數映射
         val args = constructor.parameters.zip(constructorArgs.toList()).toMap()
 
         // 建立參數映射
