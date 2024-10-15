@@ -95,6 +95,9 @@ D:.
 4. 運行畫面:(http://localhost)
 ![](docs/images/service-start.png)
 
+## 版權聲明
+可以免費學習使用，個人可以免費是接取使用，商業應用請聯絡作者授權。
+
 ## 備註
 * Langchain4j 官網說明:[連結](https://docs.langchain4j.dev/)
 * 如有有興趣想討論，或有任何想法想加入開發，可跟我聯絡，信箱:zipe.daden@gmail.com
