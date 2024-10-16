@@ -4,8 +4,8 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import java.util.UUID
 import tw.zipe.basepartner.dto.ToolDTO
-import tw.zipe.basepartner.entity.LlmTool
-import tw.zipe.basepartner.repository.LlmToolRepository
+import tw.zipe.basepartner.entity.LLMToolEntity
+import tw.zipe.basepartner.repository.LLMToolRepository
 
 /**
  * @author Gary
@@ -13,7 +13,7 @@ import tw.zipe.basepartner.repository.LlmToolRepository
  */
 @ApplicationScoped
 class ToolService(
-    val llmToolRepository: LlmToolRepository
+    val llmToolRepository: LLMToolRepository
 ) {
     /**
      * 取得所有工具
@@ -25,7 +25,7 @@ class ToolService(
      */
     @Transactional
     fun registerTool(toolDTO: ToolDTO) {
-        val llmTool = LlmTool()
+        val llmTool = LLMToolEntity()
         llmTool.id = UUID.randomUUID().toString()
         llmTool.name = toolDTO.name
         llmTool.classPath = toolDTO.classPath

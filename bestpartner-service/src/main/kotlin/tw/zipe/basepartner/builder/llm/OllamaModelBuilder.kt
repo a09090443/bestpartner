@@ -7,8 +7,7 @@ import dev.langchain4j.model.ollama.OllamaChatModel
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel
 import java.time.Duration
-import tw.zipe.basepartner.model.LLMChatModel
-import tw.zipe.basepartner.model.LLMEmbeddingModel
+import tw.zipe.basepartner.model.LLModel
 import tw.zipe.basepartner.provider.ModelProvider
 
 /**
@@ -16,7 +15,7 @@ import tw.zipe.basepartner.provider.ModelProvider
  * @created 2024/10/8
  */
 class OllamaModelBuilder : ModelProvider {
-    override fun chatModel(chatModel: LLMChatModel): ChatLanguageModel =
+    override fun chatModel(chatModel: LLModel): ChatLanguageModel =
         OllamaChatModel.builder()
             .baseUrl(chatModel.url)
             .modelName(chatModel.modelName)
@@ -26,7 +25,7 @@ class OllamaModelBuilder : ModelProvider {
             .topP(chatModel.topP)
             .build()
 
-    override fun chatModelStreaming(chatModel: LLMChatModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(chatModel: LLModel): StreamingChatLanguageModel =
         OllamaStreamingChatModel.builder()
             .baseUrl(chatModel.url)
             .modelName(chatModel.modelName)
@@ -36,10 +35,10 @@ class OllamaModelBuilder : ModelProvider {
             .topP(chatModel.topP)
             .build()
 
-    override fun embeddingModel(embeddingModel: LLMEmbeddingModel): EmbeddingModel =
+    override fun embeddingModel(llModel: LLModel): EmbeddingModel =
         OllamaEmbeddingModel.builder()
-            .baseUrl(embeddingModel.url)
-            .modelName(embeddingModel.modelName)
-            .timeout(embeddingModel.timeout.let { Duration.ofSeconds(it) })
+            .baseUrl(llModel.url)
+            .modelName(llModel.modelName)
+            .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
             .build()
 }

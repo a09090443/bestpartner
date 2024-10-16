@@ -31,4 +31,10 @@ class FilesFromRequest {
 
     @FormParam("vectorStore")
     var vectorStore:VectorStore? = null
+
+    @FormParam("maxSegmentSize")
+    var maxSegmentSize:Int = 300
+
+    @FormParam("maxOverlapSize")
+    var maxOverlapSize:Int = 50
 }

@@ -3,7 +3,7 @@ package tw.zipe.basepartner.config.embedding
 import dev.langchain4j.model.embedding.EmbeddingModel
 import io.netty.util.internal.StringUtil
 import tw.zipe.basepartner.enumerate.Platform
-import tw.zipe.basepartner.model.LLMEmbeddingModel
+import tw.zipe.basepartner.model.LLModel
 import tw.zipe.basepartner.properties.BaseAIPlatform
 import tw.zipe.basepartner.provider.ModelProvider
 
@@ -13,9 +13,8 @@ import tw.zipe.basepartner.provider.ModelProvider
  */
 abstract class EmbeddingModelConfig {
 
-    fun convertEmbeddingModelSetting(baseAIPlatform: BaseAIPlatform, platform: Platform): LLMEmbeddingModel = run {
-        LLMEmbeddingModel(
-            platform = platform,
+    fun convertEmbeddingModelSetting(baseAIPlatform: BaseAIPlatform): LLModel = run {
+        LLModel(
             apiKey = baseAIPlatform.apiKey().orElse(null),
             url = baseAIPlatform.url().orElse(StringUtil.EMPTY_STRING),
             modelName = baseAIPlatform.embeddingModelName().orElse(StringUtil.EMPTY_STRING),
@@ -24,8 +23,8 @@ abstract class EmbeddingModelConfig {
         )
     }
 
-    fun buildEmbeddingModel(llmEmbeddingModel: LLMEmbeddingModel, modelProvider: ModelProvider): EmbeddingModel {
-        return modelProvider.embeddingModel(llmEmbeddingModel)
+    fun buildEmbeddingModel(llModel: LLModel, modelProvider: ModelProvider): EmbeddingModel {
+        return modelProvider.embeddingModel(llModel)
     }
 
     /**

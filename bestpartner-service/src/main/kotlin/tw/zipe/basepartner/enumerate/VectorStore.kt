@@ -1,7 +1,7 @@
 package tw.zipe.basepartner.enumerate
 
 /**
- * @author zipe1
+ * @author Gary
  * @created 2024/10/8
  */
 enum class VectorStore {

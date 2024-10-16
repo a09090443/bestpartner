@@ -21,6 +21,8 @@ import tw.zipe.basepartner.assistant.AIAssistant
 import tw.zipe.basepartner.assistant.DynamicAssistant
 import tw.zipe.basepartner.config.PersistentChatMemoryStore
 import tw.zipe.basepartner.dto.ChatRequestDTO
+import tw.zipe.basepartner.dto.LLMDTO
+import tw.zipe.basepartner.service.LLMService
 import tw.zipe.basepartner.util.instantiate
 import tw.zipe.basepartner.util.logger
 
@@ -33,8 +35,9 @@ import tw.zipe.basepartner.util.logger
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class LLMResource(
-    @Named("chatModelMap") var chatModelMap: Map<String, ChatLanguageModel>,
-    @Named("streamingChatModelMap") var streamingChatModelMap: Map<String, StreamingChatLanguageModel>
+    @Named("chatModelMap") val chatModelMap: Map<String, ChatLanguageModel>,
+    @Named("streamingChatModelMap") val streamingChatModelMap: Map<String, StreamingChatLanguageModel>,
+    val lLMService: LLMService
 ) {
     private val logger = logger()
 
@@ -44,7 +47,7 @@ class LLMResource(
         logger.info("llmRequestDTO: ${chatRequestDTO.message}")
 
         val assistant = AiServices.builder(AIAssistant::class.java)
-            .chatLanguageModel(chatModelMap[chatRequestDTO.defaultPlatform.name])
+            .chatLanguageModel(chatModelMap[chatRequestDTO.platform.name])
             .build()
         val response: Response<AiMessage> = assistant.chat(chatRequestDTO.message)
         logger.info("token counting: ${response.tokenUsage()}")
@@ -56,7 +59,7 @@ class LLMResource(
     @RestStreamElementType(MediaType.TEXT_PLAIN)
     fun chatStreamingTest(chatRequestDTO: ChatRequestDTO): Multi<String?> {
         val assistant = AiServices.builder(AIAssistant::class.java)
-            .streamingChatLanguageModel(streamingChatModelMap[chatRequestDTO.defaultPlatform.name])
+            .streamingChatLanguageModel(streamingChatModelMap[chatRequestDTO.platform.name])
             .build()
 
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
@@ -72,7 +75,7 @@ class LLMResource(
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): String {
 
         val aiService = AiServices.builder(DynamicAssistant::class.java)
-            .chatLanguageModel(chatModelMap[chatRequestDTO.defaultPlatform.name])
+            .chatLanguageModel(chatModelMap[chatRequestDTO.platform.name])
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
 
         val tools = chatRequestDTO.tools?.map {
@@ -99,4 +102,11 @@ class LLMResource(
         return aiService.build().chat(chatRequestDTO.message).content().text()
     }
 
+    @POST
+    @Path("/saveLLM")
+    fun saveLlmChatModel(llmDTO: LLMDTO){
+        llmDTO.llmModel?.let {
+            lLMService.saveLLM(llmDTO)
+        }
+    }
 }

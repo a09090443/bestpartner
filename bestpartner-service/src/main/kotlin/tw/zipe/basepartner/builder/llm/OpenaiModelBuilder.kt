@@ -7,8 +7,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel
 import java.time.Duration
-import tw.zipe.basepartner.model.LLMChatModel
-import tw.zipe.basepartner.model.LLMEmbeddingModel
+import tw.zipe.basepartner.model.LLModel
 import tw.zipe.basepartner.provider.ModelProvider
 
 /**
@@ -16,7 +15,7 @@ import tw.zipe.basepartner.provider.ModelProvider
  * @created 2024/10/8
  */
 class OpenaiModelBuilder : ModelProvider {
-    override fun chatModel(chatModel: LLMChatModel): ChatLanguageModel =
+    override fun chatModel(chatModel: LLModel): ChatLanguageModel =
         OpenAiChatModel.builder()
             .apiKey(chatModel.apiKey)
             .modelName(chatModel.modelName)
@@ -26,7 +25,7 @@ class OpenaiModelBuilder : ModelProvider {
             .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
             .build()
 
-    override fun chatModelStreaming(chatModel: LLMChatModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(chatModel: LLModel): StreamingChatLanguageModel =
         OpenAiStreamingChatModel.builder()
             .apiKey(chatModel.apiKey)
             .modelName(chatModel.modelName)
@@ -36,11 +35,11 @@ class OpenaiModelBuilder : ModelProvider {
             .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
             .build()
 
-    override fun embeddingModel(embeddingModel: LLMEmbeddingModel): EmbeddingModel =
+    override fun embeddingModel(llModel: LLModel): EmbeddingModel =
         OpenAiEmbeddingModel.builder()
-            .apiKey(embeddingModel.apiKey)
-            .modelName(embeddingModel.modelName)
-            .timeout(embeddingModel.timeout.let { Duration.ofSeconds(it) })
-            .dimensions(embeddingModel.dimensions)
+            .apiKey(llModel.apiKey)
+            .modelName(llModel.modelName)
+            .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
+            .dimensions(llModel.dimensions)
             .build()
 }

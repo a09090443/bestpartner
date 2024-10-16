@@ -11,7 +11,7 @@ import jakarta.persistence.Table
  */
 @Entity
 @Table(name = "llm_tool")
-class LlmTool {
+class LLMToolEntity {
     /**
      * 主鍵
      */

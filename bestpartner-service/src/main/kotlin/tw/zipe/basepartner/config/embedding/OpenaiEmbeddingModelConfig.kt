@@ -14,7 +14,7 @@ import tw.zipe.basepartner.properties.AIPlatformOpenaiConfig
 class OpenaiEmbeddingModelConfig(var aiPlatformOpenaiConfig: AIPlatformOpenaiConfig) : EmbeddingModelConfig() {
 
     override fun buildEmbeddingModel(): EmbeddingModel? {
-        val llmConfig = aiPlatformOpenaiConfig.defaultConfig().map { convertEmbeddingModelSetting(it, Platform.OPENAI) }.orElse(null)
+        val llmConfig = aiPlatformOpenaiConfig.defaultConfig().map { convertEmbeddingModelSetting(it) }.orElse(null)
         return llmConfig?.let { OpenaiModelBuilder().embeddingModel(it) }
     }
 

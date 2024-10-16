@@ -30,12 +30,12 @@ class LLMVectorResource(
         filesForm.file?.let {
             embeddingService.embeddingDocs(
                 it,
-                filesForm.knowledgeId,
-                filesForm.embeddingModelName,
-                filesForm.embeddingStoreName
+                filesForm
             )
         }
-
     }
 
+    fun saveVectorStore(){
+
+    }
 }

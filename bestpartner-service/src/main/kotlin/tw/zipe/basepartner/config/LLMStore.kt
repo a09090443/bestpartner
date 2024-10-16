@@ -20,7 +20,7 @@ import tw.zipe.basepartner.enumerate.Platform
  * @created 2024/10/9
  */
 @ApplicationScoped
-class LlmStore(
+class LLMStore(
     private val ollamaChatModelConfig: OllamaChatModelConfig,
     private val openaiChatModelConfig: OpenaiChatModelConfig,
     private val ollamaEmbeddingModelConfig: OllamaEmbeddingModelConfig,
@@ -88,7 +88,7 @@ class LlmStore(
         ollamaEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OLLAMA.name] = it }
         ollamaEmbeddingModelConfig.aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
             embeddingChatModelMap[key] = ollamaEmbeddingModelConfig.buildEmbeddingModel(
-                ollamaEmbeddingModelConfig.convertEmbeddingModelSetting(value, Platform.OLLAMA),
+                ollamaEmbeddingModelConfig.convertEmbeddingModelSetting(value),
                 OllamaModelBuilder()
             )
         }
@@ -96,7 +96,7 @@ class LlmStore(
         openaiEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OPENAI.name] = it }
         openaiEmbeddingModelConfig.aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
             embeddingChatModelMap[key] = openaiEmbeddingModelConfig.buildEmbeddingModel(
-                openaiEmbeddingModelConfig.convertEmbeddingModelSetting(value, Platform.OPENAI),
+                openaiEmbeddingModelConfig.convertEmbeddingModelSetting(value),
                 OpenaiModelBuilder()
             )
         }

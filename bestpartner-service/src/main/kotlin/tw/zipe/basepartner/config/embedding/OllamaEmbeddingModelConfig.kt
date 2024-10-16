@@ -14,7 +14,7 @@ import tw.zipe.basepartner.properties.AIPlatformOllamaConfig
 class OllamaEmbeddingModelConfig(var aiPlatformOllamaConfig: AIPlatformOllamaConfig) : EmbeddingModelConfig() {
 
     override fun buildEmbeddingModel(): EmbeddingModel? {
-        val llmConfig = aiPlatformOllamaConfig.defaultConfig().map { convertEmbeddingModelSetting(it, Platform.OLLAMA) }.orElse(null)
+        val llmConfig = aiPlatformOllamaConfig.defaultConfig().map { convertEmbeddingModelSetting(it) }.orElse(null)
         return llmConfig?.let { OllamaModelBuilder().embeddingModel(it) }
     }
 
