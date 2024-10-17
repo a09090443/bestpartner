@@ -36,7 +36,7 @@ class LLMStore(
         ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
         ollamaChatModelConfig.aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
             chatModelMap[key] = ollamaChatModelConfig.buildChatModel(
-                ollamaChatModelConfig.convertChatModelSetting(value, Platform.OLLAMA),
+                ollamaChatModelConfig.convertChatModelSetting(value),
                 OllamaModelBuilder()
             )
         }
@@ -44,7 +44,7 @@ class LLMStore(
         openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
         openaiChatModelConfig.aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
             chatModelMap[key] = openaiChatModelConfig.buildChatModel(
-                openaiChatModelConfig.convertChatModelSetting(value, Platform.OPENAI),
+                openaiChatModelConfig.convertChatModelSetting(value),
                 OpenaiModelBuilder()
             )
         }
@@ -61,7 +61,7 @@ class LLMStore(
         ollamaChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OLLAMA.name] = it }
         ollamaChatModelConfig.aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
             streamingChatModelMap[key] = ollamaChatModelConfig.buildStreamingChatModel(
-                ollamaChatModelConfig.convertChatModelSetting(value, Platform.OLLAMA),
+                ollamaChatModelConfig.convertChatModelSetting(value),
                 OllamaModelBuilder()
             )
         }
@@ -69,7 +69,7 @@ class LLMStore(
         openaiChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OPENAI.name] = it }
         openaiChatModelConfig.aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
             streamingChatModelMap[key] = openaiChatModelConfig.buildStreamingChatModel(
-                openaiChatModelConfig.convertChatModelSetting(value, Platform.OPENAI),
+                openaiChatModelConfig.convertChatModelSetting(value),
                 OpenaiModelBuilder()
             )
         }
