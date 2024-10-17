@@ -3,6 +3,8 @@ package tw.zipe.basepartner.service
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
@@ -27,14 +29,34 @@ class LLMServiceTest {
     @Test
     @Order(1)
     fun `test add llm setting`() {
-        llmService.saveLLM(llmDTO)
+        val llmSetting = llmService.saveLLM(llmDTO)
+        llmDTO.id = llmSetting.id
+        assertNotNull(llmSetting.id)
     }
 
     @Test
     @Order(2)
     fun `test find llm setting`() {
-        val llmSetting = llmService.getLLMSetting("example")
-        assertEquals(llmDTO.alias, llmSetting?.alias)
+        val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)
+        assertEquals(llmDTO.id, llmDTOResult?.id)
+    }
+
+    @Test
+    @Order(3)
+    fun `test update llm setting`() {
+        llmDTO.modelType = ModelType.EMBEDDING
+        llmDTO.llmModel?.modelName = "llama3.2:latest"
+        llmService.updateLLMSetting(llmDTO)
+        val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)
+        assertEquals(llmDTO.modelType, llmDTOResult?.modelType)
+    }
+
+    @Test
+    @Order(4)
+    fun `test delete llm setting`() {
+        llmService.deleteLLMSetting(llmDTO.id!!)
+        val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)
+        assertNull(llmDTOResult)
     }
 
     companion object {

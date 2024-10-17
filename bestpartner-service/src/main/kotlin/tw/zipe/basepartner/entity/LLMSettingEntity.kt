@@ -1,5 +1,6 @@
 package tw.zipe.basepartner.entity
 
+import io.netty.util.internal.StringUtil
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -8,7 +9,6 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.util.UUID
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import tw.zipe.basepartner.enumerate.ModelType
@@ -48,7 +48,7 @@ class LLMSettingEntity : BaseEntity() {
      * 自定義別名
      */
     @Column(name = "alias", nullable = true)
-    var alias: String? = null
+    var alias: String = StringUtil.EMPTY_STRING
 
     /**
      * 自定義別名

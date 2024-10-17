@@ -8,15 +8,15 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class LLModel(
-    val apiKey: String? = null,
-    val url: String? = null,
-    val modelName: String,
-    val temperature: Double? = null,
-    val topP: Double? = null,
-    val topK: Long? = null,
-    val dimensions: Int? = null,
-    val maxTokens: Int? = null,
-    val timeout: Long = 3000,
-    val logRequests: Boolean = false,
-    val logResponses: Boolean = false
+    var apiKey: String? = null,
+    var url: String? = null,
+    var modelName: String,
+    var temperature: Double? = null,
+    var topP: Double? = null,
+    var topK: Long? = null,
+    var dimensions: Int? = null,
+    var maxTokens: Int? = null,
+    var timeout: Long = 3000,
+    var logRequests: Boolean = false,
+    var logResponses: Boolean = false
 ):BaseLLM()

@@ -12,4 +12,17 @@ import tw.zipe.basepartner.entity.LLMSettingEntity
 class LLMSettingRepository : PanacheRepositoryBase<LLMSettingEntity, String> {
 
     fun findByAlias(alias: String) = find("alias", alias).firstResult()
+
+    fun updateSetting(llmSettingEntity: LLMSettingEntity, parasMap: Map<String, Any>) {
+        val sql = """
+            UPDATE LLMSettingEntity ls 
+            SET ls.alias = :alias,
+                ls.platform = :platform,
+                ls.type = :type,
+                ls.modelSetting = :modelSetting,
+                ls.updatedAt = :updatedAt
+            WHERE ls.id = :id
+        """.trimIndent()
+        update(sql, parasMap)
+    }
 }
