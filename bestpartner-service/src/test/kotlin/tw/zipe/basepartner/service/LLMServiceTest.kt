@@ -43,6 +43,13 @@ class LLMServiceTest {
 
     @Test
     @Order(3)
+    fun `test build llm`() {
+        val llm = llmService.buildLLM(llmDTO.id!!)
+        assertNotNull(llm)
+    }
+
+    @Test
+    @Order(4)
     fun `test update llm setting`() {
         llmDTO.modelType = ModelType.EMBEDDING
         llmDTO.llmModel?.modelName = "llama3.2:latest"
@@ -52,7 +59,7 @@ class LLMServiceTest {
     }
 
     @Test
-    @Order(4)
+    @Order(5)
     fun `test delete llm setting`() {
         llmService.deleteLLMSetting(llmDTO.id!!)
         val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)

@@ -45,6 +45,10 @@ class LLMResource(
     @Path("/chat")
     fun chat(chatRequestDTO: ChatRequestDTO): String {
         logger.info("llmRequestDTO: ${chatRequestDTO.message}")
+        chatRequestDTO.llmId?.let {
+            val llmDTO = lLMService.getLLMSetting(it)
+
+        } ?: throw IllegalArgumentException("llmId is required")
 
         val assistant = AiServices.builder(AIAssistant::class.java)
             .chatLanguageModel(chatModelMap[chatRequestDTO.platform.name])

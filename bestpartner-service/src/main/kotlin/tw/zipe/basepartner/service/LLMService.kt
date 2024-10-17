@@ -5,6 +5,7 @@ import jakarta.transaction.Transactional
 import java.time.LocalDateTime
 import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.entity.LLMSettingEntity
+import tw.zipe.basepartner.enumerate.ModelType
 import tw.zipe.basepartner.repository.LLMSettingRepository
 
 /**
@@ -76,8 +77,25 @@ class LLMService(
         }
     }
 
+    /**
+     * 刪除 LLM 設定
+     */
     @Transactional
     fun deleteLLMSetting(id: String) {
         llmSettingRepository.deleteById(id)
+    }
+
+    /**
+     * 建立 LLM，並確認連線是正常
+     */
+    fun buildLLM(id: String): Any? {
+        val llmSettingEntity = llmSettingRepository.findById(id)
+        return llmSettingEntity?.let {
+            when (it.type) {
+                ModelType.EMBEDDING -> it.platform.getLLMBean().embeddingModel(it.modelSetting!!)
+                ModelType.CHAT -> it.platform.getLLMBean().chatModel(it.modelSetting!!)
+                ModelType.STREAMING_CHAT -> it.platform.getLLMBean().chatModelStreaming(it.modelSetting!!)
+            }
+        }
     }
 }
