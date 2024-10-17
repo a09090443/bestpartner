@@ -19,7 +19,11 @@ abstract class ChatModelConfig {
             apiKey = baseAIPlatform.apiKey().orElse(StringUtil.EMPTY_STRING),
             modelName = baseAIPlatform.modelName(),
             temperature = baseAIPlatform.temperature(),
-            timeout = baseAIPlatform.timeout().toMillis()
+            timeout = baseAIPlatform.timeout().toMillis(),
+            topK = baseAIPlatform.topK().orElse(40),
+            topP = baseAIPlatform.topP().orElse(0.5),
+            logRequests = baseAIPlatform.logRequests().orElse(false),
+            logResponses = baseAIPlatform.logResponses().orElse(false),
         )
     }
 

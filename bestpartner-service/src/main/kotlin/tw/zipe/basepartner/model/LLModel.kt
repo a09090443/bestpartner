@@ -13,7 +13,7 @@ data class LLModel(
     var modelName: String,
     var temperature: Double? = null,
     var topP: Double? = null,
-    var topK: Long? = null,
+    var topK: Int? = null,
     var dimensions: Int? = null,
     var maxTokens: Int? = null,
     var timeout: Long = 3000,

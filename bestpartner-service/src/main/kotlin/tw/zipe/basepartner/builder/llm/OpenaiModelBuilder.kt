@@ -15,24 +15,24 @@ import tw.zipe.basepartner.provider.ModelProvider
  * @created 2024/10/8
  */
 class OpenaiModelBuilder : ModelProvider {
-    override fun chatModel(chatModel: LLModel): ChatLanguageModel =
+    override fun chatModel(llModel: LLModel): ChatLanguageModel =
         OpenAiChatModel.builder()
-            .apiKey(chatModel.apiKey)
-            .modelName(chatModel.modelName)
-            .temperature(chatModel.temperature)
-            .topP(chatModel.topP)
-            .maxTokens(chatModel.maxTokens)
-            .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
+            .apiKey(llModel.apiKey)
+            .modelName(llModel.modelName)
+            .temperature(llModel.temperature)
+            .topP(llModel.topP)
+            .maxTokens(llModel.maxTokens)
+            .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
             .build()
 
-    override fun chatModelStreaming(chatModel: LLModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(llModel: LLModel): StreamingChatLanguageModel =
         OpenAiStreamingChatModel.builder()
-            .apiKey(chatModel.apiKey)
-            .modelName(chatModel.modelName)
-            .temperature(chatModel.temperature)
-            .topP(chatModel.topP)
-            .maxTokens(chatModel.maxTokens)
-            .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
+            .apiKey(llModel.apiKey)
+            .modelName(llModel.modelName)
+            .temperature(llModel.temperature)
+            .topP(llModel.topP)
+            .maxTokens(llModel.maxTokens)
+            .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
             .build()
 
     override fun embeddingModel(llModel: LLModel): EmbeddingModel =

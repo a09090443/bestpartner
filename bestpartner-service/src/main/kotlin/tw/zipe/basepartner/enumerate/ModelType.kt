@@ -6,5 +6,6 @@ package tw.zipe.basepartner.enumerate
  */
 enum class ModelType {
     CHAT,
+    STREAMING_CHAT,
     EMBEDDING
 }

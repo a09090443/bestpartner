@@ -15,24 +15,26 @@ import tw.zipe.basepartner.provider.ModelProvider
  * @created 2024/10/8
  */
 class OllamaModelBuilder : ModelProvider {
-    override fun chatModel(chatModel: LLModel): ChatLanguageModel =
+    override fun chatModel(llModel: LLModel): ChatLanguageModel =
         OllamaChatModel.builder()
-            .baseUrl(chatModel.url)
-            .modelName(chatModel.modelName)
-            .temperature(chatModel.temperature)
-            .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
-            .temperature(chatModel.temperature)
-            .topP(chatModel.topP)
+            .baseUrl(llModel.url)
+            .modelName(llModel.modelName)
+            .temperature(llModel.temperature)
+            .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
+            .temperature(llModel.temperature)
+            .topP(llModel.topP)
+            .topK(llModel.topK)
             .build()
 
-    override fun chatModelStreaming(chatModel: LLModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(llModel: LLModel): StreamingChatLanguageModel =
         OllamaStreamingChatModel.builder()
-            .baseUrl(chatModel.url)
-            .modelName(chatModel.modelName)
-            .temperature(chatModel.temperature)
-            .timeout(chatModel.timeout.let { Duration.ofSeconds(it) })
-            .temperature(chatModel.temperature)
-            .topP(chatModel.topP)
+            .baseUrl(llModel.url)
+            .modelName(llModel.modelName)
+            .temperature(llModel.temperature)
+            .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
+            .temperature(llModel.temperature)
+            .topP(llModel.topP)
+            .topK(llModel.topK)
             .build()
 
     override fun embeddingModel(llModel: LLModel): EmbeddingModel =
