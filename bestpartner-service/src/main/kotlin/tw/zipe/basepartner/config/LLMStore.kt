@@ -7,13 +7,13 @@ import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15Quantize
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Named
-import tw.zipe.basepartner.builder.llm.OllamaModelBuilder
-import tw.zipe.basepartner.builder.llm.OpenaiModelBuilder
+import tw.zipe.basepartner.config.LLMStore.LLMStore.SYSTEM_DEFAULT_SETTING_PREFIX
 import tw.zipe.basepartner.config.chatmodel.OllamaChatModelConfig
 import tw.zipe.basepartner.config.chatmodel.OpenaiChatModelConfig
 import tw.zipe.basepartner.config.embedding.OllamaEmbeddingModelConfig
 import tw.zipe.basepartner.config.embedding.OpenaiEmbeddingModelConfig
 import tw.zipe.basepartner.enumerate.Platform
+import tw.zipe.basepartner.service.LLMService
 
 /**
  * @author Gary
@@ -24,8 +24,13 @@ class LLMStore(
     private val ollamaChatModelConfig: OllamaChatModelConfig,
     private val openaiChatModelConfig: OpenaiChatModelConfig,
     private val ollamaEmbeddingModelConfig: OllamaEmbeddingModelConfig,
-    private val openaiEmbeddingModelConfig: OpenaiEmbeddingModelConfig
+    private val openaiEmbeddingModelConfig: OpenaiEmbeddingModelConfig,
+    private val lLMService: LLMService
 ) {
+
+    object LLMStore {
+        const val SYSTEM_DEFAULT_SETTING_PREFIX = "SYSTEM-"
+    }
 
     @Produces
     @Named("chatModelMap")
@@ -34,21 +39,23 @@ class LLMStore(
         val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
 
         ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
-        ollamaChatModelConfig.aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
-            chatModelMap[key] = ollamaChatModelConfig.buildChatModel(
-                ollamaChatModelConfig.convertChatModelSetting(value),
-                OllamaModelBuilder()
-            )
-        }
-
         openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
-        openaiChatModelConfig.aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
-            chatModelMap[key] = openaiChatModelConfig.buildChatModel(
-                openaiChatModelConfig.convertChatModelSetting(value),
-                OpenaiModelBuilder()
-            )
-        }
 
+        lLMService.getLLMSetting(Platform.OLLAMA, "SYSTEM").forEach { llModel ->
+            if (llModel != null) {
+                when (llModel.platform) {
+                    Platform.OLLAMA -> {
+                        ollamaChatModelConfig.buildChatModel()
+                            ?.let { chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = it }
+                    }
+
+                    Platform.OPENAI -> {
+                        openaiChatModelConfig.buildChatModel()
+                            ?.let { chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = it }
+                    }
+                }
+            }
+        }
         return chatModelMap
     }
 
@@ -59,21 +66,23 @@ class LLMStore(
         val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
 
         ollamaChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OLLAMA.name] = it }
-        ollamaChatModelConfig.aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
-            streamingChatModelMap[key] = ollamaChatModelConfig.buildStreamingChatModel(
-                ollamaChatModelConfig.convertChatModelSetting(value),
-                OllamaModelBuilder()
-            )
-        }
-
         openaiChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OPENAI.name] = it }
-        openaiChatModelConfig.aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
-            streamingChatModelMap[key] = openaiChatModelConfig.buildStreamingChatModel(
-                openaiChatModelConfig.convertChatModelSetting(value),
-                OpenaiModelBuilder()
-            )
-        }
 
+        lLMService.getLLMSetting(Platform.OLLAMA, "SYSTEM").forEach { llModel ->
+            if (llModel != null) {
+                when (llModel.platform) {
+                    Platform.OLLAMA -> {
+                        ollamaChatModelConfig.buildStreamingChatModel()
+                            ?.let { streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = it }
+                    }
+
+                    Platform.OPENAI -> {
+                        openaiChatModelConfig.buildStreamingChatModel()
+                            ?.let { streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = it }
+                    }
+                }
+            }
+        }
         return streamingChatModelMap
     }
 
@@ -86,21 +95,23 @@ class LLMStore(
         embeddingChatModelMap["default"] = BgeSmallEnV15QuantizedEmbeddingModel()
 
         ollamaEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OLLAMA.name] = it }
-        ollamaEmbeddingModelConfig.aiPlatformOllamaConfig.namedConfig().forEach { (key, value) ->
-            embeddingChatModelMap[key] = ollamaEmbeddingModelConfig.buildEmbeddingModel(
-                ollamaEmbeddingModelConfig.convertEmbeddingModelSetting(value),
-                OllamaModelBuilder()
-            )
-        }
-
         openaiEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OPENAI.name] = it }
-        openaiEmbeddingModelConfig.aiPlatformOpenaiConfig.namedConfig().forEach { (key, value) ->
-            embeddingChatModelMap[key] = openaiEmbeddingModelConfig.buildEmbeddingModel(
-                openaiEmbeddingModelConfig.convertEmbeddingModelSetting(value),
-                OpenaiModelBuilder()
-            )
-        }
 
+        lLMService.getLLMSetting(Platform.OLLAMA, "SYSTEM").forEach { llModel ->
+            if (llModel != null) {
+                when (llModel.platform) {
+                    Platform.OLLAMA -> {
+                        ollamaEmbeddingModelConfig.buildEmbeddingModel()
+                            ?.let { embeddingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = it }
+                    }
+
+                    Platform.OPENAI -> {
+                        openaiEmbeddingModelConfig.buildEmbeddingModel()
+                            ?.let { embeddingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = it }
+                    }
+                }
+            }
+        }
         return embeddingChatModelMap
     }
 }

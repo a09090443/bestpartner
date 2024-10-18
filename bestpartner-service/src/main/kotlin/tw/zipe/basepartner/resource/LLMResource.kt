@@ -37,7 +37,7 @@ import tw.zipe.basepartner.util.logger
 class LLMResource(
     @Named("chatModelMap") val chatModelMap: Map<String, ChatLanguageModel>,
     @Named("streamingChatModelMap") val streamingChatModelMap: Map<String, StreamingChatLanguageModel>,
-    val lLMService: LLMService
+    private val lLMService: LLMService
 ) {
     private val logger = logger()
 
@@ -45,13 +45,14 @@ class LLMResource(
     @Path("/chat")
     fun chat(chatRequestDTO: ChatRequestDTO): String {
         logger.info("llmRequestDTO: ${chatRequestDTO.message}")
-        chatRequestDTO.llmId?.let {
-            val llmDTO = lLMService.getLLMSetting(it)
-
+        val llm = chatRequestDTO.llmId?.let {
+            lLMService.buildLLM(it)
+        }?.let {
+            it as ChatLanguageModel
         } ?: throw IllegalArgumentException("llmId is required")
 
         val assistant = AiServices.builder(AIAssistant::class.java)
-            .chatLanguageModel(chatModelMap[chatRequestDTO.platform.name])
+            .chatLanguageModel(llm)
             .build()
         val response: Response<AiMessage> = assistant.chat(chatRequestDTO.message)
         logger.info("token counting: ${response.tokenUsage()}")
@@ -108,7 +109,7 @@ class LLMResource(
 
     @POST
     @Path("/saveLLM")
-    fun saveLlmChatModel(llmDTO: LLMDTO){
+    fun saveLlmChatModel(llmDTO: LLMDTO) {
         llmDTO.llmModel?.let {
             lLMService.saveLLM(llmDTO)
         }

@@ -1,11 +1,15 @@
 package tw.zipe.basepartner.service
 
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity_.id
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.persistence.EntityManager
 import jakarta.transaction.Transactional
 import java.time.LocalDateTime
 import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.entity.LLMSettingEntity
 import tw.zipe.basepartner.enumerate.ModelType
+import tw.zipe.basepartner.enumerate.Platform
+import tw.zipe.basepartner.model.LLModel
 import tw.zipe.basepartner.repository.LLMSettingRepository
 
 /**
@@ -14,7 +18,7 @@ import tw.zipe.basepartner.repository.LLMSettingRepository
  */
 @ApplicationScoped
 class LLMService(
-    val llmSettingRepository: LLMSettingRepository
+    private val llmSettingRepository: LLMSettingRepository
 ) {
 
     /**
@@ -55,6 +59,18 @@ class LLMService(
     }
 
     /**
+     * 取得 LLM 設定
+     */
+    fun getLLMSetting(platform: Platform, account: String): List<LLModel?> {
+//        val llmSettingList = entityManager.createQuery(
+//            "SELECT ls FROM LLMSettingEntity ls WHERE ls.platform = :platform AND ls.account = :account",
+//            LLMSettingEntity::class.java
+//        ).setParameter("platform", platform).setParameter("account", account).resultList
+        val llmSettingList = llmSettingRepository.findByAccountAndPlatform(account, platform)
+        return llmSettingList.map { it.modelSetting }.toList()
+    }
+
+    /**
      * 更新 LLM 設定
      */
     @Transactional
@@ -73,7 +89,7 @@ class LLMService(
             "id" to llmDTO.id!!,
             "updatedAt" to LocalDateTime.now()
         ).let {
-            llmSettingRepository.updateSetting(llmSettingEntity, it)
+            llmSettingRepository.updateSetting(it)
         }
     }
 

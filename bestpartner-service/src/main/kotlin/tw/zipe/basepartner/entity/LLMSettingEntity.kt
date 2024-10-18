@@ -31,6 +31,12 @@ class LLMSettingEntity : BaseEntity() {
     var id: String? = null
 
     /**
+     * 使用者
+     */
+    @Column(name = "account", nullable = false)
+    var account: String = StringUtil.EMPTY_STRING
+
+    /**
      * LLM 平台
      */
     @Column(name = "platform", nullable = false)

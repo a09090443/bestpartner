@@ -10,5 +10,5 @@ import tw.zipe.basepartner.enumerate.Platform
 @Serializable
 open class BaseLLM {
     var id: String? = null
-    var platform: Platform? = null
+    var platform: Platform = Platform.OLLAMA
 }
