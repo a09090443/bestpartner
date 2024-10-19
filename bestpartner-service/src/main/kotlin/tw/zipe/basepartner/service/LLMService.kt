@@ -1,10 +1,7 @@
 package tw.zipe.basepartner.service
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity_.id
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.persistence.EntityManager
 import jakarta.transaction.Transactional
-import java.time.LocalDateTime
 import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.entity.LLMSettingEntity
 import tw.zipe.basepartner.enumerate.ModelType
@@ -86,8 +83,7 @@ class LLMService(
             "platform" to llmDTO.platform,
             "type" to llmDTO.modelType,
             "modelSetting" to llmDTO.llmModel!!,
-            "id" to llmDTO.id!!,
-            "updatedAt" to LocalDateTime.now()
+            "id" to llmDTO.id!!
         ).let {
             llmSettingRepository.updateSetting(it)
         }

@@ -12,7 +12,7 @@ import tw.zipe.basepartner.enumerate.Platform
 @ApplicationScoped
 class LLMSettingRepository : PanacheRepositoryBase<LLMSettingEntity, String> {
 
-    fun findByAlias(alias: String) = find("alias", alias).firstResult()
+    fun findByAlias(alias: String) = find("alias", alias).singleResult()
 
     fun findByAccountAndPlatform(account: String, platform: Platform?): List<LLMSettingEntity> {
         // 建立基礎查詢和參數 Map
@@ -42,8 +42,7 @@ class LLMSettingRepository : PanacheRepositoryBase<LLMSettingEntity, String> {
             SET ls.alias = :alias,
                 ls.platform = :platform,
                 ls.type = :type,
-                ls.modelSetting = :modelSetting,
-                ls.updatedAt = :updatedAt
+                ls.modelSetting = :modelSetting
             WHERE ls.id = :id
         """.trimIndent()
         update(sql, parasMap)

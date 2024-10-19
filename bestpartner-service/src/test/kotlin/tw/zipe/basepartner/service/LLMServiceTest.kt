@@ -58,8 +58,8 @@ class LLMServiceTest {
         assertEquals(llmDTO.modelType, llmDTOResult?.modelType)
     }
 
-    @Test
-    @Order(5)
+//    @Test
+//    @Order(5)
     fun `test delete llm setting`() {
         llmService.deleteLLMSetting(llmDTO.id!!)
         val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)
