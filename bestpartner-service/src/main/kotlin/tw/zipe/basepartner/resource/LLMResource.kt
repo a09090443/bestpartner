@@ -1,11 +1,9 @@
 package tw.zipe.basepartner.resource
 
-import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
-import dev.langchain4j.model.output.Response
 import dev.langchain4j.service.AiServices
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
@@ -35,10 +33,8 @@ import tw.zipe.basepartner.util.logger
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class LLMResource(
-    @Named("chatModelMap") val chatModelMap: Map<String, ChatLanguageModel>,
-    @Named("streamingChatModelMap") val streamingChatModelMap: Map<String, StreamingChatLanguageModel>,
     private val lLMService: LLMService
-) {
+) : BaseLLMResource() {
     private val logger = logger()
 
     @POST
@@ -51,28 +47,20 @@ class LLMResource(
             it as ChatLanguageModel
         } ?: throw IllegalArgumentException("llmId is required")
 
-        val assistant = AiServices.builder(AIAssistant::class.java)
-            .chatLanguageModel(llm)
-            .build()
-        val response: Response<AiMessage> = assistant.chat(chatRequestDTO.message)
-        logger.info("token counting: ${response.tokenUsage()}")
-        return response.content().text()
+        return baseChat(llm, chatRequestDTO.message)
     }
 
     @POST
     @Path("/chatStreaming")
     @RestStreamElementType(MediaType.TEXT_PLAIN)
     fun chatStreamingTest(chatRequestDTO: ChatRequestDTO): Multi<String?> {
-        val assistant = AiServices.builder(AIAssistant::class.java)
-            .streamingChatLanguageModel(streamingChatModelMap[chatRequestDTO.platform.name])
-            .build()
+        val llm = chatRequestDTO.llmId?.let {
+            lLMService.buildLLM(it)
+        }?.let {
+            it as StreamingChatLanguageModel
+        } ?: throw IllegalArgumentException("llmId is required")
 
-        return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
-            assistant.streamingChat(chatRequestDTO.message)
-                .onNext { emitter.emit(it) }
-                .onComplete { emitter.complete() }
-                .onError { emitter.fail(it) }.start()
-        }
+        return baseStreamingChat(llm, chatRequestDTO.message)
     }
 
     @POST
