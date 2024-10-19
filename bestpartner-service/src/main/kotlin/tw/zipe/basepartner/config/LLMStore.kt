@@ -7,6 +7,7 @@ import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15Quantize
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Named
+import tw.zipe.basepartner.config.LLMStore.LLMStore.SYSTEM_DEFAULT_MODEL
 import tw.zipe.basepartner.config.LLMStore.LLMStore.SYSTEM_DEFAULT_SETTING_PREFIX
 import tw.zipe.basepartner.config.chatmodel.OllamaChatModelConfig
 import tw.zipe.basepartner.config.chatmodel.OpenaiChatModelConfig
@@ -14,6 +15,7 @@ import tw.zipe.basepartner.config.embedding.OllamaEmbeddingModelConfig
 import tw.zipe.basepartner.config.embedding.OpenaiEmbeddingModelConfig
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.service.LLMService
+import tw.zipe.basepartner.service.SystemService
 
 /**
  * @author Gary
@@ -25,11 +27,13 @@ class LLMStore(
     private val openaiChatModelConfig: OpenaiChatModelConfig,
     private val ollamaEmbeddingModelConfig: OllamaEmbeddingModelConfig,
     private val openaiEmbeddingModelConfig: OpenaiEmbeddingModelConfig,
-    private val lLMService: LLMService
+    private val lLMService: LLMService,
+    private val systemService: SystemService
 ) {
 
     object LLMStore {
         const val SYSTEM_DEFAULT_SETTING_PREFIX = "SYSTEM-"
+        const val SYSTEM_DEFAULT_MODEL = "default_model"
     }
 
     @Produces
@@ -40,18 +44,25 @@ class LLMStore(
 
         ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
         openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
+        systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
+            Platform.valueOf(it).let { platform ->
+                lLMService.getLLMSetting(platform, "SYSTEM").forEach { llModel ->
+                    if (llModel != null) {
+                        when (llModel.platform) {
+                            Platform.OLLAMA -> {
+                                ollamaChatModelConfig.buildChatModel()
+                                    ?.let { model ->
+                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
+                                    }
+                            }
 
-        lLMService.getLLMSetting(Platform.OLLAMA, "SYSTEM").forEach { llModel ->
-            if (llModel != null) {
-                when (llModel.platform) {
-                    Platform.OLLAMA -> {
-                        ollamaChatModelConfig.buildChatModel()
-                            ?.let { chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = it }
-                    }
-
-                    Platform.OPENAI -> {
-                        openaiChatModelConfig.buildChatModel()
-                            ?.let { chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = it }
+                            Platform.OPENAI -> {
+                                openaiChatModelConfig.buildChatModel()
+                                    ?.let { model ->
+                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
+                                    }
+                            }
+                        }
                     }
                 }
             }
@@ -68,21 +79,36 @@ class LLMStore(
         ollamaChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OLLAMA.name] = it }
         openaiChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OPENAI.name] = it }
 
-        lLMService.getLLMSetting(Platform.OLLAMA, "SYSTEM").forEach { llModel ->
-            if (llModel != null) {
-                when (llModel.platform) {
-                    Platform.OLLAMA -> {
-                        ollamaChatModelConfig.buildStreamingChatModel()
-                            ?.let { streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = it }
-                    }
+        systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
 
-                    Platform.OPENAI -> {
-                        openaiChatModelConfig.buildStreamingChatModel()
-                            ?.let { streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = it }
+            Platform.valueOf(it).let { platform ->
+                {
+                    lLMService.getLLMSetting(platform, "SYSTEM").forEach { llModel ->
+                        if (llModel != null) {
+                            when (llModel.platform) {
+                                Platform.OLLAMA -> {
+                                    ollamaChatModelConfig.buildStreamingChatModel()
+                                        ?.let { model ->
+                                            streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] =
+                                                model
+                                        }
+                                }
+
+                                Platform.OPENAI -> {
+                                    openaiChatModelConfig.buildStreamingChatModel()
+                                        ?.let { model ->
+                                            streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] =
+                                                model
+                                        }
+                                }
+                            }
+                        }
                     }
                 }
+
             }
         }
+
         return streamingChatModelMap
     }
 

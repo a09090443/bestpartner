@@ -1,5 +1,6 @@
 package tw.zipe.basepartner.entity
 
+import io.netty.util.internal.StringUtil
 import jakarta.persistence.Column
 import jakarta.persistence.MappedSuperclass
 import java.time.LocalDateTime
@@ -16,4 +17,10 @@ open class BaseEntity {
 
     @Column(name = "updated_at", nullable = true)
     var updatedAt: LocalDateTime = LocalDateTime.now()
+
+    @Column(name = "created_by", nullable = true)
+    var createdBy: String = StringUtil.EMPTY_STRING
+
+    @Column(name = "updated_by", nullable = true)
+    var updatedBy: String = StringUtil.EMPTY_STRING
 }

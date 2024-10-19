@@ -12,7 +12,6 @@ enum class Platform(val builder: ModelProvider) {
     OPENAI(OpenaiModelBuilder()),
     OLLAMA(OllamaModelBuilder());
 
-    fun getLLMBean(): ModelProvider {
-        return builder
-    }
+    fun getLLMBean() = builder
+
 }
