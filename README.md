@@ -120,3 +120,4 @@ bestpartner
 ## 備註
 * Langchain4j 官網說明:[連結](https://docs.langchain4j.dev/)
 * 如有有興趣想討論，或有任何想法想加入開發，可跟我聯絡，信箱:zipe.daden@gmail.com
+* 目前以 h2 database 為預設資料庫，之後會支援 Mysql 資料庫
