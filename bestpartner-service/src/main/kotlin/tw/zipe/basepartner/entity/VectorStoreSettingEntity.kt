@@ -11,17 +11,16 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import tw.zipe.basepartner.enumerate.ModelType
-import tw.zipe.basepartner.enumerate.Platform
-import tw.zipe.basepartner.model.LLModel
+import tw.zipe.basepartner.enumerate.VectorStore
+import tw.zipe.basepartner.model.VectorStoreModel
 
 /**
  * @author Gary
- * @created 2024/10/12
+ * @created 2024/10/19
  */
 @Entity
-@Table(name = "llm_setting")
-class LLMSettingEntity : BaseEntity() {
+@Table(name = "vector_store_setting")
+class VectorStoreSettingEntity : BaseEntity() {
     /**
      * 主鍵
      */
@@ -37,18 +36,11 @@ class LLMSettingEntity : BaseEntity() {
     var account: String = StringUtil.EMPTY_STRING
 
     /**
-     * LLM 平台
-     */
-    @Column(name = "platform", nullable = false)
-    @Enumerated(EnumType.STRING)
-    var platform: Platform = Platform.OLLAMA
-
-    /**
-     * 類型
+     * 向量資料庫類型
      */
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
-    var type: ModelType = ModelType.CHAT
+    var type: VectorStore = VectorStore.MILVUS
 
     /**
      * 自定義別名
@@ -57,10 +49,10 @@ class LLMSettingEntity : BaseEntity() {
     var alias: String = StringUtil.EMPTY_STRING
 
     /**
-     * 模型設定
+     * 向量資料庫設定
      */
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "model_setting", columnDefinition = "json", nullable = true)
-    var modelSetting: LLModel? = null
+    @Column(name = "vector_setting", columnDefinition = "json", nullable = true)
+    var vectorSetting: VectorStoreModel? = null
 
 }
