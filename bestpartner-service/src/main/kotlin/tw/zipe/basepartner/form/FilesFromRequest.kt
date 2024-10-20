@@ -23,8 +23,8 @@ class FilesFromRequest {
     @FormParam("file")
     var file: List<FileUpload>? = null
 
-    @FormParam("embeddingModelName")
-    var embeddingModelName: String = ""
+    @FormParam("embeddingModelId")
+    var embeddingModelId: String = ""
 
     @FormParam("embeddingStoreId")
     var embeddingStoreId: String = ""

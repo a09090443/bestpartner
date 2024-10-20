@@ -12,12 +12,12 @@ import tw.zipe.basepartner.provider.VectorStoreProvider
  */
 class MilvusBuilder : VectorStoreProvider {
 
-    override fun embeddingStore(vector: VectorStoreModel): EmbeddingStore<TextSegment> =
+    override fun embeddingStore(vector: VectorStoreModel?): EmbeddingStore<TextSegment> =
         MilvusEmbeddingStore
             .builder()
-            .uri(vector.url)
-            .collectionName(vector.collectionName)
-            .dimension(vector.dimension)
+            .uri(vector?.url)
+            .collectionName(vector?.collectionName)
+            .dimension(vector?.dimension)
             .build()
 
 }
