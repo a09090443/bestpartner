@@ -77,7 +77,7 @@ class EmbeddingService(
 
         val splitter = DocumentSplitters.recursive(filesForm.maxSegmentSize, filesForm.maxOverlapSize)
         val segments = splitter.splitAll(documents)
-        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelName).let { it as EmbeddingModel }
+        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId).let { it as EmbeddingModel }
         val embeddings: List<Embedding> = embeddingModel.embedAll(segments)?.content() ?: emptyList()
         val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
         val ids = embeddingStore?.addAll(embeddings, segments)

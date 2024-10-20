@@ -12,11 +12,11 @@ import tw.zipe.basepartner.provider.VectorStoreProvider
  */
 class ChromaBuilder : VectorStoreProvider {
 
-    override fun embeddingStore(vector: VectorStoreModel): EmbeddingStore<TextSegment> =
+    override fun embeddingStore(vector: VectorStoreModel?): EmbeddingStore<TextSegment> =
         ChromaEmbeddingStore
             .builder()
-            .baseUrl(vector.url)
-            .collectionName(vector.collectionName)
+            .baseUrl(vector?.url)
+            .collectionName(vector?.collectionName)
             .logRequests(true)
             .logResponses(true)
             .build()

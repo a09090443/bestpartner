@@ -92,11 +92,4 @@ class LLMResource(
         return aiService.build().chat(chatRequestDTO.message).content().text()
     }
 
-    @POST
-    @Path("/saveLLM")
-    fun saveLlmChatModel(llmDTO: LLMDTO) {
-        llmDTO.llmModel?.let {
-            lLMService.saveLLM(llmDTO)
-        }
-    }
 }
