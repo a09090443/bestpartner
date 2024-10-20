@@ -10,6 +10,6 @@ import tw.zipe.basepartner.model.VectorStoreModel
  */
 interface VectorStoreProvider {
 
-    fun embeddingStore(vector: VectorStoreModel): EmbeddingStore<TextSegment>
+    fun embeddingStore(vector: VectorStoreModel?): EmbeddingStore<TextSegment>
 
 }

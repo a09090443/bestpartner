@@ -6,16 +6,13 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.service.AiServices
 import io.smallrye.mutiny.Multi
-import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.inject.Named
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import org.jboss.resteasy.reactive.RestStreamElementType
-import tw.zipe.basepartner.assistant.AIAssistant
 import tw.zipe.basepartner.assistant.DynamicAssistant
 import tw.zipe.basepartner.config.PersistentChatMemoryStore
 import tw.zipe.basepartner.dto.ChatRequestDTO

@@ -26,8 +26,8 @@ class FilesFromRequest {
     @FormParam("embeddingModelName")
     var embeddingModelName: String = ""
 
-    @FormParam("embeddingStoreName")
-    var embeddingStoreName: String = ""
+    @FormParam("embeddingStoreId")
+    var embeddingStoreId: String = ""
 
     @FormParam("vectorStore")
     var vectorStore:VectorStore? = null

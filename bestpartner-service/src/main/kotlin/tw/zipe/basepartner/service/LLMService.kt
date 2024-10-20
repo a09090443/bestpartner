@@ -98,7 +98,7 @@ class LLMService(
     }
 
     /**
-     * 建立 LLM，並確認連線是正常
+     * 建立 LLM
      */
     fun buildLLM(id: String): Any? {
         val llmSettingEntity = llmSettingRepository.findById(id)

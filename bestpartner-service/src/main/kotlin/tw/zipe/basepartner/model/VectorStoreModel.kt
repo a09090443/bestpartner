@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class VectorStoreModel(
     val url: String,
+    val username: String? = null,
+    val password: String? = null,
     val collectionName: String? = null,
     val dimension: Int? = null
 )

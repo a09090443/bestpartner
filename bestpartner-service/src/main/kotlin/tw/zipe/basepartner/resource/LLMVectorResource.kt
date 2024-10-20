@@ -6,6 +6,7 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import tw.zipe.basepartner.dto.VectorStoreDTO
 import tw.zipe.basepartner.form.FilesFromRequest
 import tw.zipe.basepartner.service.EmbeddingService
 import tw.zipe.basepartner.util.logger
@@ -24,6 +25,15 @@ class LLMVectorResource(
     private val logger = logger()
 
     @POST
+    @Path("/save")
+    fun saveVectorStore(vectorStoreDTO: VectorStoreDTO) {
+        logger.info("saveVectorStore: $vectorStoreDTO")
+
+        embeddingService.saveVectorStore(vectorStoreDTO)
+
+    }
+
+    @POST
     @Path("/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest) {
@@ -35,7 +45,4 @@ class LLMVectorResource(
         }
     }
 
-    fun saveVectorStore(){
-
-    }
 }
