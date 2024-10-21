@@ -15,8 +15,8 @@ import jakarta.ws.rs.core.MediaType
 import org.jboss.resteasy.reactive.RestStreamElementType
 import tw.zipe.basepartner.assistant.DynamicAssistant
 import tw.zipe.basepartner.config.PersistentChatMemoryStore
+import tw.zipe.basepartner.dto.ApiResponse
 import tw.zipe.basepartner.dto.ChatRequestDTO
-import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.service.LLMService
 import tw.zipe.basepartner.util.instantiate
 import tw.zipe.basepartner.util.logger
@@ -36,33 +36,32 @@ class LLMResource(
 
     @POST
     @Path("/chat")
-    fun chat(chatRequestDTO: ChatRequestDTO): String {
-        logger.info("llmRequestDTO: ${chatRequestDTO.message}")
-        val llm = chatRequestDTO.llmId?.let {
+    fun chat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
+        val llm = chatRequestDTO.llmId.let {
             lLMService.buildLLM(it)
-        }?.let {
+        }.let {
             it as ChatLanguageModel
-        } ?: throw IllegalArgumentException("llmId is required")
+        }
 
-        return baseChat(llm, chatRequestDTO.message)
+        return ApiResponse.success(baseChat(llm, chatRequestDTO.message))
     }
 
     @POST
     @Path("/chatStreaming")
     @RestStreamElementType(MediaType.TEXT_PLAIN)
     fun chatStreamingTest(chatRequestDTO: ChatRequestDTO): Multi<String?> {
-        val llm = chatRequestDTO.llmId?.let {
+        val llm = chatRequestDTO.llmId.let {
             lLMService.buildLLM(it)
-        }?.let {
+        }.let {
             it as StreamingChatLanguageModel
-        } ?: throw IllegalArgumentException("llmId is required")
+        }
 
         return baseStreamingChat(llm, chatRequestDTO.message)
     }
 
     @POST
     @Path("/customAssistantChat")
-    fun customAssistantChat(chatRequestDTO: ChatRequestDTO): String {
+    fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
 
         val aiService = AiServices.builder(DynamicAssistant::class.java)
             .chatLanguageModel(chatModelMap[chatRequestDTO.platform.name])
@@ -89,7 +88,6 @@ class LLMResource(
             aiService.chatMemoryProvider(chatMemoryProvider)
         }
 
-        return aiService.build().chat(chatRequestDTO.message).content().text()
+        return ApiResponse.success(aiService.build().chat(chatRequestDTO.message).content().text())
     }
-
 }

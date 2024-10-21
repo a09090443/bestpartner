@@ -1,5 +1,6 @@
 package tw.zipe.basepartner.dto
 
+import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.model.LLModel
@@ -10,7 +11,7 @@ import tw.zipe.basepartner.model.LLModel
  */
 @Serializable
 open class BaseDTO(
-    val llmId: String? = null,
+    val llmId: String = StringUtil.EMPTY_STRING,
     var platform: Platform = Platform.OLLAMA,
     var llmModel: LLModel? = null
 )

@@ -64,6 +64,11 @@ INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTIN
 VALUES ('45d5c19f-819a-4a3a-83ad-d76812f97db0', 'SYSTEM', 'OLLAMA', 'EMBEDDING', 'example',
         JSON '{"id":null,"platform":null,"apiKey":null,"url":"http://localhost:11434","modelName":"llama3.1:latest","temperature":0.7,"topP":0.5,"topK":40,"dimensions":null,"maxTokens":4096,"timeout":60000,"logRequests":true,"logResponses":true}',
         '2024-10-18 10:09:02.365262', '2024-10-19 06:34:07.475463', 'admin', 'admin');
+INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
+                                UPDATED_BY)
+VALUES ('488e9ad6-b3c1-420e-92a4-c3ff116ddae1', 'SYSTEM', 'OPENAI', 'EMBEDDING', 'local_embedding_test',
+        JSON '{"id":null,"platform":"OPENAI","apiKey":"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","url":null,"modelName":"text-embedding-3-small","temperature":0.7,"topP":0.5,"topK":40,"dimensions":1536,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
+        '2024-10-21 09:51:52.331191', '2024-10-21 09:51:52.331191', 'admin', 'admin');
 
 INSERT INTO PUBLIC.SYSTEM_SETTING (SETTING_KEY, SETTING_VALUE, DESCRIPTION, CREATED_AT, UPDATED_AT, CREATED_BY,
                                    UPDATED_BY)
@@ -72,6 +77,6 @@ VALUES ('default_llm', 'OPENAI', 'system default llm', '2024-10-19 20:08:21.8333
 
 INSERT INTO PUBLIC.VECTOR_STORE_SETTING (ID, ACCOUNT, TYPE, ALIAS, VECTOR_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
                                          UPDATED_BY)
-VALUES ('424c5fcf-a3c4-457c-96d4-6457bec1b432', 'SYSTEM', 'MILVUS', 'system',
-        '''7B2275726C223A22687474703A2F2F6C6F63616C686F73743A3139353330222C22757365726E616D65223A6E756C6C2C2270617373776F7264223A6E756C6C2C22636F6C6C656374696F6E4E616D65223A2273797374656D2D636F6C6C656374696F6E222C2264696D656E73696F6E223A313032347D''',
-        '2024-10-20 12:42:57.992171', '2024-10-20 04:46:25.389282', 'admin', 'admin');
+VALUES ('8ef34f2f-5820-47ee-8743-894cacd0b711', 'SYSTEM', 'MILVUS', 'local-test',
+        JSON '{"url":"http://localhost:19530","username":null,"password":null,"collectionName":"local_collection","dimension":1536}',
+        '2024-10-21 10:51:34.324418', '2024-10-21 10:51:34.324418', 'admin', 'admin');

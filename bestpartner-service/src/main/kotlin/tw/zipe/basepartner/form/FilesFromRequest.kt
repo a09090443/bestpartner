@@ -3,7 +3,6 @@ package tw.zipe.basepartner.form
 import jakarta.ws.rs.FormParam
 import java.util.UUID
 import org.jboss.resteasy.reactive.multipart.FileUpload
-import tw.zipe.basepartner.enumerate.VectorStore
 
 /**
  * @author Gary
@@ -28,9 +27,6 @@ class FilesFromRequest {
 
     @FormParam("embeddingStoreId")
     var embeddingStoreId: String = ""
-
-    @FormParam("vectorStore")
-    var vectorStore:VectorStore? = null
 
     @FormParam("maxSegmentSize")
     var maxSegmentSize:Int = 300
