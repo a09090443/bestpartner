@@ -53,4 +53,10 @@ class LLMVectorResource(
         return ApiResponse.success("成功上傳檔案")
     }
 
+    @POST
+    @Path("/deleteData")
+    fun deleteVectorStoreData(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
+        embeddingService.deleteVectorStore(vectorStoreDTO)
+        return ApiResponse.success("成功刪除向量資料庫設定")
+    }
 }
