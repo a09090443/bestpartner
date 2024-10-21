@@ -29,7 +29,7 @@ class LLMServiceTest {
     @Test
     @Order(1)
     fun `test add llm setting`() {
-        val llmSetting = llmService.saveLLM(llmDTO)
+        val llmSetting = llmService.saveLLMSetting(llmDTO)
         llmDTO.id = llmSetting.id
         assertNotNull(llmSetting.id)
     }

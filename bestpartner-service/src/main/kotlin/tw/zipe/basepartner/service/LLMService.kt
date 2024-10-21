@@ -22,7 +22,7 @@ class LLMService(
      * 儲存 LLM 設定
      */
     @Transactional
-    fun saveLLM(llmDTO: LLMDTO): LLMSettingEntity {
+    fun saveLLMSetting(llmDTO: LLMDTO): LLMSettingEntity {
         val llmSettingEntity = LLMSettingEntity()
         llmSettingEntity.platform = llmDTO.platform
         llmSettingEntity.alias = llmDTO.alias
@@ -72,6 +72,8 @@ class LLMService(
      */
     @Transactional
     fun updateLLMSetting(llmDTO: LLMDTO) {
+        llmDTO.id ?: throw IllegalArgumentException("llmId is required")
+
         val llmSettingEntity = LLMSettingEntity()
         llmSettingEntity.id = llmDTO.id
         llmSettingEntity.platform = llmDTO.platform
@@ -100,7 +102,7 @@ class LLMService(
     /**
      * 建立 LLM
      */
-    fun buildLLM(id: String): Any? {
+    fun buildLLM(id: String): Any {
         val llmSettingEntity = llmSettingRepository.findById(id)
         return llmSettingEntity?.let {
             when (it.type) {
@@ -108,6 +110,6 @@ class LLMService(
                 ModelType.CHAT -> it.platform.getLLMBean().chatModel(it.modelSetting!!)
                 ModelType.STREAMING_CHAT -> it.platform.getLLMBean().chatModelStreaming(it.modelSetting!!)
             }
-        }
+        } ?: throw IllegalArgumentException("llmId didn't exist")
     }
 }

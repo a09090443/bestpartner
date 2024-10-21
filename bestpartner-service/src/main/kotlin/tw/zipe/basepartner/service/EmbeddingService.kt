@@ -58,7 +58,7 @@ class EmbeddingService(
         val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
         return vectorStoreSettingEntity?.let {
             it.type.getVactorStore().embeddingStore(it.vectorSetting)
-        }
+        } ?: throw IllegalArgumentException("vectorStoreId is required")
     }
 
     /**
@@ -68,6 +68,8 @@ class EmbeddingService(
         files: List<FileUpload>,
         filesForm: FilesFromRequest
     ): List<String> {
+        val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
+        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId).let { it as EmbeddingModel }
 
         val documents = files.map { file ->
             val document = FileSystemDocumentLoader.loadDocument(file.uploadedFile(), ApacheTikaDocumentParser())
@@ -77,9 +79,7 @@ class EmbeddingService(
 
         val splitter = DocumentSplitters.recursive(filesForm.maxSegmentSize, filesForm.maxOverlapSize)
         val segments = splitter.splitAll(documents)
-        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId).let { it as EmbeddingModel }
-        val embeddings: List<Embedding> = embeddingModel.embedAll(segments)?.content() ?: emptyList()
-        val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
+        val embeddings: List<Embedding> = embeddingModel.embedAll(segments)?.content() ?: return emptyList()
         val ids = embeddingStore?.addAll(embeddings, segments)
 
         logger.info("embeddingDocs: ids = $ids")

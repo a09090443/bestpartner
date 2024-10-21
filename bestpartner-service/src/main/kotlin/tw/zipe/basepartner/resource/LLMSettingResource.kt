@@ -6,6 +6,7 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import tw.zipe.basepartner.dto.ApiResponse
 import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.service.LLMService
 
@@ -23,9 +24,19 @@ class LLMSettingResource(
 
     @POST
     @Path("/saveLLM")
-    fun saveLlmChatModel(llmDTO: LLMDTO) {
+    fun saveLlm(llmDTO: LLMDTO): ApiResponse<String> {
         llmDTO.llmModel?.let {
-            lLMService.saveLLM(llmDTO)
+            lLMService.saveLLMSetting(llmDTO)
         }
+        return ApiResponse.success("成功儲存 LLM 設定")
+    }
+
+    @POST
+    @Path("/updateLLM")
+    fun updateLlm(llmDTO: LLMDTO): ApiResponse<String> {
+        llmDTO.llmModel?.let {
+            lLMService.updateLLMSetting(llmDTO)
+        }
+        return ApiResponse.success("成功更新 LLM 設定")
     }
 }

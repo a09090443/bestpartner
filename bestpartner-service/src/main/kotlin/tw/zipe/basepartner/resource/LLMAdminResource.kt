@@ -7,6 +7,7 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import tw.zipe.basepartner.dto.ApiResponse
 import tw.zipe.basepartner.dto.ChatRequestDTO
 import tw.zipe.basepartner.exception.ServiceException
 
@@ -22,10 +23,9 @@ class LLMAdminResource() : BaseLLMResource() {
 
     @POST
     @Path("/chat")
-    fun chat(chatRequestDTO: ChatRequestDTO): String {
+    fun chat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         val llm = chatModelMap[chatRequestDTO.platform.name] ?: throw ServiceException("Did not find the LLM model")
-
-        return baseChat(llm, chatRequestDTO.message)
+        return ApiResponse.success(baseChat(llm, chatRequestDTO.message))
     }
 
     @POST
