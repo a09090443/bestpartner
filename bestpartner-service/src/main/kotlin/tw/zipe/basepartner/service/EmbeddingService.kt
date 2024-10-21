@@ -7,6 +7,7 @@ import dev.langchain4j.data.embedding.Embedding
 import dev.langchain4j.data.segment.TextSegment
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
+import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
@@ -22,8 +23,6 @@ import tw.zipe.basepartner.util.logger
  */
 @ApplicationScoped
 class EmbeddingService(
-//    @Named("embeddingModelMap") val embeddingModelMap: Map<String, EmbeddingModel>,
-//    @Named("vectorStoreMap") val vectorStoreMap: Map<String, EmbeddingStore<TextSegment>>,
     val llmService: LLMService,
     val vectorStoreSettingRepository: VectorStoreSettingRepository
 ) {
@@ -42,6 +41,9 @@ class EmbeddingService(
         vectorStoreSettingRepository.persist(vectorStoreSettingEntity)
     }
 
+    /**
+     * 取得向量資料庫設定
+     */
     fun getVectorStoreSetting(id: String): VectorStoreDTO? {
         val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
         return vectorStoreSettingEntity?.let {
@@ -54,7 +56,10 @@ class EmbeddingService(
         }
     }
 
-    fun buildVectorStore(id: String): EmbeddingStore<TextSegment>? {
+    /**
+     * 建立向量資料庫
+     */
+    fun buildVectorStore(id: String): EmbeddingStore<TextSegment> {
         val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
         return vectorStoreSettingEntity?.let {
             it.type.getVactorStore().embeddingStore(it.vectorSetting)
@@ -80,9 +85,19 @@ class EmbeddingService(
         val splitter = DocumentSplitters.recursive(filesForm.maxSegmentSize, filesForm.maxOverlapSize)
         val segments = splitter.splitAll(documents)
         val embeddings: List<Embedding> = embeddingModel.embedAll(segments)?.content() ?: return emptyList()
-        val ids = embeddingStore?.addAll(embeddings, segments)
+        val ids = embeddingStore.addAll(embeddings, segments)
 
         logger.info("embeddingDocs: ids = $ids")
-        return ids ?: emptyList()
+        return ids
+    }
+
+    /**
+     * 刪除向量資料
+     */
+    fun deleteVectorStore(vectorStoreDTO: VectorStoreDTO) {
+        val storeId = vectorStoreDTO.id ?: throw IllegalArgumentException("vectorStoreId is required")
+        val embeddingStore = this.buildVectorStore(storeId)
+        val filter = MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId)
+        embeddingStore.removeAll(filter)
     }
 }

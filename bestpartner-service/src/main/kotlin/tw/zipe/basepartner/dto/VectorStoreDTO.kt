@@ -15,4 +15,5 @@ class VectorStoreDTO {
     var alias: String = StringUtil.EMPTY_STRING
     var vectorStoreType: VectorStore = VectorStore.MILVUS
     var vectorStore: VectorStoreModel? = null
+    var knowledgeId = StringUtil.EMPTY_STRING
 }
