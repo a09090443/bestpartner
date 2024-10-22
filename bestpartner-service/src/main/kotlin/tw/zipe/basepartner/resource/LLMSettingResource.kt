@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.MediaType
 import tw.zipe.basepartner.dto.ApiResponse
 import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.service.LLMService
+import tw.zipe.basepartner.util.DTOValidator
 
 /**
  * @author Gary
@@ -25,6 +26,13 @@ class LLMSettingResource(
     @POST
     @Path("/saveLLM")
     fun saveLlm(llmDTO: LLMDTO): ApiResponse<String> {
+        DTOValidator.validate(llmDTO) {
+            validateNested("llmModel") {
+                requireNotEmpty("modelName")
+            }
+            throwOnInvalid()
+        }
+
         llmDTO.llmModel?.let {
             lLMService.saveLLMSetting(llmDTO)
         }
@@ -34,6 +42,15 @@ class LLMSettingResource(
     @POST
     @Path("/updateLLM")
     fun updateLlm(llmDTO: LLMDTO): ApiResponse<String> {
+        DTOValidator.validate(llmDTO) {
+            requireNotEmpty("id")
+            validateNested("llmModel") {
+                requireNotEmpty("id")
+                requireNotEmpty("modelName")
+            }
+            throwOnInvalid()
+        }
+
         llmDTO.llmModel?.let {
             lLMService.updateLLMSetting(llmDTO)
         }

@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 import tw.zipe.basepartner.dto.ApiResponse
+import tw.zipe.basepartner.util.logger
 
 /**
  * @author Gary
@@ -15,6 +16,9 @@ import tw.zipe.basepartner.dto.ApiResponse
  */
 @Provider
 class GlobalExceptionMapper : ExceptionMapper<Exception> {
+
+    private val logger = logger()
+
     @Inject
     lateinit var objectMapper: ObjectMapper
 
@@ -28,14 +32,19 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 code = 400,
                 message = exception.message ?: "Invalid request"
             )
+            is ValidationException -> ApiResponse<Nothing>(
+                code = 400,
+                message = exception.message ?: "DTO validation failed"
+            )
             else -> ApiResponse<Nothing>(
                 code = 500,
                 message = "Internal server error"
             )
         }
-
+        val message = objectMapper.writeValueAsString(response)
+        logger.error(message)
         return Response.status(response.code)
-            .entity(objectMapper.writeValueAsString(response))
+            .entity(message)
             .type(MediaType.APPLICATION_JSON)
             .build()
     }
