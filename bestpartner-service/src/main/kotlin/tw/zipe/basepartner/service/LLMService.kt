@@ -6,6 +6,7 @@ import tw.zipe.basepartner.dto.LLMDTO
 import tw.zipe.basepartner.entity.LLMSettingEntity
 import tw.zipe.basepartner.enumerate.ModelType
 import tw.zipe.basepartner.enumerate.Platform
+import tw.zipe.basepartner.exception.ServiceException
 import tw.zipe.basepartner.model.LLModel
 import tw.zipe.basepartner.repository.LLMSettingRepository
 import tw.zipe.basepartner.util.DTOValidator
@@ -106,7 +107,7 @@ class LLMService(
     /**
      * 建立 LLM
      */
-    fun buildLLM(id: String): Any {
+    fun buildLLM(id: String, type: ModelType): Any {
         val llmSettingEntity = llmSettingRepository.findById(id)
         return llmSettingEntity?.let {
             when (it.type) {
@@ -114,6 +115,6 @@ class LLMService(
                 ModelType.CHAT -> it.platform.getLLMBean().chatModel(it.modelSetting!!)
                 ModelType.STREAMING_CHAT -> it.platform.getLLMBean().chatModelStreaming(it.modelSetting!!)
             }
-        } ?: throw IllegalArgumentException("LLM didn't exist")
+        } ?: throw ServiceException("LLM didn't exist")
     }
 }

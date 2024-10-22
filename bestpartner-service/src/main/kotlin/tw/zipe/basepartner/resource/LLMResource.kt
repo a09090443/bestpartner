@@ -17,6 +17,7 @@ import tw.zipe.basepartner.assistant.DynamicAssistant
 import tw.zipe.basepartner.config.PersistentChatMemoryStore
 import tw.zipe.basepartner.dto.ApiResponse
 import tw.zipe.basepartner.dto.ChatRequestDTO
+import tw.zipe.basepartner.enumerate.ModelType
 import tw.zipe.basepartner.service.LLMService
 import tw.zipe.basepartner.util.DTOValidator
 import tw.zipe.basepartner.util.instantiate
@@ -44,7 +45,7 @@ class LLMResource(
         }
 
         val llm = chatRequestDTO.llmId.let {
-            lLMService.buildLLM(it!!)
+            lLMService.buildLLM(it!!, ModelType.CHAT)
         }.let {
             it as ChatLanguageModel
         }
@@ -62,7 +63,7 @@ class LLMResource(
         }
 
         val llm = chatRequestDTO.llmId.let {
-            lLMService.buildLLM(it!!)
+            lLMService.buildLLM(it!!, ModelType.STREAMING_CHAT)
         }.let {
             it as StreamingChatLanguageModel
         }
