@@ -26,8 +26,8 @@ class LLMServiceTest {
     @Inject
     lateinit var llmService: LLMService
 
-//    @Test
-//    @Order(1)
+    @Test
+    @Order(1)
     fun `test add llm setting`() {
         val llmSetting = llmService.saveLLMSetting(llmDTO)
         llmDTO.id = llmSetting.id
@@ -37,19 +37,19 @@ class LLMServiceTest {
     @Test
     @Order(2)
     fun `test find llm setting`() {
-        val llmDTOResult = llmService.getLLMSetting("45d5c19f-819a-4a3a-83ad-d76812f97db0")
+        val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)
         assertEquals(llmDTO.id, llmDTOResult?.id)
     }
 
-//    @Test
-//    @Order(3)
+    @Test
+    @Order(3)
     fun `test build llm`() {
         val llm = llmService.buildLLM(llmDTO.id!!)
         assertNotNull(llm)
     }
 
-//    @Test
-//    @Order(4)
+    @Test
+    @Order(4)
     fun `test update llm setting`() {
         llmDTO.modelType = ModelType.EMBEDDING
         llmDTO.llmModel?.modelName = "llama3.2:latest"
@@ -58,8 +58,8 @@ class LLMServiceTest {
         assertEquals(llmDTO.modelType, llmDTOResult?.modelType)
     }
 
-//    @Test
-//    @Order(5)
+    @Test
+    @Order(5)
     fun `test delete llm setting`() {
         llmService.deleteLLMSetting(llmDTO.id!!)
         val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)

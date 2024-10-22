@@ -13,6 +13,7 @@ import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.basepartner.dto.VectorStoreDTO
 import tw.zipe.basepartner.entity.VectorStoreSettingEntity
+import tw.zipe.basepartner.enumerate.ModelType
 import tw.zipe.basepartner.form.FilesFromRequest
 import tw.zipe.basepartner.repository.VectorStoreSettingRepository
 import tw.zipe.basepartner.util.DTOValidator
@@ -75,7 +76,7 @@ class EmbeddingService(
         filesForm: FilesFromRequest
     ): List<String> {
         val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
-        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId).let { it as EmbeddingModel }
+        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
 
         val documents = files.map { file ->
             val document = FileSystemDocumentLoader.loadDocument(file.uploadedFile(), ApacheTikaDocumentParser())
