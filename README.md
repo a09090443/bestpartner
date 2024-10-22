@@ -103,6 +103,10 @@ bestpartner
 * Postman latest
 * H2 Database latest
 
+## 程式執行注意事項
+- 目前使用H2 Database，可在application.properties中設定
+- 初始化資料庫可使用Flyway，可在application.properties中設定，quarkus.flyway.migrate-at-start = true
+
 ## 程式打包執行
 1. 切換至 bestpartner-service 目錄,執行 gradle clean build -x test -Dquarkus.package.type=uber-jar -Dquarkus.profile=${profile}
 - ${profile} 可取代 dev, sit, prod
