@@ -8,6 +8,7 @@ import tw.zipe.basepartner.enumerate.ModelType
 import tw.zipe.basepartner.enumerate.Platform
 import tw.zipe.basepartner.model.LLModel
 import tw.zipe.basepartner.repository.LLMSettingRepository
+import tw.zipe.basepartner.util.DTOValidator
 
 /**
  * @author Gary
@@ -72,7 +73,10 @@ class LLMService(
      */
     @Transactional
     fun updateLLMSetting(llmDTO: LLMDTO) {
-        llmDTO.id ?: throw IllegalArgumentException("llmId is required")
+        DTOValidator.validate(llmDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
 
         val llmSettingEntity = LLMSettingEntity()
         llmSettingEntity.id = llmDTO.id
@@ -110,6 +114,6 @@ class LLMService(
                 ModelType.CHAT -> it.platform.getLLMBean().chatModel(it.modelSetting!!)
                 ModelType.STREAMING_CHAT -> it.platform.getLLMBean().chatModelStreaming(it.modelSetting!!)
             }
-        } ?: throw IllegalArgumentException("llmId didn't exist")
+        } ?: throw IllegalArgumentException("LLM didn't exist")
     }
 }

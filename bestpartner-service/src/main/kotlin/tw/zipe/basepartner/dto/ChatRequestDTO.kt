@@ -7,8 +7,8 @@ import kotlinx.serialization.Serializable
  * @created 2024/10/07
  */
 @Serializable
-data class ChatRequestDTO(
-    val message: String,
+class ChatRequestDTO(
+    val message: String? = null,
     val promptContent: String? = null,
     val isRemember: Boolean = false,
     val memory: Memory? = null,

@@ -10,6 +10,7 @@ import tw.zipe.basepartner.dto.ApiResponse
 import tw.zipe.basepartner.dto.VectorStoreDTO
 import tw.zipe.basepartner.form.FilesFromRequest
 import tw.zipe.basepartner.service.EmbeddingService
+import tw.zipe.basepartner.util.DTOValidator
 import tw.zipe.basepartner.util.logger
 
 /**
@@ -28,6 +29,13 @@ class LLMVectorResource(
     @POST
     @Path("/save")
     fun saveVectorStore(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
+        DTOValidator.validate(vectorStoreDTO) {
+            validateNested("vectorStore") {
+                requireNotEmpty("collectionName")
+                requireNotEmpty("dimension")
+            }
+            throwOnInvalid()
+        }
         embeddingService.saveVectorStore(vectorStoreDTO)
         return ApiResponse.success("成功儲存向量資料庫設定")
     }
@@ -35,8 +43,15 @@ class LLMVectorResource(
     @POST
     @Path("/update")
     fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
-
-//        embeddingService.saveVectorStore(vectorStoreDTO)
+        DTOValidator.validate(vectorStoreDTO) {
+            requireNotEmpty("id")
+            validateNested("vectorStore") {
+                requireNotEmpty("collectionName")
+                requireNotEmpty("dimension")
+            }
+            throwOnInvalid()
+        }
+        embeddingService.saveVectorStore(vectorStoreDTO)
         return ApiResponse.success("成功儲存向量資料庫設定")
     }
 

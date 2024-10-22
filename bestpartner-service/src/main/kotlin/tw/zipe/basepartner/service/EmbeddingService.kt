@@ -15,6 +15,7 @@ import tw.zipe.basepartner.dto.VectorStoreDTO
 import tw.zipe.basepartner.entity.VectorStoreSettingEntity
 import tw.zipe.basepartner.form.FilesFromRequest
 import tw.zipe.basepartner.repository.VectorStoreSettingRepository
+import tw.zipe.basepartner.util.DTOValidator
 import tw.zipe.basepartner.util.logger
 
 /**
@@ -95,6 +96,11 @@ class EmbeddingService(
      * 刪除向量資料
      */
     fun deleteVectorStore(vectorStoreDTO: VectorStoreDTO) {
+        DTOValidator.validate(vectorStoreDTO) {
+            requireNotEmpty("id")
+            requireNotEmpty("knowledgeId")
+            throwOnInvalid()
+        }
         val storeId = vectorStoreDTO.id ?: throw IllegalArgumentException("vectorStoreId is required")
         val embeddingStore = this.buildVectorStore(storeId)
         val filter = MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId)
