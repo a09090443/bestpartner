@@ -4,8 +4,12 @@ BestPartner project
 ======================
 ## 說明
 1. 該專案為一個AI應用大平台，可動態建立 AI agent 並支援多種 AI 模型
-2. 目前僅支援 OpenAI 及 Ollama 平台
-3. 皆以 Ollama 為預設平台
+2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
+
+## 功能
+1. 支援 OpenAI 及 Ollama 平台
+2. 支援 Chroma 及 Milvus 向量資料庫
+3. 可由資料庫設定 LLM 模型並可動態切換
 
 ## 目錄結構
 ```
@@ -45,23 +49,7 @@ bestpartner
 │  └─resources
 │      └─db
 │          └─migration
-├─native-test
-│  └─kotlin
-│      └─tw
-│          └─zipe
-│              └─basepartner
 ├─docs
-│  ├─images
-│  │      service-start.png
-│  │
-│  ├─postman
-│  │      basepartner.postman_collection.json
-│  │
-│  └─rag
-│      └─doc
-│          ├─profile
-│          ├─scb
-│          └─tcb
 ├─ .gitignore
 ├─ build.gradle.kts
 ├─ gradle.properties
@@ -116,6 +104,12 @@ bestpartner
 ![](docs/images/service-start.png)
 
 ## 開發紀錄
+* 2024.10.23 BestPartner 0.1.1 版本完成
+  + 新增 Chroma、Milvus 向量資料庫支援
+  + 新增 RAG 功能
+  + 新增 H2 Database 支援
+
+---
 * 2024.10.15 BestPartner 0.1.0 初版完成
 
 ## 版權聲明
