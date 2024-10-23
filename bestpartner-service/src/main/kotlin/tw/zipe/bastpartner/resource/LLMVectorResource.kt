@@ -75,6 +75,7 @@ class LLMVectorResource(
     @Path("/deleteData")
     fun deleteVectorStoreData(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
         embeddingService.deleteVectorStore(vectorStoreDTO)
+        embeddingService.deleteKnowledge(vectorStoreDTO.knowledgeId, vectorStoreDTO.files)
         return ApiResponse.success("成功刪除向量資料庫設定")
     }
 }

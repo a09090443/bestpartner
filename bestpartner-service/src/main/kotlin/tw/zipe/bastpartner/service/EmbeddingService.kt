@@ -121,6 +121,16 @@ class EmbeddingService(
     }
 
     /**
+     * 將文件資訊從資料庫中刪除
+     */
+    @Transactional
+    fun deleteKnowledge(knowledgeId: String, files: List<String>?) {
+        files?.map { file ->
+            llmDocRepository.deleteByKnowledgeIdAndFileName(knowledgeId, file)
+        } ?: llmDocRepository.deleteByKnowledgeIdAndFileName(knowledgeId, null)
+    }
+
+    /**
      * 刪除向量資料
      */
     fun deleteVectorStore(vectorStoreDTO: VectorStoreDTO) {
@@ -130,7 +140,14 @@ class EmbeddingService(
             throwOnInvalid()
         }
         val embeddingStore = this.buildVectorStore(vectorStoreDTO.id!!)
-        val filter = MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId)
+        val filter = MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId).let { filter ->
+            vectorStoreDTO.files?.let {
+                filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
+            }
+        }
+//        vectorStoreDTO.files?.let {
+//            filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
+//        }
         embeddingStore.removeAll(filter)
     }
 }

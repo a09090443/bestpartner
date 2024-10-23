@@ -16,4 +16,5 @@ class VectorStoreDTO {
     var vectorStoreType: VectorStore = VectorStore.MILVUS
     var vectorStore: VectorStoreModel? = null
     var knowledgeId = StringUtil.EMPTY_STRING
+    var files: List<String>? = null
 }
