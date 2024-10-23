@@ -16,7 +16,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"defaultPlatform\": \"OPENAI\",\r\n    \"message\": \"我是Gary\"\r\n}",
+							"raw": "{\r\n    \"llmId\": \"40605e2f-be98-47e1-9181-da9ca0d1df8b\",\r\n    \"message\": \"我想了解甚麼是 LLM 和 LMM\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -44,7 +44,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"defaultPlatform\": \"OLLAMA\",\r\n    \"message\": \"我是Gary\"\r\n}",
+							"raw": "{\r\n    \"llmId\": \"45d5c19f-819a-4a3a-83ad-d76812f97db0\",\r\n    \"message\": \"我是Gary\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -96,10 +96,73 @@
 			]
 		},
 		{
+			"name": "admin",
+			"item": [
+				{
+					"name": "chat",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"platform\": \"OPENAI\",\r\n    \"message\": \"你好!我是Gary\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/admin/chat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"admin",
+								"chat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "custom_assistant_chat",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"platform\": \"OPENAI\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Gary\",\r\n    \"promptContent\":\"你是專業的AI助理\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/admin/customAssistantChat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"admin",
+								"customAssistantChat"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "doc",
 			"item": [
 				{
-					"name": "rag_doc_upload",
+					"name": "MILVUS_rag_doc_upload",
 					"request": {
 						"method": "POST",
 						"header": [],
@@ -122,27 +185,285 @@
 									"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
 								},
 								{
-									"key": "embeddingModelName",
-									"value": "",
+									"key": "embeddingModelId",
+									"value": "b613df34-1c03-4657-8d08-2372d5f291ef",
 									"type": "text"
 								},
 								{
-									"key": "embeddingStoreName",
-									"value": "",
+									"key": "embeddingStoreId",
+									"value": "c",
 									"type": "text"
 								}
 							]
 						},
 						"url": {
-							"raw": "http://localhost/llm/vector/upload",
+							"raw": "http://{{domain}}/llm/vector/upload",
 							"protocol": "http",
 							"host": [
-								"localhost"
+								"{{domain}}"
 							],
 							"path": [
 								"llm",
 								"vector",
 								"upload"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CHROMA_rag_doc_upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "desc",
+									"value": "將文件上傳至向量資料庫",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": "postman-cloud:///1ef861ff-195a-48c0-861f-4f443fa8b50f"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
+								},
+								{
+									"key": "embeddingModelId",
+									"value": "b613df34-1c03-4657-8d08-2372d5f291ef",
+									"type": "text"
+								},
+								{
+									"key": "embeddingStoreId",
+									"value": "6ce3f1cd-d625-4a16-85a5-7b12f9852405",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/upload",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"upload"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MILVUS_del_doc",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\":\"d351ae41-b143-4a8b-8443-64f806a2602a\",\r\n    \"knowledgeId\":\"8a1440a7-4cb6-412a-b499-9d040bd04cba\",\r\n    \"files\":[\"profile.txt\",\"tw-cardrule.pdf\"]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/deleteData",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"deleteData"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "setting",
+			"item": [
+				{
+					"name": "MILVUS_save_vector_store_setting",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"alias\":\"local-test\",\r\n    \"vectorStoreType\":\"MILVUS\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://localhost:19530\",\r\n        \"collectionName\":\"ollama_local_collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CHROMA_save_vector_store_setting",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"alias\":\"chroma-local-test\",\r\n    \"vectorStoreType\":\"CHROMA\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://localhost:8000\",\r\n        \"collectionName\":\"chroma_local_collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OPENAI_save_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platform\": \"OPENAI\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OPENAI\",\r\n    \"apiKey\": \"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\",\r\n    // \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    // \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"saveLLM"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OPENAI_save_llm_embedding_Setting",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platform\": \"OPENAI\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OPENAI\",\r\n    \"apiKey\": \"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\",\r\n    // \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"text-embedding-3-small\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    // \"topK\": 40,\r\n    \"dimensions\": 1536,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"saveLLM"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OLLAMA_save_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"ollama_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platform\": \"OLLAMA\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OLLAMA\",\r\n    // \"apiKey\": \"sk-xxx\",\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"llama3.1:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"saveLLM"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OLLAMA_save_llm_embedding_Setting",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"ollama_local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platform\": \"OLLAMA\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OLLAMA\",\r\n    // \"apiKey\": \"sk-xxx\",\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"bge-m3:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"dimensions\": 1024,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"saveLLM"
 							]
 						}
 					},
