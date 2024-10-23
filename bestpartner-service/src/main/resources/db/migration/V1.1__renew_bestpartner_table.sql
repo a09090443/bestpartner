@@ -131,7 +131,7 @@ VALUES ('default_llm', 'OPENAI', 'system default llm', '2024-10-19 20:08:21.8333
 INSERT INTO PUBLIC.VECTOR_STORE_SETTING (ID, ACCOUNT, TYPE, ALIAS, VECTOR_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
                                          UPDATED_BY)
 VALUES ('8ef34f2f-5820-47ee-8743-894cacd0b711', 'SYSTEM', 'MILVUS', 'local-test',
-        JSON '{"url":"http://localhost:19530","username":null,"password":null,"collectionName":"local_collection","dimension":1536}',
+        JSON '{"url":"http://localhost:19530","username":null,"password":null,"collectionName":"milvus_local_collection","dimension":1536}',
         '2024-10-21 10:51:34.324418', '2024-10-21 10:51:34.324418', 'admin', 'admin');
 INSERT INTO PUBLIC.VECTOR_STORE_SETTING (ID, ACCOUNT, TYPE, ALIAS, VECTOR_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
                                          UPDATED_BY)
