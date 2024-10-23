@@ -53,6 +53,6 @@ class VectorStoreSettingEntity : BaseEntity() {
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "vector_setting", columnDefinition = "json", nullable = true)
-    var vectorSetting: VectorStoreModel? = null
+    lateinit var vectorSetting: VectorStoreModel
 
 }

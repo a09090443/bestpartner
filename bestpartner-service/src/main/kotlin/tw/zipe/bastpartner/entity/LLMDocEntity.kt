@@ -63,6 +63,6 @@ class LLMDocEntity : BaseEntity() {
      * 文件大小
      */
     @Column(name = "size", nullable = true)
-    var size: Int = 0
+    var size: Long = 0
 
 }
