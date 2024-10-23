@@ -48,7 +48,7 @@ dependencies {
 }
 
 group = "tw.zipe.basepartner"
-version = "0.1.1-SNAPSHOT"
+version = "0.1.2-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
