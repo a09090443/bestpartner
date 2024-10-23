@@ -102,12 +102,12 @@ CREATE TABLE `llm_user`
 INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
                                 UPDATED_BY)
 VALUES ('40605e2f-be98-47e1-9181-da9ca0d1df8b', 'SYSTEM', 'OPENAI', 'CHAT', 'openai_local_chat_test',
-        JSON '{"id":null,"platform":"OPENAI","apiKey":"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","url":null,"modelName":"gpt-4o-mini","temperature":0.7,"topP":0.5,"topK":null,"dimensions":null,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
+        JSON '{"id":null,"platform":"OPENAI","apiKey":"sk-xxx","url":null,"modelName":"gpt-4o-mini","temperature":0.7,"topP":0.5,"topK":null,"dimensions":null,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
         '2024-10-22 15:07:10.165269', '2024-10-22 15:07:10.165269', 'admin', 'admin');
 INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
                                 UPDATED_BY)
 VALUES ('488e9ad6-b3c1-420e-92a4-c3ff116ddae1', 'SYSTEM', 'OPENAI', 'EMBEDDING', 'local_embedding_test',
-        JSON '{"id":null,"platform":"OPENAI","apiKey":"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","url":null,"modelName":"text-embedding-3-small","temperature":0.7,"topP":0.5,"topK":40,"dimensions":1536,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
+        JSON '{"id":null,"platform":"OPENAI","apiKey":"sk-xxx","url":null,"modelName":"text-embedding-3-small","temperature":0.7,"topP":0.5,"topK":40,"dimensions":1536,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
         '2024-10-21 09:51:52.331191', '2024-10-21 09:51:52.331191', 'admin', 'admin');
 -- OLLAMA
 INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
