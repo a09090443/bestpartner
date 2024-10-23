@@ -48,6 +48,24 @@ CREATE TABLE `vector_store_setting`
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='向量資料庫設定表';
 
+DROP TABLE IF EXISTS `llm_doc`;
+CREATE TABLE `llm_doc`
+(
+    `id`              VARCHAR(36) NOT NULL COMMENT '主鍵',
+    `knowledge_id`    VARCHAR(36) NOT NULL COMMENT '知識庫ID',
+    `vector_store_id` VARCHAR(36)  DEFAULT NULL COMMENT '向量資料庫ID',
+    `name`            VARCHAR(255) DEFAULT NULL COMMENT '名稱',
+    `type`            VARCHAR(50)  DEFAULT NULL COMMENT '類型',
+    `url`             VARCHAR(255) DEFAULT NULL COMMENT '網址',
+    `description`     VARCHAR(255) DEFAULT NULL COMMENT '描述',
+    `size`            INT          DEFAULT NULL COMMENT '文件大小',
+    `created_at`      TIMESTAMP   NOT NULL COMMENT '創建時間',
+    `updated_at`      TIMESTAMP    DEFAULT NULL COMMENT '更新時間',
+    `created_by`      VARCHAR(50) COMMENT '創建者',
+    `updated_by`      VARCHAR(50) COMMENT '最後更新者',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件表';
+
 DROP TABLE IF EXISTS `llm_tool`;
 CREATE TABLE `llm_tool`
 (
