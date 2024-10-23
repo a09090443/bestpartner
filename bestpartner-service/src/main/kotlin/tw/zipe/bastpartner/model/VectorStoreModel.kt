@@ -12,5 +12,7 @@ data class VectorStoreModel(
     val username: String? = null,
     val password: String? = null,
     val collectionName: String? = null,
-    val dimension: Int? = null
+    val dimension: Int? = null,
+    val requestLog: Boolean = false,
+    val responseLog: Boolean = false
 )

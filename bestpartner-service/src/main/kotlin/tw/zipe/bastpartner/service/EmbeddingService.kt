@@ -8,6 +8,7 @@ import dev.langchain4j.data.segment.TextSegment
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.store.embedding.EmbeddingStore
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
+import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
@@ -42,7 +43,7 @@ class EmbeddingService(
         val vectorStoreSettingEntity = VectorStoreSettingEntity()
         vectorStoreSettingEntity.alias = vectorStoreDTO.alias
         vectorStoreSettingEntity.type = vectorStoreDTO.vectorStoreType
-        vectorStoreSettingEntity.vectorSetting = vectorStoreDTO.vectorStore
+        vectorStoreSettingEntity.vectorSetting = vectorStoreDTO.vectorStore!!
         vectorStoreSettingRepository.persist(vectorStoreSettingEntity)
     }
 
@@ -100,14 +101,23 @@ class EmbeddingService(
     /**
      * 將文件資訊存入知識庫中
      */
-    fun saveKnowledge(filesForm: FilesFromRequest) {
-        with(LLMDocEntity()) {
-            knowledgeId = filesForm.knowledgeId
-            name = filesForm.desc ?: ""
-            url = filesForm.fileUrl ?: ""
-            vectorStoreId = filesForm.embeddingStoreId
-            llmDocRepository.persist(this)
-        }
+    @Transactional
+    fun saveKnowledge(files: List<FileUpload>, filesForm: FilesFromRequest) {
+        val docs = files.map {
+            val llmDocEntity = LLMDocEntity()
+            with(llmDocEntity) {
+                knowledgeId = filesForm.knowledgeId
+                vectorStoreId = filesForm.embeddingStoreId
+                name = it.fileName()
+                description = filesForm.desc ?: StringUtil.EMPTY_STRING
+                type = it.fileName().split(".").last()
+                url = filesForm.fileUrl ?: StringUtil.EMPTY_STRING
+                size = it.size()
+                vectorStoreId = filesForm.embeddingStoreId
+            }
+            llmDocEntity
+        }.toList()
+        llmDocRepository.persist(docs)
     }
 
     /**
@@ -119,8 +129,7 @@ class EmbeddingService(
             requireNotEmpty("knowledgeId")
             throwOnInvalid()
         }
-        val storeId = vectorStoreDTO.id ?: throw IllegalArgumentException("vectorStoreId is required")
-        val embeddingStore = this.buildVectorStore(storeId)
+        val embeddingStore = this.buildVectorStore(vectorStoreDTO.id!!)
         val filter = MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId)
         embeddingStore.removeAll(filter)
     }

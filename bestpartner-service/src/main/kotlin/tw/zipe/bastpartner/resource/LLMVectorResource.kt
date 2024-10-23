@@ -59,11 +59,14 @@ class LLMVectorResource(
     @Path("/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest): ApiResponse<String> {
-        filesForm.file?.let {
+        filesForm.file?.let { file ->
             embeddingService.embeddingDocs(
-                it,
+                file,
                 filesForm
-            )
+            ).takeIf { ids -> ids.isNotEmpty() }.let {
+                embeddingService.saveKnowledge(file, filesForm)
+            }
+
         }
         return ApiResponse.success("成功上傳檔案")
     }

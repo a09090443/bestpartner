@@ -42,7 +42,7 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
             )
         }
         val message = objectMapper.writeValueAsString(response)
-        logger.error(message)
+        logger.error(message, exception)
         return Response.status(response.code)
             .entity(message)
             .type(MediaType.APPLICATION_JSON)
