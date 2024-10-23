@@ -5,6 +5,7 @@ BestPartner project
 ## 說明
 1. 該專案為一個AI應用大平台，可動態建立 AI agent 並支援多種 AI 模型
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
+3. 未來目標為類似 Dify 或 Langflow 平台，可自行建立 AI agent 並支援多種 AI 模型
 
 ## 功能
 1. 支援 OpenAI 及 Ollama 平台
