@@ -1,4 +1,4 @@
-package tw.zipe.bastpartner;
+package tw.zipe.bastpartner.util.time;
 
 import java.math.BigDecimal;
 import java.time.Duration;

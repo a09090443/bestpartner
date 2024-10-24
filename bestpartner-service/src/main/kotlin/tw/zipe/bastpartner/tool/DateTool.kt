@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.tool
 
 import dev.langchain4j.agent.tool.Tool
-import tw.zipe.bastpartner.DateTimeUtils
+import tw.zipe.bastpartner.util.time.DateTimeUtils
 
 /**
  * @author Gary
