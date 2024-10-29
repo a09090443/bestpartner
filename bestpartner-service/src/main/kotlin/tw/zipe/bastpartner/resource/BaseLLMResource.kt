@@ -5,6 +5,7 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.output.Response
 import dev.langchain4j.service.AiServices
+import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.inject.Inject
@@ -18,6 +19,9 @@ import tw.zipe.bastpartner.util.logger
  */
 abstract class BaseLLMResource {
     private val logger = logger()
+
+    @Inject
+    lateinit var identity: SecurityIdentity
 
     @Inject
     @Named("chatModelMap")

@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import tw.zipe.bastpartner.enumerate.UserStatus
 
 /**
  * @author Gary
@@ -60,9 +61,9 @@ class LLMUserEntity : BaseEntity() {
     var avatar: String = StringUtil.EMPTY_STRING
 
     /**
-     * status
+     * 狀態
      */
     @Column(name = "status", nullable = false)
-    var status: String = StringUtil.EMPTY_STRING
+    var status: UserStatus = UserStatus.INACTIVE
 
 }

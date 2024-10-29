@@ -30,6 +30,9 @@ dependencies {
     implementation("io.quarkus:quarkus-hibernate-orm-panache-kotlin")
     implementation("io.quarkus:quarkus-jdbc-h2")
     implementation("io.quarkus:quarkus-flyway")
+    implementation("io.quarkus:quarkus-security-jpa")
+    implementation("io.quarkus:quarkus-smallrye-jwt")
+    implementation("io.quarkus:quarkus-smallrye-jwt-build")
 
     implementation("dev.langchain4j:langchain4j:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-core:$langchain4jVersion")

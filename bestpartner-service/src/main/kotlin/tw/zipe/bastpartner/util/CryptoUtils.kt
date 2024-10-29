@@ -159,34 +159,3 @@ class CryptoUtils {
         }
     }
 }
-
-fun main() {
-    // 計算雜湊值
-//    val sha512Hash = CryptoUtils.sha512("Hello World")
-//    val sha256Hash = CryptoUtils.sha256("Hello World")
-
-// 載入憑證和金鑰
-    val publicKey = CryptoUtils.loadPublicKeyFromCertificate("./bestpartner-service/src/main/resources/cert/bestpartner.crt")
-    val privateKey = CryptoUtils.loadPrivateKeyFromPKCS12("./bestpartner-service/src/main/resources/cert/bestpartner.p12", "bestpartner", "bestpartner")
-
-// 加密和解密
-    val originalText = "sensitive data"
-    val encrypted = CryptoUtils.encrypt(originalText, publicKey)
-    val decrypted = CryptoUtils.decrypt(encrypted, privateKey)
-
-    // 生成 AES 金鑰
-    val aesKey = CryptoUtils.generateAesKey() // 預設 256 位元
-
-// CBC 模式加密（推薦）
-    val dataToEncrypt = "Hello, World!"
-    val encryptedResult = CryptoUtils.encryptAesCBC(dataToEncrypt, aesKey)
-    val encryptedData = encryptedResult["encrypted"]!! // 加密後的數據
-    val iv = encryptedResult["iv"]!! // 初始向量
-
-// CBC 模式解密
-    val decryptedData = CryptoUtils.decryptAesCBC(encryptedData, aesKey, iv)
-
-// ECB 模式（較簡單但安全性較低）
-    val encryptedECB = CryptoUtils.encryptAesECB(dataToEncrypt, aesKey)
-    val decryptedECB = CryptoUtils.decryptAesECB(encryptedECB, aesKey)
-}
