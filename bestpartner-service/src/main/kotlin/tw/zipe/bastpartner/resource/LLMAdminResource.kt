@@ -19,7 +19,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-class LLMAdminResource() : BaseLLMResource() {
+class LLMAdminResource : BaseLLMResource() {
 
     @POST
     @Path("/chat")

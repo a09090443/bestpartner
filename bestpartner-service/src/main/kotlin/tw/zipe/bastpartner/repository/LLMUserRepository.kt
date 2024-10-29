@@ -1,17 +1,66 @@
 package tw.zipe.bastpartner.repository
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
+import java.util.UUID
 import tw.zipe.bastpartner.entity.LLMUserEntity
+import tw.zipe.bastpartner.enumerate.UserStatus
 
 /**
  * @author Gary
  * @created 2024/10/14
  */
 @ApplicationScoped
-class LLMUserRepository : PanacheRepositoryBase<LLMUserEntity, String> {
+class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
 
     fun findByUsername(username: String) = find("username", username).firstResult()
 
-    fun deleteByUsername(username: String) = delete("username", username)
+    fun updateUserByNativeSQL(id: String, params: Map<String, Any>): Int {
+        val setClause = params.keys.joinToString(", ") { "$it = :$it" }
+        val sql = """
+            UPDATE llm_user
+            SET $setClause
+            WHERE id = :id
+        """.trimIndent()
+        val executor = createSqlExecutor()
+            .withSql(sql)
+            .withParamMap(params)
+        return executeUpdateWithTransaction(executor)
+    }
+
+    fun insertUserByNative(username: String, email: String): Int {
+        return createSqlExecutor()
+            .withSql(
+                """
+                INSERT INTO llm_user (id, username, email)
+                VALUES (:id, :username, :email)
+            """
+            )
+            .withParams(UUID.randomUUID().toString(), username, email)
+            .executeUpdate()
+    }
+
+    fun updateUserStatusByNative(id: String, status: UserStatus): Int {
+        val paramMap = mapOf("id" to id, "status" to status.ordinal)
+        val sql = """
+            UPDATE llm_user lm
+            SET lm.status = :status
+            WHERE lm.id = :id
+        """.trimIndent()
+        val executor = createSqlExecutor()
+            .withSql(sql)
+            .withParamMap(paramMap)
+        return executeUpdateWithTransaction(executor)
+    }
+
+//    fun findActiveUsersByNative(id: String, status: UserStatus): LLMUserEntity {
+//        val paramMap = mapOf("id" to id, "status" to status.ordinal)
+//
+//        val sql = """
+//            SELECT lm.id, lm.username, lm.nickname FROM llm_user lm
+//            WHERE lm.id = :id AND lm.status = :status
+//            ORDER BY created_at DESC
+//        """.trimIndent()
+//        val test = this.executeSelectOne(sql, paramMap, UserDTO::class.java)
+//        return LLMUserEntity()
+//    }
 }
