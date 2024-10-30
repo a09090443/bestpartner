@@ -38,32 +38,44 @@ class LLMUserResource(
 
     @POST
     @Path("/get")
-    fun get(userDTO: UserDTO): UserDTO {
+    fun get(userDTO: UserDTO): ApiResponse<UserDTO> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
             throwOnInvalid()
         }
-        return llmUserService.getUser(userDTO.id!!)
+        return ApiResponse.success(llmUserService.findUserById(userDTO.id!!))
     }
 
     @POST
     @Path("/switchStatus")
-    fun switchStatus(userDTO: UserDTO): UserDTO {
-        DTOValidator.validate(userDTO) {
-            requireNotEmpty("id")
-            throwOnInvalid()
-        }
-        return llmUserService.getUser(userDTO.id!!)
-    }
-
-    @POST
-    @Path("/update")
-    fun update(userDTO: UserDTO): UserDTO {
+    fun switchStatus(userDTO: UserDTO): ApiResponse<UserDTO> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
             requireNotEmpty("status")
             throwOnInvalid()
         }
-        return llmUserService.updateUser(userDTO)
+        llmUserService.updateUser(userDTO)
+        return ApiResponse.success(llmUserService.findUserById(userDTO.id!!))
+    }
+
+    @POST
+    @Path("/update")
+    fun update(userDTO: UserDTO): ApiResponse<UserDTO> {
+        DTOValidator.validate(userDTO) {
+            requireNotEmpty("id")
+            requireNotEmpty("status")
+            throwOnInvalid()
+        }
+        return ApiResponse.success(llmUserService.updateUser(userDTO))
+    }
+
+    @POST
+    @Path("/delete")
+    fun delete(userDTO: UserDTO): ApiResponse<Boolean> {
+        DTOValidator.validate(userDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
+        return ApiResponse.success(llmUserService.deleteUser(userDTO.id!!))
     }
 }

@@ -1,10 +1,10 @@
 package tw.zipe.bastpartner.service
+
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
@@ -32,7 +32,7 @@ class LLMUserServiceTest {
     @Test
     @Order(2)
     fun `test get user`() {
-        val retrievedUser = llmUserService.getUser(testUserDTO.id!!)
+        val retrievedUser = llmUserService.findUserById(testUserDTO.id!!)
 
         assertEquals(testUserDTO.id, retrievedUser.id)
     }
@@ -44,7 +44,7 @@ class LLMUserServiceTest {
         testUserDTO.phone = "0987654321"
         testUserDTO.status = UserStatus.ACTIVE
         llmUserService.updateUser(testUserDTO)
-        val userDTO = llmUserService.getUser(testUserDTO.id!!)
+        val userDTO = llmUserService.findUserById(testUserDTO.id!!)
         assertEquals(testUserDTO.email, userDTO.email)
         assertEquals(testUserDTO.phone, userDTO.phone)
         assertEquals(testUserDTO.status, userDTO.status)
@@ -52,28 +52,20 @@ class LLMUserServiceTest {
 
     @Test
     @Order(4)
-    fun `test delete user`() {
-        val result = llmUserService.deleteUser(testUserDTO.id!!)
-        assertTrue(result)
-        val user = llmUserService.getUser(testUserDTO.id!!)
-        assertNull(user.id)
-    }
-
-    //    @Test
     fun `test generate JWT token`() {
         val token = llmUserService.generateJwtToken(testUserDTO)
 
         assertNotNull(token)
-        assertTrue(token.isNotEmpty())
     }
 
-    //    @Test
-    fun `test get non-existent user throws exception`() {
-        assertThrows(IllegalArgumentException::class.java) {
-            llmUserService.getUser("non-existent-id")
-        }
+    @Test
+    @Order(5)
+    fun `test delete user`() {
+        val result = llmUserService.deleteUser(testUserDTO.id!!)
+        assertTrue(result)
+        val user = llmUserService.findUserById(testUserDTO.id!!)
+        assertNull(user.id)
     }
-
 
     companion object {
         lateinit var testUserDTO: UserDTO

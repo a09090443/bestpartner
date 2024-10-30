@@ -1,14 +1,10 @@
 package tw.zipe.bastpartner.entity
 
 import io.netty.util.internal.StringUtil
-import io.quarkus.security.jpa.Roles
 import jakarta.persistence.Column
-import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import tw.zipe.bastpartner.converter.PermissionSetConverter
-import tw.zipe.bastpartner.enumerate.Permission
 
 /**
  * @author Gary

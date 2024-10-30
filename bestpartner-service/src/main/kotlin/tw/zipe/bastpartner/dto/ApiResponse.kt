@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.dto
 
+import kong.unirest.HttpStatus
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,9 +15,9 @@ data class ApiResponse<T>(
 ) {
     companion object {
         fun <T> success(data: T): ApiResponse<T> =
-            ApiResponse(code = 200, message = "success", data = data)
+            ApiResponse(code = HttpStatus.OK, message = "success", data = data)
 
-        fun <T> error(message: String, code: Int = 500): ApiResponse<T> =
+        fun <T> error(message: String, code: Int = HttpStatus.INTERNAL_SERVER_ERROR): ApiResponse<T> =
             ApiResponse(code = code, message = message)
     }
 }
