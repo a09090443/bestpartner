@@ -1,15 +1,10 @@
 package tw.zipe.bastpartner.service
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity_.id
-import io.quarkus.security.identity.SecurityIdentity
+import io.netty.util.internal.StringUtil
 import io.smallrye.jwt.build.Jwt
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.inject.Inject
-import jakarta.persistence.EntityManager
 import jakarta.transaction.Transactional
-import java.util.stream.Collectors
-import org.apache.poi.ss.formula.functions.T
-import org.eclipse.microprofile.jwt.Claims
+import java.time.Duration
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
 import tw.zipe.bastpartner.enumerate.UserStatus
@@ -22,9 +17,7 @@ import tw.zipe.bastpartner.util.CryptoUtils
  */
 @ApplicationScoped
 class LLMUserService(
-    val llmUserRepository: LLMUserRepository,
-    val entityManager: EntityManager,
-    val identity: SecurityIdentity
+    val llmUserRepository: LLMUserRepository
 ) {
 
     @Transactional
@@ -43,7 +36,7 @@ class LLMUserService(
         return userDTO
     }
 
-    fun getUser(userId: String): UserDTO {
+    fun findUserById(userId: String): UserDTO {
         return llmUserRepository.findById(userId)?.run {
             UserDTO(
                 id = this.id,
@@ -55,6 +48,10 @@ class LLMUserService(
                 status = this.status
             )
         } ?: UserDTO()
+    }
+
+    fun loginVerification(email: String, password: String): String? {
+        return llmUserRepository.findUserByEmail(email).takeIf { it?.password == CryptoUtils.sha512(password) }.let { it?.id }
     }
 
     @Transactional
@@ -80,7 +77,7 @@ class LLMUserService(
         return Jwt.issuer("my-issuer")
             .upn("Gary")
             .groups(permissions)
-            .expiresIn(500)
+            .expiresIn(Duration.ofDays(120))
             .claim("測試", "test")
             .sign();
     }

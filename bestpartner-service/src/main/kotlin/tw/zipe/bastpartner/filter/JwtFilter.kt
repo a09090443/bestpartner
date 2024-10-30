@@ -1,28 +1,46 @@
 package tw.zipe.bastpartner.filter
 
-import jakarta.annotation.Priority
+import io.quarkus.security.identity.SecurityIdentity
+import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
-import jakarta.ws.rs.Priorities
 import jakarta.ws.rs.container.ContainerRequestContext
 import jakarta.ws.rs.container.ContainerRequestFilter
+import jakarta.ws.rs.container.PreMatching
+import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.ext.Provider
-import org.eclipse.microprofile.jwt.JsonWebToken
+import tw.zipe.bastpartner.service.JwtService
 
 /**
  * @author Gary
  * @created 2024/10/25
  */
 @Provider
-@Priority(Priorities.AUTHENTICATION)
+@PreMatching
+@ApplicationScoped
 class JwtFilter : ContainerRequestFilter {
 
     @Inject
-    lateinit var jwt:JsonWebToken
+    lateinit var jwtService: JwtService
 
-    override fun filter(requestContext: ContainerRequestContext?) {
-        if (jwt.getRawToken() == null || jwt.getClaimNames() == null) {
-            println("jwt is null")
-//            requestContext?.abortWith(Response.status(Response.Status.UNAUTHORIZED).build());
+    @Inject
+    lateinit var securityIdentity: SecurityIdentity
+
+    override fun filter(requestContext: ContainerRequestContext) {
+        val token = extractToken(requestContext)
+
+        if (token != null && jwtService.isTokenNeedingRefresh(token)) {
+            val username = securityIdentity.principal.name
+            val newToken = jwtService.generateJwtToken(username)
+
+            // 在響應頭中添加新的token
+            requestContext.headers.add("New-Token", newToken)
         }
+    }
+
+    private fun extractToken(requestContext: ContainerRequestContext): String? {
+        val authHeader = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)
+        return if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            authHeader.substring(7)
+        } else null
     }
 }

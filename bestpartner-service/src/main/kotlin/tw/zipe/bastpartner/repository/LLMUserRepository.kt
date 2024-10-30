@@ -2,6 +2,8 @@ package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
 import java.util.UUID
+import tw.zipe.bastpartner.dto.PermissionDTO
+import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
 import tw.zipe.bastpartner.enumerate.UserStatus
 
@@ -12,7 +14,7 @@ import tw.zipe.bastpartner.enumerate.UserStatus
 @ApplicationScoped
 class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
 
-    fun findByUsername(username: String) = find("username", username).firstResult()
+    fun findUserByEmail(email: String) = find("email", email).firstResult()
 
     fun updateUserByNativeSQL(id: String, params: Map<String, Any>): Int {
         val setClause = params.keys.joinToString(", ") { "$it = :$it" }
@@ -52,15 +54,18 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
         return executeUpdateWithTransaction(executor)
     }
 
-//    fun findActiveUsersByNative(id: String, status: UserStatus): LLMUserEntity {
-//        val paramMap = mapOf("id" to id, "status" to status.ordinal)
-//
-//        val sql = """
-//            SELECT lm.id, lm.username, lm.nickname FROM llm_user lm
-//            WHERE lm.id = :id AND lm.status = :status
-//            ORDER BY created_at DESC
-//        """.trimIndent()
-//        val test = this.executeSelectOne(sql, paramMap, UserDTO::class.java)
-//        return LLMUserEntity()
-//    }
+    fun findUserPermissionByStatus(id: String, status: UserStatus): List<PermissionDTO> {
+        val paramMap = mapOf("id" to id, "status" to status.ordinal)
+
+        val sql = """
+            SELECT lp.num, lp.name
+            FROM llm_user lm
+                     JOIN llm_user_role lur ON lm.id = lur.user_id
+                     JOIN llm_role_permission lrp ON lur.ROLE_NUM = lrp.ROLE_NUM
+                     JOIN llm_permission lp ON lrp.PERMISSION_NUM = lp.NUM
+            WHERE lm.id = :id AND lm.id = :id AND lm.status = :status
+            ORDER BY lm.created_at DESC
+        """.trimIndent()
+        return this.executeSelect(sql, paramMap, PermissionDTO::class.java)
+    }
 }

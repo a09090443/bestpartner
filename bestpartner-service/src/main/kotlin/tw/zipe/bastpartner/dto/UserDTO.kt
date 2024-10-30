@@ -17,5 +17,6 @@ class UserDTO(
     var phone: String? = null,
     var email: String? = null,
     var avatar: String? = null,
-    var status: UserStatus? = UserStatus.INACTIVE
+    var status: UserStatus? = UserStatus.INACTIVE,
+    var permission: PermissionDTO? = null
 )
