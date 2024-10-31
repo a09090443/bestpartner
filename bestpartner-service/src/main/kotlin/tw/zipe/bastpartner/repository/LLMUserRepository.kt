@@ -17,7 +17,8 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
     fun findUserByEmail(email: String) = find("email", email).firstResult()
 
     fun updateUserByNativeSQL(id: String, params: Map<String, Any>): Int {
-        val setClause = params.keys.joinToString(", ") { "$it = :$it" }
+        val paramsWithoutId = params.filterKeys { it != "id" }
+        val setClause = paramsWithoutId.keys.joinToString(", ") { "$it = :$it" }
         val sql = """
             UPDATE llm_user
             SET $setClause
@@ -63,7 +64,7 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
                      JOIN llm_user_role lur ON lm.id = lur.user_id
                      JOIN llm_role_permission lrp ON lur.ROLE_NUM = lrp.ROLE_NUM
                      JOIN llm_permission lp ON lrp.PERMISSION_NUM = lp.NUM
-            WHERE lm.id = :id AND lm.id = :id AND lm.status = :status
+            WHERE lm.id = :id AND lm.status = :status
             ORDER BY lm.created_at DESC
         """.trimIndent()
         return this.executeSelect(sql, paramMap, PermissionDTO::class.java)

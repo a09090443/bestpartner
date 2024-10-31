@@ -5,8 +5,12 @@ import io.smallrye.jwt.build.Jwt
 import jakarta.enterprise.context.ApplicationScoped
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.jose4j.json.JsonUtil
+import org.jose4j.jws.JsonWebSignature
+import org.jose4j.jwx.JsonWebStructure
 import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.repository.LLMUserRepository
+
 
 /**
  * @author Gary
@@ -26,24 +30,38 @@ class JwtService(
     /**
      * 生成 JWT 權杖
      */
-    fun generateJwtToken(userId: String): String {
+    fun generateJwtToken(userId: String, permissions: Set<String?>): String {
         val expirationTime = Instant.now().plus(TOKEN_VALIDITY_MINUTES, ChronoUnit.MINUTES)
-        val permissions =
-            llmUserRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet()
+//        val permissions =
+//            llmUserRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet()
 
         return Jwt.issuer(ISSUER)
             .upn(userId)
-            .groups(permissions)
+            .groups( permissions.ifEmpty { llmUserRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet() })
             .issuedAt(Instant.now())
             .expiresAt(expirationTime)
             .sign();
     }
 
     /**
-     * 檢查 JWT 是否需要重新生成
+     * 檢查 JWT 是否已過期
+     */
+    fun isTokenExpired(token: String): Boolean {
+        return try {
+            val jwt = parser.parse(token)
+            val expiration = Instant.ofEpochSecond(jwt.expirationTime)
+            expiration.isBefore(Instant.now())
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+    /**
+     * 檢查 JWT 是否需要重新生成（過期前5分鐘）
      */
     fun isTokenNeedingRefresh(token: String): Boolean {
         try {
+
             val jwt = parser.parse(token)
             val expiration = Instant.ofEpochSecond(jwt.expirationTime)
             val refreshThreshold = Instant.now().plus(REFRESH_THRESHOLD_MINUTES, ChronoUnit.MINUTES)
@@ -52,5 +70,15 @@ class JwtService(
         } catch (e: Exception) {
             return true
         }
+    }
+
+    fun getTokenPayload(token: String): Map<String, Any>? {
+        val joseObject = JsonWebStructure.fromCompactSerialization(token)
+        val payload: String
+        if (joseObject is JsonWebSignature) {
+            payload = joseObject.unverifiedPayload
+            return JsonUtil.parseJson(payload)
+        }
+        return null
     }
 }

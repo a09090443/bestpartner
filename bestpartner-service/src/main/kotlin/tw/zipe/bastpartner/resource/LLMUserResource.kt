@@ -25,7 +25,7 @@ class LLMUserResource(
 
     @POST
     @Path("/register")
-    fun register(userDTO: UserDTO): ApiResponse<String> {
+    fun register(userDTO: UserDTO): ApiResponse<UserDTO> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("username")
             requireNotEmpty("password")
@@ -33,7 +33,7 @@ class LLMUserResource(
             throwOnInvalid()
         }
         llmUserService.register(userDTO)
-        return ApiResponse.success("success")
+        return ApiResponse.success(userDTO)
     }
 
     @POST
@@ -63,10 +63,12 @@ class LLMUserResource(
     fun update(userDTO: UserDTO): ApiResponse<UserDTO> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
+            requireNotEmpty("email")
             requireNotEmpty("status")
             throwOnInvalid()
         }
-        return ApiResponse.success(llmUserService.updateUser(userDTO))
+        llmUserService.updateUser(userDTO)
+        return ApiResponse.success(userDTO)
     }
 
     @POST

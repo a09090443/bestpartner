@@ -2,6 +2,7 @@ package tw.zipe.bastpartner.resource
 
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.PermitAll
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
@@ -44,14 +45,14 @@ class LoginResource(
         val loginResult = llmUserService.loginVerification(userDTO.email!!, userDTO.password)
             ?: return ApiResponse.error("login fail", HttpStatus.UNAUTHORIZED)
         return loginResult.let {
-            val token = jwtService.generateJwtToken(it)
+            val token = jwtService.generateJwtToken(it, setOf())
             ApiResponse.success(token)
         }
     }
 
     @POST
     @Path("/check")
-//    @RolesAllowed("VIEW_ADMIN_DETAILS")
+    @RolesAllowed("user-read")
     fun check(@Context ctx: SecurityContext): String {
         println(identity.principal.name)
         println(ctx.userPrincipal)

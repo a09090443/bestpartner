@@ -21,7 +21,7 @@ class LLMUserService(
 ) {
 
     @Transactional
-    fun register(userDTO: UserDTO): UserDTO {
+    fun register(userDTO: UserDTO) {
         with(LLMUserEntity()) {
             username = userDTO.username
             password = CryptoUtils.sha512(userDTO.password)
@@ -33,7 +33,6 @@ class LLMUserService(
             llmUserRepository.persist(this)
             userDTO.id = this.id
         }
-        return userDTO
     }
 
     fun findUserById(userId: String): UserDTO {
@@ -55,7 +54,7 @@ class LLMUserService(
     }
 
     @Transactional
-    fun updateUser(userDTO: UserDTO): UserDTO {
+    fun updateUser(userDTO: UserDTO) {
         val paramMap = mapOf(
             "id" to userDTO.id!!,
             "username" to userDTO.username,
@@ -66,7 +65,6 @@ class LLMUserService(
             "status" to userDTO.status!!
         )
         llmUserRepository.updateUserByNativeSQL(userDTO.id!!, paramMap)
-        return UserDTO()
     }
 
     @Transactional
