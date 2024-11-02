@@ -32,9 +32,6 @@ class JwtService(
      */
     fun generateJwtToken(userId: String, permissions: Set<String?>): String {
         val expirationTime = Instant.now().plus(TOKEN_VALIDITY_MINUTES, ChronoUnit.MINUTES)
-//        val permissions =
-//            llmUserRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet()
-
         return Jwt.issuer(ISSUER)
             .upn(userId)
             .groups( permissions.ifEmpty { llmUserRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet() })

@@ -1,8 +1,8 @@
 package tw.zipe.bastpartner.filter
 
+import io.netty.util.internal.StringUtil
 import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.inject.Inject
 import jakarta.ws.rs.Priorities
 import jakarta.ws.rs.container.ContainerRequestContext
 import jakarta.ws.rs.container.ContainerRequestFilter
@@ -21,10 +21,9 @@ import tw.zipe.bastpartner.service.JwtService
 @PreMatching
 @ApplicationScoped
 @Priority(Priorities.AUTHENTICATION)
-class JwtFilter : ContainerRequestFilter {
-
-    @Inject
-    lateinit var jwtService: JwtService
+class JwtFilter(
+    val jwtService: JwtService
+) : ContainerRequestFilter {
 
     override fun filter(requestContext: ContainerRequestContext) {
         val token = extractToken(requestContext) ?: return
@@ -33,26 +32,18 @@ class JwtFilter : ContainerRequestFilter {
             jwtService.isTokenNeedingRefresh(token) -> {
                 // Token接近過期，生成新token
                 handleTokenRefresh(requestContext, payload)
-                throw JwtValidationException("憑證過期，請重新登入")
             }
 
             jwtService.isTokenExpired(token) -> {
                 // Token已過期，嘗試重新生成
-                handleTokenRefresh(requestContext, payload)
+                throw JwtValidationException("憑證過期，請重新登入")
             }
         }
     }
 
-    private fun checkUserPermission(payload: Map<String, Any>?): Boolean {
-        // 自定义权限检查逻辑
-        // 比如：检查用户是否具有所需的角色
-        val permissions = payload?.get("groups") as? List<*> ?: return false
-        return permissions.contains("required-role")  // 假设需要 "required-role" 权限
-    }
-
-    private fun handleTokenRefresh(requestContext: ContainerRequestContext, payload: Map<String, Any>?) {
+    private fun handleTokenRefresh(requestContext: ContainerRequestContext, payload: Map<String, Any>?): String {
         try {
-            val userId = requestContext.getHeaderString("user-id") ?: throw Exception("user-id not found")
+            val userId = payload?.let { content -> (content["upn"] as? String) }.orEmpty()
             val permissions = payload?.let { content ->
                 (content["groups"] as? List<*>)?.mapNotNull { it as? String }?.toSet()
             } ?: emptySet()
@@ -65,6 +56,7 @@ class JwtFilter : ContainerRequestFilter {
 
             // 在響應頭中添加新的token
             requestContext.headers.add("New-Token", newToken)
+            return newToken
         } catch (e: Exception) {
             requestContext.abortWith(
                 Response.status(Response.Status.UNAUTHORIZED)
@@ -72,6 +64,7 @@ class JwtFilter : ContainerRequestFilter {
                     .build()
             )
         }
+        return StringUtil.EMPTY_STRING
     }
 
     private fun extractToken(requestContext: ContainerRequestContext): String? {

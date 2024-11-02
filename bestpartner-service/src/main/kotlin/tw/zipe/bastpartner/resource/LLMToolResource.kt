@@ -17,7 +17,7 @@ import tw.zipe.bastpartner.service.ToolService
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-class ToolResource(
+class LLMToolResource(
     val toolService: ToolService
 ) {
 
