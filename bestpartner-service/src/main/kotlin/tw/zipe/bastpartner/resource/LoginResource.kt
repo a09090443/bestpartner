@@ -1,8 +1,8 @@
 package tw.zipe.bastpartner.resource
 
+import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.PermitAll
-import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
@@ -52,7 +52,8 @@ class LoginResource(
 
     @POST
     @Path("/check")
-    @RolesAllowed("user-read")
+//    @RolesAllowed("user-read")
+    @Authenticated
     fun check(@Context ctx: SecurityContext): String {
         println(identity.principal.name)
         println(ctx.userPrincipal)

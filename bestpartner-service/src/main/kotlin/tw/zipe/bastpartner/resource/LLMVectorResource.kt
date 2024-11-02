@@ -2,6 +2,7 @@ package tw.zipe.bastpartner.resource
 
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
@@ -71,7 +72,7 @@ class LLMVectorResource(
         return ApiResponse.success("成功上傳檔案")
     }
 
-    @POST
+    @DELETE
     @Path("/deleteData")
     fun deleteVectorStoreData(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
         embeddingService.deleteVectorStore(vectorStoreDTO)
