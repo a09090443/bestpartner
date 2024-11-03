@@ -7,6 +7,11 @@ BestPartner project
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
 3. 未來目標為類似 Dify 或 Langflow 平台，可自行建立 AI agent 並支援多種 AI 模型
 
+## 1.2 版本變更說明
+1. 支援 RBAC 功能，請先使用 http://localhost/login/ 取得 jwt 令牌，可參考 postman 中 auth -> login 範例
+2. 所有 API 還未有權限管理，之後版本會加入權限管理
+3. 增加系統設定表，關於系統部分設定未來皆會規劃到該表中
+
 ## 功能
 1. 支援 OpenAI 及 Ollama 平台
 2. 支援 Chroma 及 Milvus 向量資料庫
@@ -16,7 +21,7 @@ BestPartner project
 ```
 bestpartner
 ├─bestpartner-service
-└─src
+├─src
 ├─main
 │  ├─docker
 │  ├─java
@@ -35,9 +40,12 @@ bestpartner
 │  │              │  ├─chatmodel
 │  │              │  ├─embedding
 │  │              │  └─vector
+│  │              ├─converter
 │  │              ├─dto
 │  │              ├─entity
 │  │              ├─enumerate
+│  │              ├─exception
+│  │              ├─filter
 │  │              ├─form
 │  │              ├─model
 │  │              ├─properties
@@ -48,6 +56,7 @@ bestpartner
 │  │              ├─tool
 │  │              └─util
 │  └─resources
+│      ├─cert
 │      └─db
 │          └─migration
 ├─docs
@@ -105,6 +114,10 @@ bestpartner
 ![](docs/images/service-start.png)
 
 ## 開發紀錄
+* 2024.11.3 BestPartner 0.1.2 版本完成
+  + 支援 RBAC 功能
+  + 增加系統設定表
+
 * 2024.10.23 BestPartner 0.1.1 版本完成
   + 新增 Chroma、Milvus 向量資料庫支援
   + 新增 RAG 功能
