@@ -8,7 +8,7 @@ BestPartner project
 3. 未來目標為類似 Dify 或 Langflow 平台，可自行建立 AI agent 並支援多種 AI 模型
 
 ## 1.2 版本變更說明
-1. 支援 RBAC 功能，請先使用 http://localhost/login/ 取得 jwt 令牌，可參考 postman 中 auth -> login 範例
+1. 支援 RBAC 功能，請先使用 http://localhost/login/ 取得 jwt 令牌，可參考 postman 中 auth -> login 範例，管理員(admin/admin)
 2. 所有 API 還未有權限管理，之後版本會加入權限管理
 3. 增加系統設定表，關於系統部分設定未來皆會規劃到該表中
 
