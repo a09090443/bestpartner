@@ -14,6 +14,7 @@ val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
 val langchain4jVersion = "0.35.0"
+val kotlinSerializationVersion = "1.7.3"
 
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
@@ -44,7 +45,7 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Add this line
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion") // Add this line
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
