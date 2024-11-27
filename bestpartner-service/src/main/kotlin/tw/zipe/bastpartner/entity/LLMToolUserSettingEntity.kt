@@ -10,11 +10,11 @@ import jakarta.persistence.Table
 
 /**
  * @author Gary
- * @created 2024/10/14
+ * @created 2024/11/27
  */
 @Entity
-@Table(name = "llm_tool")
-class LLMToolEntity : BaseEntity() {
+@Table(name = "llm_tool_user_setting")
+class LLMToolUserSettingEntity : BaseEntity() {
     /**
      * 主鍵
      */
@@ -24,15 +24,21 @@ class LLMToolEntity : BaseEntity() {
     var id: String? = null
 
     /**
-     * 工具名稱
+     * 使用者ID
      */
-    @Column(name = "name", nullable = false)
-    var name: String = StringUtil.EMPTY_STRING
+    @Column(name = "user_id", nullable = false)
+    var userId: String = StringUtil.EMPTY_STRING
+
+    /**
+     * 工具ID
+     */
+    @Column(name = "tool_id", nullable = false)
+    var toolId: String = StringUtil.EMPTY_STRING
 
     /**
      * Class path
      */
-    @Column(name = "class_path", nullable = false)
-    var classPath: String = StringUtil.EMPTY_STRING
+    @Column(name = "setting_content", nullable = false)
+    var settingContent: String = StringUtil.EMPTY_STRING
 
 }

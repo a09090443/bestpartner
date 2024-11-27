@@ -18,7 +18,6 @@ import tw.zipe.bastpartner.service.JwtService
 import tw.zipe.bastpartner.service.LLMUserService
 import tw.zipe.bastpartner.util.DTOValidator
 
-
 /**
  * @author Gary
  * @created 2024/10/24

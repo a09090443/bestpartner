@@ -1,11 +1,17 @@
 package tw.zipe.bastpartner.service
 
+import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
-import java.util.UUID
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import tw.zipe.bastpartner.dto.ToolDTO
 import tw.zipe.bastpartner.entity.LLMToolEntity
+import tw.zipe.bastpartner.entity.LLMToolUserSettingEntity
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMToolRepository
+import tw.zipe.bastpartner.repository.LLMToolUserSettingRepository
 
 /**
  * @author Gary
@@ -13,7 +19,9 @@ import tw.zipe.bastpartner.repository.LLMToolRepository
  */
 @ApplicationScoped
 class ToolService(
-    val llmToolRepository: LLMToolRepository
+    val llmToolRepository: LLMToolRepository,
+    val llmToolUserSettingRepository: LLMToolUserSettingRepository,
+    val identity: SecurityIdentity
 ) {
     /**
      * 取得所有工具
@@ -25,11 +33,11 @@ class ToolService(
      */
     @Transactional
     fun registerTool(toolDTO: ToolDTO) {
-        val llmTool = LLMToolEntity()
-        llmTool.id = UUID.randomUUID().toString()
-        llmTool.name = toolDTO.name
-        llmTool.classPath = toolDTO.classPath
-        llmToolRepository.persist(llmTool).let { toolDTO.id = llmTool.id }
+        with(LLMToolEntity()) {
+            name = toolDTO.name
+            classPath = toolDTO.classPath
+            llmToolRepository.persist(this).let { toolDTO.id = id }
+        }
     }
 
     /**
@@ -42,4 +50,29 @@ class ToolService(
      */
     @Transactional
     fun removeTool(id: String) = llmToolRepository.deleteById(id)
+
+    /**
+     * 儲存使用者工具設定
+     */
+    @Transactional
+    fun saveSetting(toolDTO: ToolDTO) {
+        val user = identity.principal?.name?.takeIf { it.isNotEmpty() } ?: throw ServiceException("請確認已登入")
+
+        jsonStringToMap(toolDTO.settingContent)
+
+        llmToolRepository.findByName(toolDTO.name)?.let {
+            LLMToolUserSettingEntity().apply {
+                toolId = it.id.orEmpty()
+                userId = user
+                settingContent = toolDTO.settingContent
+                llmToolUserSettingRepository.persist(this)
+            }
+        }
+    }
+
+    fun jsonStringToMap(json: String): Map<String, JsonElement> {
+        val data = Json.parseToJsonElement(json)
+        require(data is JsonObject) { "settingContent 請確認為 Json 格式" }
+        return data
+    }
 }

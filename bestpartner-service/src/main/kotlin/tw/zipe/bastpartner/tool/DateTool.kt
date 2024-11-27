@@ -9,6 +9,6 @@ import tw.zipe.bastpartner.util.time.DateTimeUtils
  */
 class DateTool {
 
-    @Tool("return current time")
+    @Tool("取得現在日期時間，格式是yyyy-MM-dd HH:mm:ss")
     fun getCurrentTime() = DateTimeUtils.getDateNow(DateTimeUtils.dateTimeFormate1)
 }
