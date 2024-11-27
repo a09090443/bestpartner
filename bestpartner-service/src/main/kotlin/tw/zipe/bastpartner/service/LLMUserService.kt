@@ -1,6 +1,5 @@
 package tw.zipe.bastpartner.service
 
-import io.netty.util.internal.StringUtil
 import io.smallrye.jwt.build.Jwt
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
@@ -30,8 +29,7 @@ class LLMUserService(
             phone = userDTO.phone.orEmpty()
             avatar = userDTO.avatar.orEmpty()
             status = UserStatus.INACTIVE
-            llmUserRepository.persist(this)
-            userDTO.id = this.id
+            llmUserRepository.persist(this).let { userDTO.id = id }
         }
     }
 
@@ -50,7 +48,8 @@ class LLMUserService(
     }
 
     fun loginVerification(email: String, password: String): String? {
-        return llmUserRepository.findUserByEmail(email).takeIf { it?.password == CryptoUtils.sha512(password) }.let { it?.id }
+        return llmUserRepository.findUserByEmail(email).takeIf { it?.password == CryptoUtils.sha512(password) }
+            .let { it?.id }
     }
 
     @Transactional

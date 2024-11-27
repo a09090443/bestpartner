@@ -21,7 +21,7 @@ abstract class BaseLLMResource {
     private val logger = logger()
 
     @Inject
-    lateinit var identity: SecurityIdentity
+    protected lateinit var identity: SecurityIdentity
 
     @Inject
     @Named("chatModelMap")

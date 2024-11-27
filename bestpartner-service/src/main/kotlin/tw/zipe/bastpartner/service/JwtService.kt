@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.service
 
+import io.quarkus.runtime.Startup
 import io.smallrye.jwt.auth.principal.JWTParser
 import io.smallrye.jwt.build.Jwt
 import jakarta.enterprise.context.ApplicationScoped
@@ -10,7 +11,6 @@ import org.jose4j.jws.JsonWebSignature
 import org.jose4j.jwx.JsonWebStructure
 import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.repository.LLMUserRepository
-
 
 /**
  * @author Gary
@@ -25,6 +25,11 @@ class JwtService(
         private const val ISSUER = "bast-partner"
         private const val TOKEN_VALIDITY_MINUTES = 10L
         private const val REFRESH_THRESHOLD_MINUTES = 5L
+    }
+
+    @Startup
+    fun start(){
+        println("JwtService start")
     }
 
     /**

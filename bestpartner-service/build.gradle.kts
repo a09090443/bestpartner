@@ -13,7 +13,7 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "0.35.0"
+val langchain4jVersion = "0.36.0"
 val kotlinSerializationVersion = "1.7.3"
 
 dependencies {
@@ -44,6 +44,9 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom:$langchain4jVersion")
+
+    implementation("org.bsc.langgraph4j:langgraph4j-core-jdk8:1.0.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion") // Add this line
 
