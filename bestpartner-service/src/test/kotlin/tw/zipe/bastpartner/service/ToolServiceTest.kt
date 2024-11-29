@@ -49,7 +49,8 @@ class ToolServiceTest {
         fun init() {
             toolDTO = ToolDTO(
                 name = "DateTool",
-                classPath = "tw.zipe.basepartner.tool.DateTool"
+                classPath = "tw.zipe.basepartner.tool.DateTool",
+                settingContent = "settingContent"
             )
         }
     }

@@ -5,5 +5,6 @@ package tw.zipe.bastpartner.model.tool
  * @created 2024/11/22
  */
 data class GoogleSearchModel(
-    val apiKey: String
+    val apiKey: String,
+    val csi: String
 )
