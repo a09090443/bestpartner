@@ -35,4 +35,10 @@ class LLMToolEntity : BaseEntity() {
     @Column(name = "class_path", nullable = false)
     var classPath: String = StringUtil.EMPTY_STRING
 
+    /**
+     * 設定值欄位名稱, 以逗號分隔
+     */
+    @Column(name = "setting_fields", nullable = true)
+    var settingFields: String? = null
+
 }

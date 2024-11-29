@@ -12,5 +12,6 @@ class ToolDTO(
     var id: String? = null,
     val name: String,
     val classPath: String = StringUtil.EMPTY_STRING,
+    val settingFields: List<String>? = null,
     val settingContent: String = StringUtil.EMPTY_STRING
 )
