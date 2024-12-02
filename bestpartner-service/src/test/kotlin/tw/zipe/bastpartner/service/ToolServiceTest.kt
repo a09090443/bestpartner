@@ -30,7 +30,7 @@ class ToolServiceTest {
     @Test
     @Order(2)
     fun `test find tool by name`() {
-        val result = toolService.findToolByName(toolDTO.name)
+        val result = toolService.findToolByName(toolDTO.name!!)
         assertEquals(toolDTO.name, result?.name)
     }
 

@@ -40,13 +40,34 @@ class LLMToolResource(
     }
 
     @POST
+    @Path("/delete")
+    fun delete(toolDTO: ToolDTO): ApiResponse<Boolean> {
+        DTOValidator.validate(toolDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
+        return ApiResponse.success( toolService.deleteTool(toolDTO.id!!))
+    }
+
+    @POST
     @Path("/saveSetting")
-    fun saveSetting(toolDTO: ToolDTO): ApiResponse<String> {
+    fun saveSetting(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
             requireNotEmpty("id", "settingContent")
             throwOnInvalid()
         }
         toolService.saveSetting(toolDTO)
-        return ApiResponse.success("")
+        return ApiResponse.success(toolDTO)
+    }
+
+    @POST
+    @Path("/updateSetting")
+    fun updateSetting(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
+        DTOValidator.validate(toolDTO) {
+            requireNotEmpty("settingId", "settingContent")
+            throwOnInvalid()
+        }
+        toolService.updateSetting(toolDTO)
+        return ApiResponse.success(toolDTO)
     }
 }

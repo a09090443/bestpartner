@@ -10,7 +10,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 class ToolDTO(
     var id: String? = null,
-    val name: String,
+    var settingId: String? = null,
+    val name: String? = null,
     val classPath: String = StringUtil.EMPTY_STRING,
     val settingFields: List<String>? = null,
     val settingContent: String = StringUtil.EMPTY_STRING
