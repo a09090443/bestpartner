@@ -12,6 +12,7 @@ import java.lang.reflect.Field
 import java.lang.reflect.ParameterizedType
 import java.time.LocalDateTime
 import tw.zipe.bastpartner.entity.BaseEntity
+import tw.zipe.bastpartner.exception.ServiceException
 
 /**
  * 基/礎資料庫操作的抽象類別，提供通用的 CRUD 操作和進階查詢功能
@@ -402,6 +403,14 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
         return count("id = ?1", id) > 0
     }
 
+    protected fun initParamsMap(vararg params: Pair<String, Any>): Map<String, Any> {
+        val userName = identity?.principal?.name?.takeIf { it.isNotEmpty() } ?: throw ServiceException("請確認已登入")
+        val defaultParams = mapOf(
+            "updatedAt" to LocalDateTime.now(),
+            "updatedBy" to userName
+        )
+        return defaultParams + params.toMap()
+    }
     /**
      * 使用範例：
      *
