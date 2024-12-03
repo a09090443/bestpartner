@@ -99,42 +99,18 @@ CREATE TABLE `llm_user`
 
 -- 新增 LLM 模型資料
 -- OPENAI
-INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                UPDATED_BY)
-VALUES ('40605e2f-be98-47e1-9181-da9ca0d1df8b', 'SYSTEM', 'OPENAI', 'CHAT', 'openai_local_chat_test',
-        JSON '{"id":null,"platform":"OPENAI","apiKey":"sk-xxx","url":null,"modelName":"gpt-4o-mini","temperature":0.7,"topP":0.5,"topK":null,"dimensions":null,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
-        '2024-10-22 15:07:10.165269', '2024-10-22 15:07:10.165269', 'admin', 'admin');
-INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                UPDATED_BY)
-VALUES ('488e9ad6-b3c1-420e-92a4-c3ff116ddae1', 'SYSTEM', 'OPENAI', 'EMBEDDING', 'local_embedding_test',
-        JSON '{"id":null,"platform":"OPENAI","apiKey":"sk-xxx","url":null,"modelName":"text-embedding-3-small","temperature":0.7,"topP":0.5,"topK":40,"dimensions":1536,"maxTokens":4096,"timeout":6000,"logRequests":true,"logResponses":true}',
-        '2024-10-21 09:51:52.331191', '2024-10-21 09:51:52.331191', 'admin', 'admin');
+INSERT INTO bestpartner.llm_setting (id, account, platform, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('40605e2f-be98-47e1-9181-da9ca0d1df8b', 'SYSTEM', 'OPENAI', 'CHAT', 'openai_local_chat_test', '{"id": null, "url": null, "topK": null, "topP": 0.5, "apiKey": "sk-xxx", "timeout": 6000, "platform": "OPENAI", "maxTokens": 4096, "modelName": "gpt-4o-mini", "dimensions": null, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2024-10-22 15:07:10', '2024-10-22 15:07:10', 'admin', 'admin');
+INSERT INTO bestpartner.llm_setting (id, account, platform, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('488e9ad6-b3c1-420e-92a4-c3ff116ddae1', 'SYSTEM', 'OPENAI', 'EMBEDDING', 'local_embedding_test', '{"id": null, "url": null, "topK": 40, "topP": 0.5, "apiKey": "sk-xxx", "timeout": 6000, "platform": "OPENAI", "maxTokens": 4096, "modelName": "text-embedding-3-small", "dimensions": 1536, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2024-10-21 09:51:52', '2024-10-21 09:51:52', 'admin', 'admin');
 -- OLLAMA
-INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                UPDATED_BY)
-VALUES ('b613df34-1c03-4657-8d08-2372d5f291ef', 'USER', 'OLLAMA', 'EMBEDDING', 'ollama_local_embedding_test',
-        JSON '{"id":null,"platform":"OLLAMA","apiKey":null,"url":"http://localhost:11434","modelName":"bge-m3:latest","temperature":0.7,"topP":0.5,"topK":40,"dimensions":1024,"maxTokens":4096,"timeout":60000,"logRequests":true,"logResponses":true}',
-        '2024-10-22 15:06:39.954922', '2024-10-22 15:06:39.954922', 'user', 'user');
-INSERT INTO PUBLIC.LLM_SETTING (ID, ACCOUNT, PLATFORM, TYPE, ALIAS, MODEL_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                UPDATED_BY)
-VALUES ('3834bd26-14a5-40a5-81ee-ab2a2c91557a', 'USER', 'OLLAMA', 'CHAT', 'ollama_local_chat_test',
-        JSON '{"id":null,"platform":"OLLAMA","apiKey":null,"url":"http://localhost:11434","modelName":"llama3.1:latest","temperature":0.7,"topP":0.5,"topK":40,"dimensions":null,"maxTokens":4096,"timeout":60000,"logRequests":true,"logResponses":true}',
-        '2024-10-22 11:50:42.710678', '2024-10-22 11:50:42.710678', 'user', 'user');
+INSERT INTO bestpartner.llm_setting (id, account, platform, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('3834bd26-14a5-40a5-81ee-ab2a2c91557a', 'USER', 'OLLAMA', 'CHAT', 'ollama_local_chat_test', '{"id": null, "url": "http://localhost:11434", "topK": 40, "topP": 0.5, "apiKey": null, "timeout": 60000, "platform": "OLLAMA", "maxTokens": 4096, "modelName": "llama3.1:latest", "dimensions": null, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2024-10-22 11:50:43', '2024-12-03 10:13:03', 'user', 'user');
+INSERT INTO bestpartner.llm_setting (id, account, platform, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('b613df34-1c03-4657-8d08-2372d5f291ef', 'USER', 'OLLAMA', 'EMBEDDING', 'ollama_local_embedding_test', '{"id": null, "url": "http://localhost:11434", "topK": 40, "topP": 0.5, "apiKey": null, "timeout": 60000, "platform": "OLLAMA", "maxTokens": 4096, "modelName": "bge-m3:latest", "dimensions": 1024, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2024-10-22 15:06:40', '2024-10-22 15:06:40', 'user', 'user');
 
 -- 新增系統設定
-INSERT INTO PUBLIC.SYSTEM_SETTING (SETTING_KEY, SETTING_VALUE, DESCRIPTION, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                   UPDATED_BY)
+INSERT INTO bestpartner.system_setting (setting_key, setting_value, description, created_at, updated_at, created_by,
+                                   updated_by)
 VALUES ('default_llm', 'OPENAI', 'system default llm', '2024-10-19 20:08:21.833397', '2024-10-19 12:10:04.079429',
         'system', 'system');
 
 -- 新增向量資料庫設定
-INSERT INTO PUBLIC.VECTOR_STORE_SETTING (ID, ACCOUNT, TYPE, ALIAS, VECTOR_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                         UPDATED_BY)
-VALUES ('8ef34f2f-5820-47ee-8743-894cacd0b711', 'SYSTEM', 'MILVUS', 'local-test',
-        JSON '{"url":"http://localhost:19530","username":null,"password":null,"collectionName":"milvus_local_collection","dimension":1536}',
-        '2024-10-21 10:51:34.324418', '2024-10-21 10:51:34.324418', 'admin', 'admin');
-INSERT INTO PUBLIC.VECTOR_STORE_SETTING (ID, ACCOUNT, TYPE, ALIAS, VECTOR_SETTING, CREATED_AT, UPDATED_AT, CREATED_BY,
-                                         UPDATED_BY)
-VALUES ('d351ae41-b143-4a8b-8443-64f806a2602a', 'USER', 'MILVUS', 'local-test',
-        JSON '{"url":"http://localhost:19530","username":null,"password":null,"collectionName":"ollama_local_collection","dimension":1024}',
-        '2024-10-22 16:00:41.425728', '2024-10-22 16:00:41.425728', 'user', 'user');
+INSERT INTO bestpartner.vector_store_setting (id, account, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('8ef34f2f-5820-47ee-8743-894cacd0b711', 'SYSTEM', 'MILVUS', 'local-test', '{"url": "http://localhost:19530", "password": null, "username": null, "dimension": 1536, "collectionName": "milvus_local_collection"}', '2024-10-21 10:51:34', '2024-10-21 10:51:34', 'admin', 'admin');
+INSERT INTO bestpartner.vector_store_setting (id, account, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('d351ae41-b143-4a8b-8443-64f806a2602a', 'USER', 'MILVUS', 'local-test', '{"url": "http://localhost:19530", "password": null, "username": null, "dimension": 1024, "collectionName": "ollama_local_collection"}', '2024-10-22 16:00:41', '2024-12-03 10:15:53', 'user', 'user');

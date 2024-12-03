@@ -1,5 +1,4 @@
-alter table LLM_DOC
-alter column SIZE BIGINT default NULL;
+alter table llm_doc modify size bigint null comment '文件大小';
 
 DROP TABLE IF EXISTS `llm_user`;
 CREATE TABLE `llm_user`
@@ -62,24 +61,24 @@ CREATE TABLE `llm_role_permission`
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色權限對應表';
 
 -- 新增使用者
-INSERT INTO PUBLIC.LLM_USER (ID, USERNAME, PASSWORD, NICKNAME, PHONE, EMAIL, AVATAR, STATUS, CREATED_AT, UPDATED_AT, CREATED_BY, UPDATED_BY)
+INSERT INTO bestpartner.llm_user (id, username, password, nickname, phone, email, avatar, status, created_at, updated_at, created_by, updated_by)
 VALUES ('c88f57c8-ad26-4ea0-9f71-a65995b49357', 'admin',
         'c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ec',
         '', '1234567890', 'admin@bestpartner.com.tw', '', 1, '2024-10-29 22:27:47.527988', '2024-10-29 22:27:47.527988',
         '', '');
-INSERT INTO PUBLIC.LLM_USER (ID, USERNAME, PASSWORD, NICKNAME, PHONE, EMAIL, AVATAR, STATUS, CREATED_AT, UPDATED_AT,
-                             CREATED_BY, UPDATED_BY)
+INSERT INTO bestpartner.llm_user (id, username, password, nickname, phone, email, avatar, status, created_at, updated_at,
+                             created_by, updated_by)
 VALUES ('670017b4-23d0-4339-a9c0-22b6d9446461', 'test_user',
         'b14361404c078ffd549c03db443c3fede2f3e534d73f78f77301ed97d4a436a9fd9db05ee8b325c0ad36438b43fec8510c204fc1c1edb21d0941c00e9e2c1ce2',
         'test_user', '0987654321', 'test@partmer.com.tw', 'test.jpg', 1, '2024-10-30 22:50:07.325141',
         '2024-10-30 22:51:14.934868', '', '');
 
 -- 新增角色
-INSERT INTO PUBLIC.LLM_ROLE (NAME, NUM, DESCRIPTION, CREATED_AT, UPDATED_AT, CREATED_BY, UPDATED_BY) VALUES ('ADMIN', 0, '管理員', '2024-10-30 09:58:26.000000', '2024-10-30 09:58:28.000000', 'SYSTEM', 'SYSTEM');
-INSERT INTO PUBLIC.LLM_ROLE (NAME, NUM, DESCRIPTION, CREATED_AT, UPDATED_AT, CREATED_BY, UPDATED_BY) VALUES ('USER', 1, '一般使用者', '2024-10-30 09:58:26.000000', '2024-10-30 09:58:28.000000', 'SYSTEM', 'SYSTEM');
-INSERT INTO PUBLIC.LLM_ROLE (NAME, NUM, DESCRIPTION, CREATED_AT, UPDATED_AT, CREATED_BY, UPDATED_BY) VALUES ('PRO_USER', 2, '進階使用者', '2024-10-30 17:52:59.000000', '2024-10-30 17:53:02.000000', 'SYSTEM', 'SYSTEM');
+INSERT INTO bestpartner.llm_role (name, num, description, created_at, updated_at, created_by, updated_by) VALUES ('ADMIN', 0, '管理員', '2024-10-30 09:58:26.000000', '2024-10-30 09:58:28.000000', 'SYSTEM', 'SYSTEM');
+INSERT INTO bestpartner.llm_role (name, num, description, created_at, updated_at, created_by, updated_by) VALUES ('USER', 1, '一般使用者', '2024-10-30 09:58:26.000000', '2024-10-30 09:58:28.000000', 'SYSTEM', 'SYSTEM');
+INSERT INTO bestpartner.llm_role (name, num, description, created_at, updated_at, created_by, updated_by) VALUES ('PRO_USER', 2, '進階使用者', '2024-10-30 17:52:59.000000', '2024-10-30 17:53:02.000000', 'SYSTEM', 'SYSTEM');
 
 -- 角色對應權限
-INSERT INTO PUBLIC.LLM_ROLE_PERMISSION (ROLE_NUM, PERMISSION_NUM) VALUES (0, 0);
-INSERT INTO PUBLIC.LLM_ROLE_PERMISSION (ROLE_NUM, PERMISSION_NUM) VALUES (0, 1);
-INSERT INTO PUBLIC.LLM_ROLE_PERMISSION (ROLE_NUM, PERMISSION_NUM) VALUES (1, 1);
+INSERT INTO bestpartner.llm_role_permission (role_num, permission_num) VALUES (0, 0);
+INSERT INTO bestpartner.llm_role_permission (role_num, permission_num) VALUES (0, 1);
+INSERT INTO bestpartner.llm_role_permission (role_num, permission_num) VALUES (1, 1);
