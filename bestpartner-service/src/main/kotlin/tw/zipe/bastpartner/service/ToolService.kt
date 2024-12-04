@@ -9,6 +9,8 @@ import kotlinx.serialization.json.jsonObject
 import tw.zipe.bastpartner.dto.ToolDTO
 import tw.zipe.bastpartner.entity.LLMToolEntity
 import tw.zipe.bastpartner.entity.LLMToolUserSettingEntity
+import tw.zipe.bastpartner.enumerate.ToolsCategory
+import tw.zipe.bastpartner.enumerate.ToolsType
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMToolRepository
 import tw.zipe.bastpartner.repository.LLMToolUserSettingRepository
@@ -32,7 +34,10 @@ class ToolService(
         return llmToolRepository.findAll().list().map {
             ToolDTO(
                 id = it.id,
-                name = it.name
+                name = it.name,
+                group = it.category,
+                type = it.type,
+                description = it.description.orEmpty(),
             )
         }.toList()
     }
@@ -43,8 +48,10 @@ class ToolService(
     @Transactional
     fun registerTool(toolDTO: ToolDTO) {
         with(LLMToolEntity()) {
-            name = toolDTO.name!!
+            name = toolDTO.name.orEmpty()
             classPath = toolDTO.classPath
+            category = toolDTO.group
+            type = toolDTO.type
             settingFields = toolDTO.settingFields?.joinToString(",")
             llmToolRepository.persist(this).let { toolDTO.id = id }
         }
@@ -57,9 +64,9 @@ class ToolService(
     fun deleteTool(id: String) = llmToolRepository.deleteById(id)
 
     /**
-     * 透過名稱找尋工具
+     * 透過ID找尋工具
      */
-    fun findToolByName(name: String) = llmToolRepository.findByName(name)
+    fun findToolById(id: String) = llmToolRepository.findById(id)
 
     /**
      * 移除工具
@@ -98,6 +105,45 @@ class ToolService(
     }
 
     /**
+     * 執行工具
+     */
+    fun buildTool(toolDTO: ToolDTO) {
+        val tool = llmToolRepository.findById(toolDTO.id.orEmpty()) ?: throw ServiceException("找不到工具")
+
+        tool.settingFields.let { toolSettingFields ->
+            val userSetting = llmToolUserSettingRepository.findSettingByUserIdAndToolId(tool.id!!, identity.principal?.name!!)
+            tool.type?.let {
+                if (it == ToolsType.BUILT_IN) {
+                    when(toolDTO.group){
+                        ToolsCategory.WEB_SEARCH -> {
+                            val settingJson = userSetting?.let { setting -> jsonStringToMap(setting.settingContent) }
+                            jsonStringToMap(toolSettingFields.orEmpty()).forEach { map ->
+                                if (settingJson?.get(map.key) == null) {
+                                    throw ServiceException("請設定欄位 ${map.key} 值")
+                                }
+                            }
+                        }
+                        ToolsCategory.DATE -> TODO()
+                        ToolsCategory.OTHER -> TODO()
+                        null -> TODO()
+                    }
+                }
+            }
+        }
+
+        val settingJson = jsonStringToMap(toolDTO.settingContent)
+        val settingFields = tool.settingFields?.split(",")?.toList()
+        settingFields?.forEach {
+            if (settingJson[it] == null) {
+                throw ServiceException("請設定欄位 $it 值")
+            }
+        }
+        val clazz = Class.forName(tool?.classPath)
+        val instance = clazz.getDeclaredConstructor().newInstance()
+        clazz.getDeclaredMethod("execute", Map::class.java).invoke(instance, settingJson)
+    }
+
+    /**
      * 驗證設定欄位
      */
     private fun verifySettingFields(toolDTO: ToolDTO): LLMToolEntity {
@@ -118,4 +164,5 @@ class ToolService(
             tool
         } ?: throw ServiceException("找不到工具")
     }
+
 }

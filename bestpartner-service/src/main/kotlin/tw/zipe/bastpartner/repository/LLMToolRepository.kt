@@ -13,5 +13,4 @@ class LLMToolRepository : PanacheRepositoryBase<LLMToolEntity, String> {
 
     fun findByName(name: String) = find("name", name).firstResult()
 
-    fun deleteByName(name: String) = delete("name", name)
 }

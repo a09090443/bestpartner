@@ -10,6 +10,9 @@ import tw.zipe.bastpartner.entity.LLMToolUserSettingEntity
 @ApplicationScoped
 class LLMToolUserSettingRepository : BaseRepository<LLMToolUserSettingEntity, String>() {
 
+    fun findSettingByUserIdAndToolId(userId: String, toolId: String) =
+        find("userId", userId, "toolId", toolId).firstResult()
+
     fun updateSettingsByNative(id: String, settingContent: String): Int {
         val paramMap = initParamsMap("id" to id, "settingContent" to settingContent)
         val sql = """
