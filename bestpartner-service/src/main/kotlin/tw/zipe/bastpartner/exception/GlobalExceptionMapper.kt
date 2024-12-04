@@ -11,7 +11,6 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 import javax.naming.AuthenticationException
-import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
 import org.hibernate.exception.ConstraintViolationException
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.util.logger

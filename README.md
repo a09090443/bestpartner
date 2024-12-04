@@ -7,6 +7,11 @@ BestPartner project
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
 3. 未來目標為類似 Dify 或 Langflow 平台，可自行建立 AI agent 並支援多種 AI 模型
 
+## 1.3 版本變更說明
+1. 廢除 H2 db 改為使用 Mysql db
+2. 增加 llm tools 可註冊自製工具
+3. 增加 llm tools 使用者自訂一個工具設定值
+
 ## 1.2 版本變更說明
 1. 支援 RBAC 功能，請先使用 http://localhost/login/ 取得 jwt 令牌，可參考 postman 中 auth -> login 範例，管理員(admin/admin)
 2. 所有 API 還未有權限管理，之後版本會加入權限管理
@@ -96,13 +101,13 @@ bestpartner
 * Milvus latest
 * Kotlin 2.0.10
 * Quarkus 3.15.1
-* Langchain4j 0.35.0
+* Langchain4j 0.36.2
 * Gradle latest
 * Postman latest
-* H2 Database latest
+* Mysql Database latest
 
 ## 程式執行注意事項
-- 目前使用H2 Database，可在application.properties中設定
+- 目前使用Mysql Database，可在application.properties中設定
 - 初始化資料庫可使用Flyway，可在application.properties中設定，quarkus.flyway.migrate-at-start = true
 
 ## 程式打包執行
