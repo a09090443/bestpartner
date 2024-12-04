@@ -84,7 +84,7 @@ class LLMResource(
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
 
         val tools = chatRequestDTO.tools?.map {
-            instantiate(it.classPath)
+//            instantiate(it.classPath)
         } ?: emptyList()
 
         tools.isNotEmpty().let {

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     kotlin("jvm") version "2.0.10"
     kotlin("plugin.serialization") version "2.0.10"
@@ -76,6 +78,13 @@ allOpen {
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.jvmTarget = JavaVersion.VERSION_21.toString()
-    kotlinOptions.javaParameters = true
+    compilerOptions {
+        jvmTarget.set(JvmTarget.fromTarget("21")) // 使用 JvmTarget.fromTarget 轉換字串
+        javaParameters.set(true) // 啟用參數名稱保留
+        freeCompilerArgs.add("-Xjava-parameters") // 新增額外參數
+    }
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("-parameters")
 }

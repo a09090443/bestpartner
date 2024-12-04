@@ -32,7 +32,7 @@ class LLMToolResource(
     @Path("/register")
     fun register(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
-            requireNotEmpty("name", "classPath")
+            requireNotEmpty("name", "classPath", "group", "type")
             throwOnInvalid()
         }
         toolService.registerTool(toolDTO)
@@ -70,4 +70,5 @@ class LLMToolResource(
         toolService.updateSetting(toolDTO)
         return ApiResponse.success(toolDTO)
     }
+
 }
