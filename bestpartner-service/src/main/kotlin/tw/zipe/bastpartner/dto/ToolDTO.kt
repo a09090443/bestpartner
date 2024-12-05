@@ -2,7 +2,6 @@ package tw.zipe.bastpartner.dto
 
 import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
-import tw.zipe.bastpartner.enumerate.ToolsCategory
 import tw.zipe.bastpartner.enumerate.ToolsType
 
 /**
@@ -15,7 +14,9 @@ class ToolDTO(
     var settingId: String? = null,
     val name: String? = null,
     val classPath: String = StringUtil.EMPTY_STRING,
-    val group: ToolsCategory? = null,
+    var groupId: String? = null,
+    val group: String? = null,
+    val groupDescription: String? = null,
     val type: ToolsType? = null,
     val settingFields: List<String>? = null,
     val settingContent: String = StringUtil.EMPTY_STRING,

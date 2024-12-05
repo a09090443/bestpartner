@@ -9,7 +9,6 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import tw.zipe.bastpartner.enumerate.ToolsCategory
 import tw.zipe.bastpartner.enumerate.ToolsType
 
 /**
@@ -40,11 +39,10 @@ class LLMToolEntity : BaseEntity() {
     var classPath: String = StringUtil.EMPTY_STRING
 
     /**
-     * Category
+     * Category id
      */
-    @Column(name = "category", nullable = false)
-    @Enumerated(EnumType.STRING)
-    var category: ToolsCategory? = null
+    @Column(name = "category_id", nullable = false)
+    var categoryId: String? = null
 
     /**
      * Type
