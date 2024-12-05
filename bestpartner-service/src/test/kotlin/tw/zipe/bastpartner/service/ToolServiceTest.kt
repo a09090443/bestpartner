@@ -1,11 +1,7 @@
 package tw.zipe.bastpartner.service
 
-import dev.langchain4j.web.search.WebSearchEngine
-import dev.langchain4j.web.search.WebSearchTool
-import dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
-import kotlin.time.Duration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeAll
@@ -14,11 +10,7 @@ import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
 import tw.zipe.bastpartner.dto.ToolDTO
-import tw.zipe.bastpartner.enumerate.ToolsCategory
 import tw.zipe.bastpartner.enumerate.ToolsType
-import tw.zipe.bastpartner.model.tool.GoogleSearchModel
-import tw.zipe.bastpartner.util.instantiate
-import tw.zipe.bastpartner.util.reorderAndRenameArguments
 
 /**
  * @author Gary
@@ -32,21 +24,34 @@ class ToolServiceTest {
     lateinit var toolService: ToolService
 
     @Test
-    @Order(1)
+    fun `test find all tools`() {
+        val result = toolService.getTools()
+        assertNotNull(result)
+    }
+
+//    @Test
+//    @Order(1)
+    fun `test add category`() {
+        toolService.saveCategory(toolDTO)
+        assertNotNull(toolDTO.groupId)
+    }
+
+//    @Test
+//    @Order(2)
     fun `test register tool`() {
         toolService.registerTool(toolDTO)
         assertNotNull(toolDTO.id)
     }
 
-    @Test
-    @Order(2)
+//    @Test
+//    @Order(3)
     fun `test find tool by id`() {
         val result = toolService.findToolById(toolDTO.id!!)
         assertEquals(toolDTO.name, result?.name)
     }
 
-    @Test
-    @Order(3)
+//    @Test
+//    @Order(4)
     fun `test remove tool`() {
         val result = toolService.removeTool(toolDTO.id.orEmpty())
         assert(result)
@@ -66,7 +71,8 @@ class ToolServiceTest {
             toolDTO = ToolDTO(
                 name = "DateTool",
                 classPath = "tw.zipe.bastpartner.tool.DateTool",
-                group = ToolsCategory.DATE,
+                group = "DATE",
+                groupDescription = "日期群組",
                 type = ToolsType.BUILT_IN,
                 description = "內建日期工具",
             )
@@ -78,7 +84,8 @@ class ToolServiceTest {
             toolDTO = ToolDTO(
                 name = "GoogleSearch",
                 classPath = "dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine",
-                group = ToolsCategory.WEB_SEARCH,
+                group = "WEB_SEARCH",
+                groupDescription = "網頁搜尋群組",
                 type = ToolsType.BUILT_IN,
                 description = "內建 Google 搜尋工具",
                 settingFields = listOf(

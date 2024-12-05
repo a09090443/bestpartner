@@ -1,6 +1,5 @@
 package tw.zipe.bastpartner.entity
 
-import io.netty.util.internal.StringUtil
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
@@ -27,7 +26,7 @@ class LLMToolCategoryEntity : BaseEntity() {
      * 群組名稱
      */
     @Column(name = "name", nullable = false)
-    var name: String = StringUtil.EMPTY_STRING
+    var name: String? = null
 
     /**
      * 群組描述
