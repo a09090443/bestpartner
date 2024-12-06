@@ -13,6 +13,8 @@ class LLMToolRepository : BaseRepository<LLMToolEntity, String>() {
 
     fun findByName(name: String) = find("name", name).firstResult()
 
+    fun findByCategoryId(categoryId: String) = find("categoryId", categoryId).list()
+
     fun findAllList(): List<ToolDTO> {
         val sql = """
             SELECT lt.id             AS id,

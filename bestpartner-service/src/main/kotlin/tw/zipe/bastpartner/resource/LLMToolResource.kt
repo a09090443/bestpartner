@@ -71,4 +71,37 @@ class LLMToolResource(
         return ApiResponse.success(toolDTO)
     }
 
+    @POST
+    @Path("/category/save")
+    fun categorySave(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
+        DTOValidator.validate(toolDTO) {
+            requireNotEmpty("group")
+            throwOnInvalid()
+        }
+        toolService.saveCategory(toolDTO)
+        return ApiResponse.success(toolDTO)
+    }
+
+    @POST
+    @Path("/category/update")
+    fun categoryUpdate(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
+        DTOValidator.validate(toolDTO) {
+            requireNotEmpty("groupId", "group")
+            throwOnInvalid()
+        }
+        toolService.updateCategory(toolDTO)
+        return ApiResponse.success(toolDTO)
+    }
+
+    @POST
+    @Path("/category/delete")
+    fun categoryDelete(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
+        DTOValidator.validate(toolDTO) {
+            requireNotEmpty("groupId")
+            throwOnInvalid()
+        }
+        toolService.deleteCategory(toolDTO)
+        return ApiResponse.success(toolDTO)
+    }
+
 }
