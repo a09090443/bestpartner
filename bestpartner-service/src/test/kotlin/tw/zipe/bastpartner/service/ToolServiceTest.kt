@@ -53,7 +53,7 @@ class ToolServiceTest {
 //    @Test
 //    @Order(4)
     fun `test remove tool`() {
-        val result = toolService.removeTool(toolDTO.id.orEmpty())
+        val result = toolService.deleteTool(toolDTO.id.orEmpty())
         assert(result)
     }
 

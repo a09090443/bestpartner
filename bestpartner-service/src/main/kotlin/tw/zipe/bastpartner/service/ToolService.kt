@@ -1,5 +1,7 @@
 package tw.zipe.bastpartner.service
 
+import dev.langchain4j.web.search.WebSearchEngine
+import dev.langchain4j.web.search.WebSearchTool
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import kotlinx.serialization.json.Json
@@ -16,6 +18,7 @@ import tw.zipe.bastpartner.repository.LLMToolCategoryRepository
 import tw.zipe.bastpartner.repository.LLMToolRepository
 import tw.zipe.bastpartner.repository.LLMToolUserSettingRepository
 import tw.zipe.bastpartner.util.DTOValidator
+import tw.zipe.bastpartner.util.instantiate
 import tw.zipe.bastpartner.util.reorderAndRenameArguments
 
 /**
@@ -51,7 +54,7 @@ class ToolService(
     }
 
     /**
-     * 註銷工具
+     * 移除工具
      */
     @Transactional
     fun deleteTool(id: String) = llmToolRepository.deleteById(id)
@@ -60,12 +63,6 @@ class ToolService(
      * 透過ID找尋工具
      */
     fun findToolById(id: String) = llmToolRepository.findById(id)
-
-    /**
-     * 移除工具
-     */
-    @Transactional
-    fun removeTool(id: String) = llmToolRepository.deleteById(id)
 
     /**
      * 儲存使用者工具設定
@@ -96,6 +93,21 @@ class ToolService(
     }
 
     /**
+     * 更新工具群組
+     */
+    fun updateCategory(toolDTO: ToolDTO) =
+        llmToolCategoryRepository.updateByNative(toolDTO.groupId!!, toolDTO.group!!, toolDTO.groupDescription.orEmpty())
+
+    /**
+     * 刪除工具群組
+     */
+    fun deleteCategory(toolDTO: ToolDTO): Boolean {
+        llmToolRepository.findByCategoryId(toolDTO.groupId.orEmpty()).takeIf { it.isEmpty() }
+            ?: throw ServiceException("請先移除群組下的工具")
+        return llmToolCategoryRepository.deleteById(toolDTO.groupId.orEmpty())
+    }
+
+    /**
      * 更新使用者工具設定
      */
     @Transactional
@@ -112,52 +124,23 @@ class ToolService(
     }
 
     /**
-     * 執行工具
+     * 建立工具
      */
-    fun buildTool(toolDTO: ToolDTO) {
+    fun buildTool(toolDTO: ToolDTO): Any? {
         val tool = llmToolRepository.findById(toolDTO.id.orEmpty()) ?: throw ServiceException("找不到工具")
 
-        tool.settingFields.let { toolSettingFields ->
-            val userSetting =
-                llmToolUserSettingRepository.findSettingByUserIdAndToolId(
-                    securityValidator.validateLoggedInUser(),
-                    tool.id!!
-                )
-            val settingJson = userSetting?.let { setting -> jsonStringToMap(setting.settingContent) }
-            jsonStringToMap(toolSettingFields.orEmpty()).forEach { map ->
-                if (settingJson?.get(map.key) == null) {
-                    throw ServiceException("請設定欄位 ${map.key} 值")
-                }
-            }
-            val sortFields = reorderAndRenameArguments(settingJson!!, toolSettingFields.orEmpty())
+        val toolSettingFields = tool.settingFields.orEmpty()
+        val userSetting = llmToolUserSettingRepository.findSettingByUserIdAndToolId(
+            securityValidator.validateLoggedInUser(),
+            tool.id!!
+        )
+        val settingJson = userSetting?.let { jsonStringToMap(it.settingContent) } ?: emptyMap()
 
-            tool.type?.let {
-                when (it) {
-                    ToolsType.BUILT_IN -> {// 內建工具
-//                        when (toolDTO.group) {
-//                            ToolsCategory.WEB_SEARCH -> {
-//
-//                            }
-//                            ToolsCategory.OTHER -> TODO()
-//                            else -> TODO()
-//                        }
-                    }
+        validateSettings(toolSettingFields, settingJson)
 
-                    else -> TODO()
-                }
-            }
-        }
+        val sortFields = reorderAndRenameArguments(settingJson, toolSettingFields)
 
-        val settingJson = jsonStringToMap(toolDTO.settingContent)
-        val settingFields = tool.settingFields?.split(",")?.toList()
-        settingFields?.forEach {
-            if (settingJson[it] == null) {
-                throw ServiceException("請設定欄位 $it 值")
-            }
-        }
-        val clazz = Class.forName(tool.classPath)
-        val instance = clazz.getDeclaredConstructor().newInstance()
-        clazz.getDeclaredMethod("execute", Map::class.java).invoke(instance, settingJson)
+        return instantiateTool(tool, sortFields, toolDTO.group!!)
     }
 
     /**
@@ -180,6 +163,26 @@ class ToolService(
             }
             tool
         } ?: throw ServiceException("找不到工具")
+    }
+
+    private fun validateSettings(toolSettingFields: String, settingJson: Map<String, JsonElement>) {
+        jsonStringToMap(toolSettingFields).forEach { (key, _) ->
+            if (settingJson[key] == null) {
+                throw ServiceException("請設定欄位 $key 值")
+            }
+        }
+    }
+
+    private fun instantiateTool(tool: LLMToolEntity, sortFields: Map<String, Any>, group: String): Any? {
+        val instance = instantiate(tool.classPath, sortFields)
+        return when (tool.type) {
+            ToolsType.BUILT_IN -> when (group) {
+                "WEB_SEARCH" -> WebSearchTool.from(instance as WebSearchEngine)
+                else -> instance
+            }
+
+            else -> instance
+        }
     }
 
 }

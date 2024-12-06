@@ -19,9 +19,8 @@ import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.service.LLMService
+import tw.zipe.bastpartner.service.ToolService
 import tw.zipe.bastpartner.util.DTOValidator
-import tw.zipe.bastpartner.util.instantiate
-import tw.zipe.bastpartner.util.logger
 
 /**
  * @author Gary
@@ -32,9 +31,9 @@ import tw.zipe.bastpartner.util.logger
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class LLMResource(
-    private val lLMService: LLMService
+    private val lLMService: LLMService,
+    private val toolService: ToolService
 ) : BaseLLMResource() {
-    private val logger = logger()
 
     @POST
     @Path("/chat")
@@ -84,7 +83,7 @@ class LLMResource(
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
 
         val tools = chatRequestDTO.tools?.map {
-//            instantiate(it.classPath)
+            toolService.buildTool(it)
         } ?: emptyList()
 
         tools.isNotEmpty().let {
