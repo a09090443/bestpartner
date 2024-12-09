@@ -1,9 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    kotlin("jvm") version "2.0.10"
-    kotlin("plugin.serialization") version "2.0.10"
-    kotlin("plugin.allopen") version "2.0.10"
+    kotlin("jvm") version "2.1.0"
+    kotlin("plugin.serialization") version "2.1.0"
+    kotlin("plugin.allopen") version "2.1.0"
     id("io.quarkus")
 }
 
