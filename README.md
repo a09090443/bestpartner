@@ -99,7 +99,7 @@ bestpartner
 * LLM models
 * Chroma latest
 * Milvus latest
-* Kotlin 2.0.10
+* Kotlin 2.1.0
 * Quarkus 3.15.1
 * Langchain4j 0.36.2
 * Gradle latest
@@ -119,6 +119,11 @@ bestpartner
 ![](docs/images/service-start.png)
 
 ## 開發紀錄
+* 2024.12.11 BestPartner 0.1.3 版本完成
+  + 支援自製LLM工具註冊
+  + 支援動態呼叫自製LLM工具
+  + Database 由 H2 改為 Mysql
+
 * 2024.11.3 BestPartner 0.1.2 版本完成
   + 支援 RBAC 功能
   + 增加系統設定表
