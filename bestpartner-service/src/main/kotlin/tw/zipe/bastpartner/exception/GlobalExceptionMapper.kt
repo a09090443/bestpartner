@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.exception
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.quarkus.security.UnauthorizedException
 import io.smallrye.jwt.build.JwtException
 import jakarta.annotation.Priority
 import jakarta.inject.Inject
@@ -31,6 +32,7 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
     override fun toResponse(exception: Exception): Response {
         logger.error("Exception occurred: ${exception.javaClass.simpleName} - ${exception.message}", exception)
         val response = when (exception) {
+            // 保留原有的异常处理
             is NotFoundException -> ApiResponse<Nothing>(
                 code = 404,
                 message = "Resource not found"
@@ -55,10 +57,16 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 code = 403,
                 message = exception.message ?: "Forbidden"
             )
+            // 新增更詳細的權限相關異常處理
             is SecurityException -> {
                 ApiResponse<Nothing>(
                     code = 403,
-                    message = exception.message ?: "Security validation failed"
+                    message = when (exception) {
+                        is UnauthorizedException -> "Authentication failed"
+                        is AccessDeniedException -> "Access denied"
+                        is AuthenticationException -> "Authentication required"
+                        else -> exception.message ?: "Security validation failed"
+                    }
                 )
             }
             is AccessDeniedException -> {
@@ -82,6 +90,7 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 message = "Internal server error"
             )
         }
+
         val message = objectMapper.writeValueAsString(response)
         logger.error(message, exception)
         return Response.status(response.code)

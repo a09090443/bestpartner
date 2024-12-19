@@ -5,6 +5,7 @@ import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.service.AiServices
+import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
@@ -30,6 +31,7 @@ import tw.zipe.bastpartner.util.DTOValidator
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Authenticated
 class LLMResource(
     private val lLMService: LLMService,
     private val toolService: ToolService
@@ -44,7 +46,7 @@ class LLMResource(
         }
 
         val llm = chatRequestDTO.llmId.let {
-            lLMService.buildLLM(it!!, ModelType.CHAT)
+            lLMService.buildLLM(it.orEmpty(), ModelType.CHAT)
         }.let {
             it as ChatLanguageModel
         }
@@ -105,4 +107,5 @@ class LLMResource(
 
         return ApiResponse.success(aiService.build().chat(chatRequestDTO.message!!).content().text())
     }
+
 }
