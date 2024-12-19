@@ -115,6 +115,6 @@ class LLMService(
                 ModelType.CHAT -> it.platform.getLLMBean().chatModel(it.modelSetting!!)
                 ModelType.STREAMING_CHAT -> it.platform.getLLMBean().chatModelStreaming(it.modelSetting!!)
             }
-        } ?: throw ServiceException("LLM didn't exist")
+        } ?: throw ServiceException("請確認存取的 LLM 設定是否存在")
     }
 }

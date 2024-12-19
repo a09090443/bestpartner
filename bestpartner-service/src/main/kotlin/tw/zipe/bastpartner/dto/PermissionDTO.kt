@@ -7,8 +7,9 @@ import kotlinx.serialization.Serializable
  * @created 2024/10/30
  */
 @Serializable
-class PermissionDTO {
-    var name: String? = null
-    var num: Int? = null
+class PermissionDTO(
+    var id: String? = null,
+    var name: String? = null,
+    var num: Int? = null,
     var description: String? = null
-}
+)

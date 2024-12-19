@@ -10,7 +10,8 @@ import org.jose4j.json.JsonUtil
 import org.jose4j.jws.JsonWebSignature
 import org.jose4j.jwx.JsonWebStructure
 import tw.zipe.bastpartner.enumerate.UserStatus
-import tw.zipe.bastpartner.repository.LLMUserRepository
+import tw.zipe.bastpartner.repository.LLMPermissionRepository
+import tw.zipe.bastpartner.util.logger
 
 /**
  * @author Gary
@@ -19,7 +20,7 @@ import tw.zipe.bastpartner.repository.LLMUserRepository
 @ApplicationScoped
 class JwtService(
     val parser: JWTParser,
-    val llmUserRepository: LLMUserRepository
+    val llmPermissionRepository: LLMPermissionRepository
 ) {
     companion object {
         private const val ISSUER = "bast-partner"
@@ -27,9 +28,11 @@ class JwtService(
         private const val REFRESH_THRESHOLD_MINUTES = 5L
     }
 
+    private val logger = logger()
+
     @Startup
-    fun start(){
-        println("JwtService start")
+    fun start() {
+        logger.info("JwtService start")
     }
 
     /**
@@ -39,7 +42,9 @@ class JwtService(
         val expirationTime = Instant.now().plus(TOKEN_VALIDITY_MINUTES, ChronoUnit.MINUTES)
         return Jwt.issuer(ISSUER)
             .upn(userId)
-            .groups( permissions.ifEmpty { llmUserRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet() })
+            .groups(permissions.ifEmpty {
+                llmPermissionRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet()
+            })
             .issuedAt(Instant.now())
             .expiresAt(expirationTime)
             .sign();

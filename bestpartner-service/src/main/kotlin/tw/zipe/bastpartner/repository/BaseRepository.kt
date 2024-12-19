@@ -74,9 +74,10 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             if (isNew) {
                 entity.createdAt = now
                 entity.createdBy = username
+            } else {
+                entity.updatedAt = now
+                entity.updatedBy = username
             }
-            entity.updatedAt = now
-            entity.updatedBy = username
         }
     }
 

@@ -55,18 +55,4 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
         return executeUpdateWithTransaction(executor)
     }
 
-    fun findUserPermissionByStatus(id: String, status: UserStatus): List<PermissionDTO> {
-        val paramMap = mapOf("id" to id, "status" to status.ordinal)
-
-        val sql = """
-            SELECT lp.num, lp.name
-            FROM llm_user lm
-                     JOIN llm_user_role lur ON lm.id = lur.user_id
-                     JOIN llm_role_permission lrp ON lur.ROLE_NUM = lrp.ROLE_NUM
-                     JOIN llm_permission lp ON lrp.PERMISSION_NUM = lp.NUM
-            WHERE lm.id = :id AND lm.status = :status
-            ORDER BY lm.created_at DESC
-        """.trimIndent()
-        return this.executeSelect(sql, paramMap, PermissionDTO::class.java)
-    }
 }
