@@ -6,8 +6,10 @@ import jakarta.transaction.Transactional
 import java.time.Duration
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
+import tw.zipe.bastpartner.entity.LLMUserRole
 import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.repository.LLMUserRepository
+import tw.zipe.bastpartner.repository.LLMUserRoleRepository
 import tw.zipe.bastpartner.util.CryptoUtils
 
 /**
@@ -16,35 +18,35 @@ import tw.zipe.bastpartner.util.CryptoUtils
  */
 @ApplicationScoped
 class LLMUserService(
-    val llmUserRepository: LLMUserRepository
+    val llmUserRepository: LLMUserRepository,
+    val llmUserRoleRepository: LLMUserRoleRepository
 ) {
 
-    @Transactional
+    @Transactional(rollbackOn = [Exception::class])
     fun register(userDTO: UserDTO) {
-        with(LLMUserEntity()) {
+        val userEntity = LLMUserEntity().apply {
             username = userDTO.username
-            password = CryptoUtils.sha512(userDTO.password)
+            password = CryptoUtils.sha512(userDTO.password.orEmpty())
             email = userDTO.email.orEmpty()
             nickname = userDTO.nickname.orEmpty()
             phone = userDTO.phone.orEmpty()
             avatar = userDTO.avatar.orEmpty()
-            status = UserStatus.INACTIVE
-            llmUserRepository.persist(this).let { userDTO.id = id }
+            status = UserStatus.ACTIVE.ordinal.toString()
         }
+        llmUserRepository.saveOrUpdate(userEntity).also {
+            userDTO.id = userEntity.id
+            userDTO.status = userEntity.status.toInt()
+        }
+
+        val userRole = LLMUserRole().apply {
+            id.userId = userDTO.id!!
+            id.roleNum = 1 // 0: ADMIN, 1: USER, 2: PRO_USER
+        }
+        llmUserRoleRepository.saveOrUpdate(userRole)
     }
 
     fun findUserById(userId: String): UserDTO {
-        return llmUserRepository.findById(userId)?.run {
-            UserDTO(
-                id = this.id,
-                username = this.username,
-                email = this.email,
-                nickname = this.nickname,
-                phone = this.phone,
-                avatar = this.avatar,
-                status = this.status
-            )
-        } ?: UserDTO()
+        return llmUserRepository.findUserInfo(userId) ?: UserDTO()
     }
 
     fun loginVerification(email: String, password: String): String? {
@@ -52,7 +54,6 @@ class LLMUserService(
             .let { it?.id }
     }
 
-    @Transactional
     fun updateUser(userDTO: UserDTO) {
         val paramMap = mapOf(
             "id" to userDTO.id!!,
@@ -66,8 +67,12 @@ class LLMUserService(
         llmUserRepository.updateUserByNativeSQL(userDTO.id!!, paramMap)
     }
 
-    @Transactional
-    fun deleteUser(userId: String) = llmUserRepository.deleteById(userId)
+    @Transactional(rollbackOn = [Exception::class])
+    fun deleteUser(userId: String): Boolean {
+        return llmUserRepository.deleteById(userId).also {
+            llmUserRoleRepository.deleteByUserId(userId)
+        }
+    }
 
     fun generateJwtToken(userDTO: UserDTO): String {
         val permissions = setOf("VIEW_ADMIN_DETAILS", "SEND_MESSAGE", "CREATE_USER")

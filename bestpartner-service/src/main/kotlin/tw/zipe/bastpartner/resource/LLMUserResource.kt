@@ -1,5 +1,8 @@
 package tw.zipe.bastpartner.resource
 
+import io.quarkus.security.Authenticated
+import io.quarkus.security.identity.SecurityIdentity
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
@@ -9,6 +12,7 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.UserDTO
+import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.service.LLMUserService
 import tw.zipe.bastpartner.util.DTOValidator
 
@@ -21,7 +25,8 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class LLMUserResource(
-    val llmUserService: LLMUserService
+    val llmUserService: LLMUserService,
+    val identity: SecurityIdentity
 ) {
 
     @POST
@@ -31,6 +36,9 @@ class LLMUserResource(
             requireNotEmpty("username")
             requireNotEmpty("password")
             requireNotEmpty("email")
+            userDTO.status?.let {
+                UserStatus.fromOrdinal(it)
+            }
             throwOnInvalid()
         }
         llmUserService.register(userDTO)
@@ -39,28 +47,31 @@ class LLMUserResource(
 
     @POST
     @Path("/get")
+    @Authenticated
     fun get(userDTO: UserDTO): ApiResponse<UserDTO> {
-        DTOValidator.validate(userDTO) {
-            requireNotEmpty("id")
-            throwOnInvalid()
-        }
-        return ApiResponse.success(llmUserService.findUserById(userDTO.id!!))
+        return ApiResponse.success(llmUserService.findUserById(identity.principal.name))
     }
 
     @POST
     @Path("/switchStatus")
+    @RolesAllowed("all")
     fun switchStatus(userDTO: UserDTO): ApiResponse<UserDTO> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
             requireNotEmpty("status")
             throwOnInvalid()
         }
-        llmUserService.updateUser(userDTO)
-        return ApiResponse.success(llmUserService.findUserById(userDTO.id!!))
+        val user = llmUserService.findUserById(userDTO.id!!).let {
+            it.status = userDTO.status
+            llmUserService.updateUser(it)
+            it
+        }
+        return ApiResponse.success(user)
     }
 
     @POST
     @Path("/update")
+    @Authenticated
     fun update(userDTO: UserDTO): ApiResponse<UserDTO> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
@@ -74,6 +85,7 @@ class LLMUserResource(
 
     @DELETE
     @Path("/delete")
+    @RolesAllowed("all")
     fun delete(userDTO: UserDTO): ApiResponse<Boolean> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
