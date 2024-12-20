@@ -11,3 +11,6 @@ CREATE TABLE `llm_permission`
     `updated_by`  VARCHAR(50) COMMENT '最後更新者',
     PRIMARY KEY (`name`, `num`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='權限列表';
+
+alter table llm_user
+    modify status CHAR default '0' null comment '狀態 0 無效 1有效';

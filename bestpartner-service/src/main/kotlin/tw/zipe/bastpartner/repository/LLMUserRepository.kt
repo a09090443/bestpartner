@@ -42,17 +42,23 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
             .executeUpdate()
     }
 
-    fun updateUserStatusByNative(id: String, status: UserStatus): Int {
-        val paramMap = mapOf("id" to id, "status" to status.ordinal)
+    fun findUserInfo(userId: String): UserDTO? {
         val sql = """
-            UPDATE llm_user lm
-            SET lm.status = :status
-            WHERE lm.id = :id
+            SELECT lu.id AS id,
+                   lu.username AS username,
+                   lu.nickname AS nickname,
+                   lu.phone AS phone,
+                   lu.email AS email,
+                   lu.avatar AS avatar,
+                   lu.status AS status,
+                   lur.role_num AS `role.roleNum`,
+                   lr.name AS `role.roleName`
+            FROM llm_user lu
+                     inner join llm_user_role lur on lu.id = lur.user_id
+                     inner join llm_role lr on lur.role_num = lr.num
+            WHERE lu.id = :userId
         """.trimIndent()
-        val executor = createSqlExecutor()
-            .withSql(sql)
-            .withParamMap(paramMap)
-        return executeUpdateWithTransaction(executor)
-    }
 
+        return executeSelectOne(sql, mapOf("userId" to userId), UserDTO::class.java)
+    }
 }

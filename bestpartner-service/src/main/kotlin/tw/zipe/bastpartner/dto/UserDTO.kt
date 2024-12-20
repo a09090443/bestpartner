@@ -12,11 +12,11 @@ import tw.zipe.bastpartner.enumerate.UserStatus
 class UserDTO(
     var id: String? = null,
     var username: String = StringUtil.EMPTY_STRING,
-    var password: String = StringUtil.EMPTY_STRING,
+    var password: String? = null,
     var nickname: String? = null,
     var phone: String? = null,
     var email: String? = null,
     var avatar: String? = null,
-    var status: UserStatus? = UserStatus.INACTIVE,
-    var permission: PermissionDTO? = null
+    var status: Int? = null,
+    var role: UserRole? = null
 )

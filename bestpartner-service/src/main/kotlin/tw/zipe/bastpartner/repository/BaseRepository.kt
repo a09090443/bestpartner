@@ -245,10 +245,39 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             val fields = clazz.declaredFields.associateBy { it.name.lowercase() }
 
             tuple.elements.forEach { tupleElement ->
-                val columnName = tupleElement.alias.lowercase()
-                fields[columnName]?.let { field ->
-                    field.isAccessible = true
-                    setFieldValue(field, instance, tuple[tupleElement.alias])
+                val columnAlias = tupleElement.alias.lowercase()
+
+                if (columnAlias.contains(".")) {
+                    // Handle nested object mapping
+                    val (parentField, childField) = columnAlias.split(".")
+                    val parentInstance = fields[parentField]?.let { field ->
+                        field.isAccessible = true
+                        if (field[instance] == null) {
+                            // Create new instance of nested object if null
+                            val nestedClass = field.type
+                            val nestedInstance = nestedClass.getDeclaredConstructor().newInstance()
+                            field.set(instance, nestedInstance)
+                        }
+                        field[instance]
+                    }
+
+                    // Set nested field value
+                    parentInstance?.let { parent ->
+                        val nestedFields = parent.javaClass.declaredFields.associateBy { it.name.lowercase() }
+                        val properChildFieldName = childField.replace("_", "").lowercase()
+                        val nestedField = nestedFields[properChildFieldName]?.also {
+                            it.isAccessible = true
+                        } ?: throw IllegalStateException("No such field: $childField in ${parent.javaClass.simpleName}")
+
+                        setFieldValue(nestedField, parent, tuple[tupleElement.alias])
+                    }
+                } else {
+                    // Handle flat object mapping
+                    val properFieldName = columnAlias.replace("_", "").lowercase()
+                    fields[properFieldName]?.let { field ->
+                        field.isAccessible = true
+                        setFieldValue(field, instance, tuple[tupleElement.alias])
+                    }
                 }
             }
 

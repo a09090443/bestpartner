@@ -64,6 +64,6 @@ class LLMUserEntity : BaseEntity() {
      * 狀態
      */
     @Column(name = "status", nullable = false)
-    var status: UserStatus = UserStatus.INACTIVE
+    var status: String = UserStatus.INACTIVE.ordinal.toString()
 
 }

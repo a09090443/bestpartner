@@ -41,7 +41,7 @@ class LoginResource(
             requireNotEmpty("password")
             throwOnInvalid()
         }
-        val loginResult = llmUserService.loginVerification(userDTO.email.orEmpty(), userDTO.password)
+        val loginResult = llmUserService.loginVerification(userDTO.email.orEmpty(), userDTO.password.orEmpty())
             ?: return ApiResponse.error("登入帳號或密碼錯誤", HttpStatus.UNAUTHORIZED)
         return loginResult.let {
             val token = jwtService.generateJwtToken(it, setOf())

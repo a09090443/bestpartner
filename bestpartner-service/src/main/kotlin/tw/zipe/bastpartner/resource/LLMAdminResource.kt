@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.resource
 
 import io.smallrye.mutiny.Multi
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
@@ -19,6 +20,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@RolesAllowed("all")
 class LLMAdminResource : BaseLLMResource() {
 
     @POST
