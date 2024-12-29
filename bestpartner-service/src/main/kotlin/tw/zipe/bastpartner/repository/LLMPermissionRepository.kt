@@ -2,7 +2,7 @@ package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.bastpartner.dto.PermissionDTO
-import tw.zipe.bastpartner.entity.LLMPermission
+import tw.zipe.bastpartner.entity.LLMPermissionEntity
 import tw.zipe.bastpartner.enumerate.UserStatus
 
 /**
@@ -10,7 +10,7 @@ import tw.zipe.bastpartner.enumerate.UserStatus
  * @created 2024/12/18
  */
 @ApplicationScoped
-class LLMPermissionRepository : BaseRepository<LLMPermission, String>() {
+class LLMPermissionRepository : BaseRepository<LLMPermissionEntity, String>() {
 
     fun findUserPermissionByStatus(id: String, status: UserStatus): List<PermissionDTO> {
         val paramMap = mapOf("id" to id, "status" to status.ordinal)

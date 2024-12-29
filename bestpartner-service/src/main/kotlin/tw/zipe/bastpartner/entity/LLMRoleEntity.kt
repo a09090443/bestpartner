@@ -12,25 +12,14 @@ import jakarta.persistence.Table
  */
 @Entity
 @Table(name = "llm_role")
-class LLMRoleEntity : BaseEntity() {
-
-    /**
-     * 角色名稱
-     */
+data class LLMRoleEntity(
     @Id
     @Column(name = "name", nullable = false)
-    var name: String = StringUtil.EMPTY_STRING
+    var name: String = StringUtil.EMPTY_STRING,
 
-    /**
-     * 角色名稱
-     */
-    @Column(name = "num", nullable = false)
-    var num: Int? = null
+    @Column(name = "num", nullable = false, unique = true)
+    var num: Int? = null,
 
-    /**
-     * 密碼
-     */
-    @Column(name = "desription", nullable = true)
-    var desription: String = StringUtil.EMPTY_STRING
-
-}
+    @Column(name = "description", nullable = false)
+    var description: String = StringUtil.EMPTY_STRING
+) : BaseEntity()

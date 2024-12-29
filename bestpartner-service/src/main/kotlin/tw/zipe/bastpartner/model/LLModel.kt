@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.model
 
+import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
 
 /**
@@ -7,16 +8,16 @@ import kotlinx.serialization.Serializable
  * @created 2024/10/8
  */
 @Serializable
-data class LLModel(
-    var apiKey: String? = null,
-    var url: String? = null,
-    var modelName: String,
-    var temperature: Double? = null,
-    var topP: Double? = null,
-    var topK: Int? = null,
-    var dimensions: Int? = null,
-    var maxTokens: Int? = null,
-    var timeout: Long = 3000,
-    var logRequests: Boolean = false,
+class LLModel : BaseLLM() {
+    var apiKey: String? = null
+    var url: String? = null
+    var modelName: String = StringUtil.EMPTY_STRING
+    var temperature: Double? = null
+    var topP: Double? = null
+    var topK: Int? = null
+    var dimensions: Int? = null
+    var maxTokens: Int? = null
+    var timeout: Long = 3000
+    var logRequests: Boolean = false
     var logResponses: Boolean = false
-):BaseLLM()
+}

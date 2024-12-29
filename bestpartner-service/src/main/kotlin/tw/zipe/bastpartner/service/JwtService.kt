@@ -19,8 +19,8 @@ import tw.zipe.bastpartner.util.logger
  */
 @ApplicationScoped
 class JwtService(
-    val parser: JWTParser,
-    val llmPermissionRepository: LLMPermissionRepository
+    private val parser: JWTParser,
+    private val llmPermissionRepository: LLMPermissionRepository
 ) {
     companion object {
         private const val ISSUER = "bast-partner"

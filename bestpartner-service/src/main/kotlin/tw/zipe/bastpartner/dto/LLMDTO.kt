@@ -12,5 +12,5 @@ import tw.zipe.bastpartner.enumerate.ModelType
 class LLMDTO(
     var id: String? = null,
     var alias: String = StringUtil.EMPTY_STRING,
-    var modelType: ModelType = ModelType.CHAT
+    var modelType: ModelType = ModelType.CHAT,
 ) : BaseDTO()

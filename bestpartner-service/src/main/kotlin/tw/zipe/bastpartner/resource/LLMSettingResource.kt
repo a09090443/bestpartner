@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.resource
 
+import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
@@ -19,14 +20,28 @@ import tw.zipe.bastpartner.util.DTOValidator
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Authenticated
 class LLMSettingResource(
     private val lLMService: LLMService
 ) {
 
     @POST
-    @Path("/saveLLM")
-    fun saveLlm(llmDTO: LLMDTO): ApiResponse<String> {
+    @Path("/get")
+    fun get(llmDTO: LLMDTO): ApiResponse<LLMDTO?> {
         DTOValidator.validate(llmDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
+        val result = lLMService.getLLMSetting(llmDTO.id.orEmpty())
+        return ApiResponse.success(result)
+    }
+
+    @POST
+    @Path("/save")
+    fun save(llmDTO: LLMDTO): ApiResponse<LLMDTO> {
+        DTOValidator.validate(llmDTO) {
+            requireNotEmpty("modelType")
+            requireNotEmpty("platformId")
             validateNested("llmModel") {
                 requireNotEmpty("modelName")
             }
@@ -36,12 +51,12 @@ class LLMSettingResource(
         llmDTO.llmModel?.let {
             lLMService.saveLLMSetting(llmDTO)
         }
-        return ApiResponse.success("成功儲存 LLM 設定")
+        return ApiResponse.success(llmDTO)
     }
 
     @POST
-    @Path("/updateLLM")
-    fun updateLlm(llmDTO: LLMDTO): ApiResponse<String> {
+    @Path("/update")
+    fun update(llmDTO: LLMDTO): ApiResponse<String> {
         DTOValidator.validate(llmDTO) {
             requireNotEmpty("id")
             validateNested("llmModel") {
@@ -55,5 +70,16 @@ class LLMSettingResource(
             lLMService.updateLLMSetting(llmDTO)
         }
         return ApiResponse.success("成功更新 LLM 設定")
+    }
+
+    @POST
+    @Path("/delete")
+    fun delete(llmDTO: LLMDTO): ApiResponse<Boolean> {
+        DTOValidator.validate(llmDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
+
+        return ApiResponse.success(lLMService.deleteLLMSetting(llmDTO.id.orEmpty()))
     }
 }

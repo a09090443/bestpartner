@@ -6,7 +6,7 @@ import jakarta.transaction.Transactional
 import java.time.Duration
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
-import tw.zipe.bastpartner.entity.LLMUserRole
+import tw.zipe.bastpartner.entity.LLMUserRoleEntity
 import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.repository.LLMUserRepository
 import tw.zipe.bastpartner.repository.LLMUserRoleRepository
@@ -18,8 +18,8 @@ import tw.zipe.bastpartner.util.CryptoUtils
  */
 @ApplicationScoped
 class LLMUserService(
-    val llmUserRepository: LLMUserRepository,
-    val llmUserRoleRepository: LLMUserRoleRepository
+    private val llmUserRepository: LLMUserRepository,
+    private val llmUserRoleRepository: LLMUserRoleRepository
 ) {
 
     @Transactional(rollbackOn = [Exception::class])
@@ -38,16 +38,16 @@ class LLMUserService(
             userDTO.status = userEntity.status.toInt()
         }
 
-        val userRole = LLMUserRole().apply {
+        val userRole = LLMUserRoleEntity().apply {
             id.userId = userDTO.id!!
             id.roleNum = 1 // 0: ADMIN, 1: USER, 2: PRO_USER
         }
         llmUserRoleRepository.saveOrUpdate(userRole)
     }
 
-    fun findUserById(userId: String): UserDTO {
-        return llmUserRepository.findUserInfo(userId) ?: UserDTO()
-    }
+    fun findUserById(userId: String) = llmUserRepository.findUserInfo(userId) ?: UserDTO()
+
+    fun findUserByName(username: String) = llmUserRepository.findUserByUsername(username)
 
     fun loginVerification(email: String, password: String): String? {
         return llmUserRepository.findUserByEmail(email).takeIf { it?.password == CryptoUtils.sha512(password) }

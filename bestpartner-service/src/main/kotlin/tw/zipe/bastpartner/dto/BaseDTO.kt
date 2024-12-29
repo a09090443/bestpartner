@@ -11,6 +11,7 @@ import tw.zipe.bastpartner.model.LLModel
 @Serializable
 open class BaseDTO(
     val llmId: String? = null,
-    var platform: Platform = Platform.OLLAMA,
-    var llmModel: LLModel? = null
+    var platformId: String? = null,
+    var platform: Platform? = null,
+    var llmModel: LLModel = LLModel(),
 )

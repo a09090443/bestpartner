@@ -3,7 +3,7 @@ package tw.zipe.bastpartner.service
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import tw.zipe.bastpartner.dto.PermissionDTO
-import tw.zipe.bastpartner.entity.LLMPermission
+import tw.zipe.bastpartner.entity.LLMPermissionEntity
 import tw.zipe.bastpartner.repository.LLMPermissionRepository
 
 /**
@@ -16,7 +16,7 @@ class LLMPermissionService(
 ) {
 
     fun add(permissionDTO: PermissionDTO) {
-        with(LLMPermission()) {
+        with(LLMPermissionEntity()) {
             name = permissionDTO.name.orEmpty()
             num = permissionDTO.num
             description = permissionDTO.description
