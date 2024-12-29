@@ -1,7 +1,9 @@
 package tw.zipe.bastpartner.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
+import tw.zipe.bastpartner.config.SecurityValidator
 import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.entity.LLMSettingEntity
 import tw.zipe.bastpartner.enumerate.ModelType
@@ -17,80 +19,70 @@ import tw.zipe.bastpartner.util.DTOValidator
  */
 @ApplicationScoped
 class LLMService(
-    private val llmSettingRepository: LLMSettingRepository
+    private val llmSettingRepository: LLMSettingRepository,
+    private val securityValidator: SecurityValidator,
+    private val objectMapper: ObjectMapper
 ) {
 
     /**
      * 儲存 LLM 設定
      */
-    @Transactional
-    fun saveLLMSetting(llmDTO: LLMDTO): LLMSettingEntity {
-        val llmSettingEntity = LLMSettingEntity()
-        llmSettingEntity.platform = llmDTO.platform
-        llmSettingEntity.alias = llmDTO.alias
-        llmSettingEntity.type = llmDTO.modelType
-        llmSettingEntity.modelSetting = llmDTO.llmModel
-
-        llmSettingRepository.persist(llmSettingEntity)
-        return llmSettingEntity
+    fun saveLLMSetting(llmDTO: LLMDTO) {
+        with(LLMSettingEntity()) {
+            id = llmDTO.id
+            userId = securityValidator.validateLoggedInUser()
+            platformId = llmDTO.platformId.orEmpty()
+            alias = llmDTO.alias
+            type = llmDTO.modelType
+            modelSetting = llmDTO.llmModel
+            llmSettingRepository.saveOrUpdate(this).also { llmDTO.id = this.id }
+        }
     }
 
     /**
      * 取得 LLM 設定
      */
     fun getLLMSetting(id: String): LLMDTO? {
-//        val llmSettingEntity = entityManager.createQuery(
-//            "SELECT ls FROM LLMSettingEntity ls WHERE ls.alias = :alias",
-//            LLMDTO::class.java
-//        ).setParameter("alias", alias).singleResult
-
-        val llmSettingEntity = llmSettingRepository.findById(id)
+        val llmSettingEntity = llmSettingRepository.find(id).firstResult()
 
         return llmSettingEntity?.let {
             val llmDTO = LLMDTO()
-            llmDTO.id = it.id
-            llmDTO.modelType = it.type
+            llmDTO.modelType = it.type ?: ModelType.CHAT
             llmDTO.alias = it.alias
-            llmDTO.platform = it.platform
+            llmDTO.platformId = it.platformId
             llmDTO.llmModel = it.modelSetting
-            return llmDTO
+            llmDTO
         }
     }
 
     /**
      * 取得 LLM 設定
      */
-    fun getLLMSetting(platform: Platform, account: String): List<LLModel?> {
+    fun getLLMSetting(userId: String, platformId: String): List<LLModel?> {
 //        val llmSettingList = entityManager.createQuery(
 //            "SELECT ls FROM LLMSettingEntity ls WHERE ls.platform = :platform AND ls.account = :account",
 //            LLMSettingEntity::class.java
 //        ).setParameter("platform", platform).setParameter("account", account).resultList
-        val llmSettingList = llmSettingRepository.findByAccountAndPlatform(account, platform)
-        return llmSettingList.map { it.modelSetting }.toList()
+        val llmSettingList = llmSettingRepository.findByUserIdAndPlatformId(userId, platformId)
+            .map { objectMapper.readValue(it.modelSetting, LLModel::class.java) }.toList()
+        return llmSettingList
     }
 
     /**
      * 更新 LLM 設定
      */
-    @Transactional
     fun updateLLMSetting(llmDTO: LLMDTO) {
         DTOValidator.validate(llmDTO) {
             requireNotEmpty("id")
             throwOnInvalid()
         }
 
-        val llmSettingEntity = LLMSettingEntity()
-        llmSettingEntity.id = llmDTO.id
-        llmSettingEntity.platform = llmDTO.platform
-        llmSettingEntity.type = llmDTO.modelType
-        llmSettingEntity.modelSetting = llmDTO.llmModel
-
         mapOf(
             "alias" to llmDTO.alias,
-            "platform" to llmDTO.platform,
+            "platformId" to llmDTO.platformId.orEmpty(),
             "type" to llmDTO.modelType,
-            "modelSetting" to llmDTO.llmModel!!,
-            "id" to llmDTO.id!!
+            "modelSetting" to llmDTO.llmModel,
+            "id" to llmDTO.id.orEmpty()
         ).let {
             llmSettingRepository.updateSetting(it)
         }
@@ -100,9 +92,7 @@ class LLMService(
      * 刪除 LLM 設定
      */
     @Transactional
-    fun deleteLLMSetting(id: String) {
-        llmSettingRepository.deleteById(id)
-    }
+    fun deleteLLMSetting(id: String) = llmSettingRepository.deleteById(id)
 
     /**
      * 建立 LLM

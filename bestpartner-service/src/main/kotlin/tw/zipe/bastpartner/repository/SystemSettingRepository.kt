@@ -1,9 +1,6 @@
 package tw.zipe.bastpartner.repository
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity_.id
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
-import org.bouncycastle.asn1.x500.style.RFC4519Style.description
 import tw.zipe.bastpartner.entity.SystemSettingEntity
 
 /**

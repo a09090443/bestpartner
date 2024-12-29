@@ -27,10 +27,10 @@ import tw.zipe.bastpartner.util.reorderAndRenameArguments
  */
 @ApplicationScoped
 class ToolService(
-    val llmToolRepository: LLMToolRepository,
-    val llmToolCategoryRepository: LLMToolCategoryRepository,
-    val llmToolUserSettingRepository: LLMToolUserSettingRepository,
-    val securityValidator: SecurityValidator
+    private val llmToolRepository: LLMToolRepository,
+    private val llmToolCategoryRepository: LLMToolCategoryRepository,
+    private val llmToolUserSettingRepository: LLMToolUserSettingRepository,
+    private val securityValidator: SecurityValidator
 ) {
 
     /**

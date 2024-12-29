@@ -42,7 +42,7 @@ class LLMUserServiceTest {
     fun `test updateUser`() {
         testUserDTO.email = "example@example.com"
         testUserDTO.phone = "0987654321"
-        testUserDTO.status = UserStatus.ACTIVE.ordinal
+        testUserDTO.status = UserStatus.INACTIVE.ordinal
         llmUserService.updateUser(testUserDTO)
         val userDTO = llmUserService.findUserById(testUserDTO.id!!)
         assertEquals(testUserDTO.email, userDTO.email)

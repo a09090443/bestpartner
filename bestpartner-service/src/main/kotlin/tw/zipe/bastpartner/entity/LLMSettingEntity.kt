@@ -12,7 +12,6 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import tw.zipe.bastpartner.enumerate.ModelType
-import tw.zipe.bastpartner.enumerate.Platform
 import tw.zipe.bastpartner.model.LLModel
 
 /**
@@ -31,24 +30,23 @@ class LLMSettingEntity : BaseEntity() {
     var id: String? = null
 
     /**
-     * 使用者
+     * 使用者ID
      */
-    @Column(name = "account", nullable = false)
-    var account: String = StringUtil.EMPTY_STRING
+    @Column(name = "user_id", nullable = false)
+    var userId: String = StringUtil.EMPTY_STRING
 
     /**
-     * LLM 平台
+     * LLM 平台ID
      */
-    @Column(name = "platform", nullable = false)
-    @Enumerated(EnumType.STRING)
-    var platform: Platform = Platform.OLLAMA
+    @Column(name = "platform_id", nullable = false)
+    var platformId: String = StringUtil.EMPTY_STRING
 
     /**
      * 類型
      */
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
-    var type: ModelType = ModelType.CHAT
+    var type: ModelType? = null
 
     /**
      * 自定義別名
@@ -61,6 +59,6 @@ class LLMSettingEntity : BaseEntity() {
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "model_setting", columnDefinition = "json", nullable = true)
-    var modelSetting: LLModel? = null
+    var modelSetting: LLModel = LLModel()
 
 }

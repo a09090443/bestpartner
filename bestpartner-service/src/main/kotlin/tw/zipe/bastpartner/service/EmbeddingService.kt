@@ -28,9 +28,9 @@ import tw.zipe.bastpartner.util.logger
  */
 @ApplicationScoped
 class EmbeddingService(
-    val llmService: LLMService,
-    val vectorStoreSettingRepository: VectorStoreSettingRepository,
-    val llmDocRepository: LLMDocRepository
+    private val llmService: LLMService,
+    private val vectorStoreSettingRepository: VectorStoreSettingRepository,
+    private val llmDocRepository: LLMDocRepository
 ) {
 
     private val logger = logger()

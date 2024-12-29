@@ -16,6 +16,8 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
 
     fun findUserByEmail(email: String) = find("email", email).firstResult()
 
+    fun findUserByUsername(username: String) = find("username", username).firstResult()
+
     fun updateUserByNativeSQL(id: String, params: Map<String, Any>): Int {
         val paramsWithoutId = params.filterKeys { it != "id" }
         val setClause = paramsWithoutId.keys.joinToString(", ") { "$it = :$it" }

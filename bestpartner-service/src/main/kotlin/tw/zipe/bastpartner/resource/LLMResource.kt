@@ -33,7 +33,7 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
 class LLMResource(
-    private val lLMService: LLMService,
+    private val llmService: LLMService,
     private val toolService: ToolService
 ) : BaseLLMResource() {
 
@@ -46,7 +46,7 @@ class LLMResource(
         }
 
         val llm = chatRequestDTO.llmId.let {
-            lLMService.buildLLM(it.orEmpty(), ModelType.CHAT)
+            llmService.buildLLM(it.orEmpty(), ModelType.CHAT)
         }.let {
             it as ChatLanguageModel
         }
@@ -64,7 +64,7 @@ class LLMResource(
         }
 
         val llm = chatRequestDTO.llmId.let {
-            lLMService.buildLLM(it!!, ModelType.STREAMING_CHAT)
+            llmService.buildLLM(it!!, ModelType.STREAMING_CHAT)
         }.let {
             it as StreamingChatLanguageModel
         }
@@ -76,12 +76,12 @@ class LLMResource(
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         DTOValidator.validate(chatRequestDTO) {
-            requireNotEmpty("llmId", "message")
+            requireNotEmpty("llmId", "message", "platform")
             throwOnInvalid()
         }
 
         val aiService = AiServices.builder(DynamicAssistant::class.java)
-            .chatLanguageModel(chatModelMap[chatRequestDTO.platform.name])
+            .chatLanguageModel(chatModelMap[chatRequestDTO.platform?.name])
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
 
         val tools = chatRequestDTO.tools?.map {

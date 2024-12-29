@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.repository
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
+import tw.zipe.bastpartner.dto.LLMSettingDTO
 import tw.zipe.bastpartner.entity.LLMSettingEntity
 import tw.zipe.bastpartner.enumerate.Platform
 
@@ -10,41 +10,47 @@ import tw.zipe.bastpartner.enumerate.Platform
  * @created 2024/10/11
  */
 @ApplicationScoped
-class LLMSettingRepository : PanacheRepositoryBase<LLMSettingEntity, String> {
+class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
 
-    fun findByAlias(alias: String) = find("alias", alias).singleResult()
-
-    fun findByAccountAndPlatform(account: String, platform: Platform?): List<LLMSettingEntity> {
-        // 建立基礎查詢和參數 Map
-        val conditions = mutableListOf<String>()
+    fun findByUserIdAndPlatformId(userId: String, platformId: String?): List<LLMSettingDTO> {
+        val sql = """
+            SELECT ls.id            AS id,
+                   ls.user_id       AS userId,
+                   ls.platform_id   AS platformId,
+                   ls.type          AS type,
+                   ls.alias         AS alias,
+                   ls.model_setting AS modelSetting,
+                   lp.name          AS platformName
+            FROM llm_setting ls
+                     LEFT JOIN llm_platform lp ON ls.platform_id = lp.id
+            WHERE ls.user_id = :userId
+            """.trimIndent()
+        // 建立基礎查詢參數 Map
         val parameters = mutableMapOf<String, Any>()
-        conditions.add("account = :account")
-        parameters["account"] = account
+        parameters["userId"] = userId
 
-        platform?.let {
-            conditions.add("platform = :platform")
-            parameters["platform"] = it
+        platformId?.let {
+            sql.plus(" AND ls.platform_id = :platformId")
+            parameters["platformId"] = it
         }
-
-        // 構建最終查詢字串
-        val query = if (conditions.isEmpty()) {
-            "1=1"
-        } else {
-            conditions.joinToString(" and ")
-        }
-
-        return list(query, parameters)
+        return executeSelect(sql, parameters, LLMSettingDTO::class.java)
     }
 
-    fun updateSetting(parasMap: Map<String, Any>) {
+    fun updateSetting(parasMap: Map<String, Any>): Int {
+        val params = parasMap.toMutableMap().apply { putAll(initParamsMap()) }
         val sql = """
-            UPDATE LLMSettingEntity ls 
+            UPDATE llm_setting ls 
             SET ls.alias = :alias,
-                ls.platform = :platform,
+                ls.platform_id = :platformId,
                 ls.type = :type,
-                ls.modelSetting = :modelSetting
+                ls.model_setting = :modelSetting,
+                ls.updated_at = :updatedAt,
+                ls.updated_by = :updatedBy
             WHERE ls.id = :id
         """.trimIndent()
-        update(sql, parasMap)
+        val executor = createSqlExecutor()
+            .withSql(sql)
+            .withParamMap(params)
+        return executeUpdateWithTransaction(executor)
     }
 }

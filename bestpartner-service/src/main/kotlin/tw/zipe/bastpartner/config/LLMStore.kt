@@ -14,7 +14,9 @@ import tw.zipe.bastpartner.config.chatmodel.OpenaiChatModelConfig
 import tw.zipe.bastpartner.config.embedding.OllamaEmbeddingModelConfig
 import tw.zipe.bastpartner.config.embedding.OpenaiEmbeddingModelConfig
 import tw.zipe.bastpartner.enumerate.Platform
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.LLMService
+import tw.zipe.bastpartner.service.LLMUserService
 import tw.zipe.bastpartner.service.SystemService
 
 /**
@@ -27,7 +29,8 @@ class LLMStore(
     private val openaiChatModelConfig: OpenaiChatModelConfig,
     private val ollamaEmbeddingModelConfig: OllamaEmbeddingModelConfig,
     private val openaiEmbeddingModelConfig: OpenaiEmbeddingModelConfig,
-    private val lLMService: LLMService,
+    private val llmService: LLMService,
+    private val llmUserService: LLMUserService,
     private val systemService: SystemService
 ) {
 
@@ -45,27 +48,31 @@ class LLMStore(
         ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
         openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
-            Platform.valueOf(it).let { platform ->
-                lLMService.getLLMSetting(platform, "SYSTEM").forEach { llModel ->
-                    if (llModel != null) {
-                        when (llModel.platform) {
-                            Platform.OLLAMA -> {
-                                ollamaChatModelConfig.buildChatModel()
-                                    ?.let { model ->
-                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
-                                    }
-                            }
+            val user = llmUserService.findUserByName("admin") ?: throw ServiceException("User not found")
+            llmService.getLLMSetting(user.id.orEmpty()).run {
 
-                            Platform.OPENAI -> {
-                                openaiChatModelConfig.buildChatModel()
-                                    ?.let { model ->
-                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
-                                    }
-                            }
-                        }
-                    }
-                }
             }
+//            Platform.valueOf(it).let { platform ->
+//                llmService.getLLMSetting(user.id.orEmpty(), platform).forEach { llModel ->
+//                    if (llModel != null) {
+//                        when (llModel.platform) {
+//                            Platform.OLLAMA -> {
+//                                ollamaChatModelConfig.buildChatModel()
+//                                    ?.let { model ->
+//                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
+//                                    }
+//                            }
+//
+//                            Platform.OPENAI -> {
+//                                openaiChatModelConfig.buildChatModel()
+//                                    ?.let { model ->
+//                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
+//                                    }
+//                            }
+//                        }
+//                    }
+//                }
+//            }
         }
         return chatModelMap
     }
@@ -83,7 +90,7 @@ class LLMStore(
 
             Platform.valueOf(it).let { platform ->
                 {
-                    lLMService.getLLMSetting(platform, "SYSTEM").forEach { llModel ->
+                    llmService.getLLMSetting("SYSTEM", platform).forEach { llModel ->
                         if (llModel != null) {
                             when (llModel.platform) {
                                 Platform.OLLAMA -> {
@@ -123,7 +130,7 @@ class LLMStore(
         ollamaEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OLLAMA.name] = it }
         openaiEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OPENAI.name] = it }
 
-        lLMService.getLLMSetting(Platform.OLLAMA, "SYSTEM").forEach { llModel ->
+        llmService.getLLMSetting("SYSTEM",Platform.OLLAMA).forEach { llModel ->
             if (llModel != null) {
                 when (llModel.platform) {
                     Platform.OLLAMA -> {

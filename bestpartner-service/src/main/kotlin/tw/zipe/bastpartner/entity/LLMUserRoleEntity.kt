@@ -10,7 +10,7 @@ import jakarta.persistence.Table
  */
 @Entity
 @Table(name = "llm_user_role")
-data class LLMUserRole(
+data class LLMUserRoleEntity(
     @EmbeddedId
     var id: LLMUserRoleId = LLMUserRoleId()  // 提供預設值
 )
