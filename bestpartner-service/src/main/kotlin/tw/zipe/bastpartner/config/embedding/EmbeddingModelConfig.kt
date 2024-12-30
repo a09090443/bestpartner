@@ -12,14 +12,13 @@ import tw.zipe.bastpartner.provider.ModelProvider
  */
 abstract class EmbeddingModelConfig {
 
-    fun convertEmbeddingModelSetting(baseAIPlatform: BaseAIPlatform): LLModel = run {
-        LLModel(
-            apiKey = baseAIPlatform.apiKey().orElse(null),
-            url = baseAIPlatform.url().orElse(StringUtil.EMPTY_STRING),
-            modelName = baseAIPlatform.embeddingModelName().orElse(StringUtil.EMPTY_STRING),
-            temperature = baseAIPlatform.temperature(),
-            timeout = baseAIPlatform.timeout().toMillis()
-        )
+    fun convertEmbeddingModelSetting(baseAIPlatform: BaseAIPlatform): LLModel = with(LLModel()) {
+        apiKey = baseAIPlatform.apiKey().orElse(StringUtil.EMPTY_STRING)
+        url = baseAIPlatform.url().orElse(StringUtil.EMPTY_STRING)
+        modelName = baseAIPlatform.modelName()
+        temperature = baseAIPlatform.temperature()
+        timeout = baseAIPlatform.timeout().toMillis()
+        this
     }
 
     fun buildEmbeddingModel(llModel: LLModel, modelProvider: ModelProvider): EmbeddingModel {
