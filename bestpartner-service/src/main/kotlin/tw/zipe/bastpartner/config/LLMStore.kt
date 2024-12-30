@@ -4,6 +4,7 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15QuantizedEmbeddingModel
+import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Named
@@ -45,34 +46,33 @@ class LLMStore(
 
         val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
 
-        ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
-        openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
+//        ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
+//        openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
             val user = llmUserService.findUserByName("admin") ?: throw ServiceException("User not found")
-            llmService.getLLMSetting(user.id.orEmpty()).run {
+            llmService.getLLMSetting(user.id.orEmpty(), StringUtil.EMPTY_STRING).forEach { llModel ->
+                if (llModel != null) {
+                    when (llModel.platform) {
+                        Platform.OLLAMA -> {
+                            ollamaChatModelConfig.buildChatModel()
+                                ?.let { model ->
+                                    chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
+                                }
+                        }
 
+                        Platform.OPENAI -> {
+                            openaiChatModelConfig.buildChatModel()
+                                ?.let { model ->
+                                    chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
+                                }
+                        }
+
+                        else -> {
+                            throw ServiceException("Platform not found")
+                        }
+                    }
+                }
             }
-//            Platform.valueOf(it).let { platform ->
-//                llmService.getLLMSetting(user.id.orEmpty(), platform).forEach { llModel ->
-//                    if (llModel != null) {
-//                        when (llModel.platform) {
-//                            Platform.OLLAMA -> {
-//                                ollamaChatModelConfig.buildChatModel()
-//                                    ?.let { model ->
-//                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
-//                                    }
-//                            }
-//
-//                            Platform.OPENAI -> {
-//                                openaiChatModelConfig.buildChatModel()
-//                                    ?.let { model ->
-//                                        chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
-//                                    }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
         }
         return chatModelMap
     }
@@ -83,39 +83,35 @@ class LLMStore(
 
         val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
 
-        ollamaChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OLLAMA.name] = it }
-        openaiChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OPENAI.name] = it }
+//        ollamaChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OLLAMA.name] = it }
+//        openaiChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OPENAI.name] = it }
 
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
-
-            Platform.valueOf(it).let { platform ->
-                {
-                    llmService.getLLMSetting("SYSTEM", platform).forEach { llModel ->
-                        if (llModel != null) {
-                            when (llModel.platform) {
-                                Platform.OLLAMA -> {
-                                    ollamaChatModelConfig.buildStreamingChatModel()
-                                        ?.let { model ->
-                                            streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] =
-                                                model
-                                        }
+            val user = llmUserService.findUserByName("admin") ?: throw ServiceException("User not found")
+            llmService.getLLMSetting(user.id.orEmpty(), StringUtil.EMPTY_STRING).forEach { llModel ->
+                if (llModel != null) {
+                    when (llModel.platform) {
+                        Platform.OLLAMA -> {
+                            ollamaChatModelConfig.buildStreamingChatModel()
+                                ?.let { model ->
+                                    streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
                                 }
+                        }
 
-                                Platform.OPENAI -> {
-                                    openaiChatModelConfig.buildStreamingChatModel()
-                                        ?.let { model ->
-                                            streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] =
-                                                model
-                                        }
+                        Platform.OPENAI -> {
+                            openaiChatModelConfig.buildStreamingChatModel()
+                                ?.let { model ->
+                                    streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
                                 }
-                            }
+                        }
+
+                        else -> {
+                            throw ServiceException("Platform not found")
                         }
                     }
                 }
-
             }
         }
-
         return streamingChatModelMap
     }
 
@@ -127,24 +123,9 @@ class LLMStore(
 
         embeddingChatModelMap["default"] = BgeSmallEnV15QuantizedEmbeddingModel()
 
-        ollamaEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OLLAMA.name] = it }
-        openaiEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OPENAI.name] = it }
+//        ollamaEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OLLAMA.name] = it }
+//        openaiEmbeddingModelConfig.buildEmbeddingModel()?.let { embeddingChatModelMap[Platform.OPENAI.name] = it }
 
-        llmService.getLLMSetting("SYSTEM",Platform.OLLAMA).forEach { llModel ->
-            if (llModel != null) {
-                when (llModel.platform) {
-                    Platform.OLLAMA -> {
-                        ollamaEmbeddingModelConfig.buildEmbeddingModel()
-                            ?.let { embeddingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = it }
-                    }
-
-                    Platform.OPENAI -> {
-                        openaiEmbeddingModelConfig.buildEmbeddingModel()
-                            ?.let { embeddingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = it }
-                    }
-                }
-            }
-        }
         return embeddingChatModelMap
     }
 }

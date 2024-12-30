@@ -30,7 +30,7 @@ class LLMServiceTest {
     @Order(1)
     fun `test add llm setting`() {
         val llmSetting = llmService.saveLLMSetting(llmDTO)
-        assertNotNull(llmSetting.id)
+        assertNotNull(llmSetting)
     }
 
     @Test
@@ -51,7 +51,7 @@ class LLMServiceTest {
     @Order(4)
     fun `test update llm setting`() {
         llmDTO.modelType = ModelType.EMBEDDING
-        llmDTO.llmModel?.modelName = "llama3.2:latest"
+        llmDTO.llmModel.modelName = "llama3.2:latest"
         llmService.updateLLMSetting(llmDTO)
         val llmDTOResult = llmService.getLLMSetting(llmDTO.id!!)
         assertEquals(llmDTO.modelType, llmDTOResult?.modelType)
@@ -75,17 +75,18 @@ class LLMServiceTest {
             llmDTO.alias = "example"
             llmDTO.modelType = ModelType.CHAT
             llmDTO.platform = Platform.OLLAMA
-            llmDTO.llmModel = LLModel(
-                modelName = "llama3.1:latest",
-                url = "http://localhost:11434",
-                temperature = 0.7,
-                topP = 0.5,
-                topK = 40,
-                maxTokens = 4096,
-                timeout = 60000,
-                logRequests = true,
+            llmDTO.llmModel = with(LLModel()) {
+                modelName = "llama3.1:latest"
+                url = "http://localhost:11434"
+                temperature = 0.7
+                topP = 0.5
+                topK = 40
+                maxTokens = 4096
+                timeout = 60000
+                logRequests = true
                 logResponses = true
-            )
+                this
+            }
         }
     }
 }

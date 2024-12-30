@@ -27,7 +27,7 @@ class LLMService(
     /**
      * 儲存 LLM 設定
      */
-    fun saveLLMSetting(llmDTO: LLMDTO) {
+    fun saveLLMSetting(llmDTO: LLMDTO): LLMSettingEntity {
         with(LLMSettingEntity()) {
             id = llmDTO.id
             userId = securityValidator.validateLoggedInUser()
@@ -36,36 +36,43 @@ class LLMService(
             type = llmDTO.modelType
             modelSetting = llmDTO.llmModel
             llmSettingRepository.saveOrUpdate(this).also { llmDTO.id = this.id }
+            return this
         }
     }
 
     /**
      * 取得 LLM 設定
      */
-    fun getLLMSetting(id: String): LLMDTO? {
-        val llmSettingEntity = llmSettingRepository.find(id).firstResult()
-
-        return llmSettingEntity?.let {
-            val llmDTO = LLMDTO()
-            llmDTO.modelType = it.type ?: ModelType.CHAT
-            llmDTO.alias = it.alias
-            llmDTO.platformId = it.platformId
-            llmDTO.llmModel = it.modelSetting
-            llmDTO
+    fun getLLMSetting(llmId: String): LLMDTO? {
+        return llmSettingRepository.findById(llmId)?.let { llmSetting ->
+            LLMDTO().apply {
+                id = llmSetting.id
+                alias = llmSetting.alias
+                platformId = llmSetting.platformId
+                modelType = llmSetting.type ?: ModelType.CHAT
+                llmModel = llmSetting.modelSetting
+            }
         }
     }
 
     /**
      * 取得 LLM 設定
      */
-    fun getLLMSetting(userId: String, platformId: String): List<LLModel?> {
+    fun getLLMSetting(userId: String, platformId: String): List<LLMDTO?> {
 //        val llmSettingList = entityManager.createQuery(
 //            "SELECT ls FROM LLMSettingEntity ls WHERE ls.platform = :platform AND ls.account = :account",
 //            LLMSettingEntity::class.java
 //        ).setParameter("platform", platform).setParameter("account", account).resultList
-        val llmSettingList = llmSettingRepository.findByUserIdAndPlatformId(userId, platformId)
-            .map { objectMapper.readValue(it.modelSetting, LLModel::class.java) }.toList()
-        return llmSettingList
+        return llmSettingRepository.findByUserIdAndPlatformId(userId, platformId)
+            .map { llmSetting ->
+                LLMDTO().apply {
+                    id = llmSetting.id
+                    alias = llmSetting.alias
+                    modelType = ModelType.valueOf(llmSetting.type)
+                    llmModel = objectMapper.readValue(llmSetting.modelSetting, LLModel::class.java)
+                    platform = Platform.valueOf(llmSetting.platformName)
+                }
+            }.toList()
     }
 
     /**
@@ -98,12 +105,17 @@ class LLMService(
      * 建立 LLM
      */
     fun buildLLM(id: String, type: ModelType): Any {
-        val llmSettingEntity = llmSettingRepository.findById(id)
+        val llmSettingEntity = llmSettingRepository.findByUserIdAndPlatformId(id, null).firstOrNull()
         return llmSettingEntity?.let {
-            when (it.type) {
-                ModelType.EMBEDDING -> it.platform.getLLMBean().embeddingModel(it.modelSetting!!)
-                ModelType.CHAT -> it.platform.getLLMBean().chatModel(it.modelSetting!!)
-                ModelType.STREAMING_CHAT -> it.platform.getLLMBean().chatModelStreaming(it.modelSetting!!)
+            when (type) {
+                ModelType.EMBEDDING -> Platform.valueOf(it.platformName).getLLMBean()
+                    .embeddingModel(objectMapper.readValue(it.modelSetting, LLModel::class.java))
+
+                ModelType.CHAT -> Platform.valueOf(it.platformName).getLLMBean()
+                    .chatModel(objectMapper.readValue(it.modelSetting, LLModel::class.java))
+
+                ModelType.STREAMING_CHAT -> Platform.valueOf(it.platformName).getLLMBean()
+                    .chatModelStreaming(objectMapper.readValue(it.modelSetting, LLModel::class.java))
             }
         } ?: throw ServiceException("請確認存取的 LLM 設定是否存在")
     }
