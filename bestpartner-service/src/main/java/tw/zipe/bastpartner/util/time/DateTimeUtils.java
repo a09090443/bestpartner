@@ -165,19 +165,12 @@ public class DateTimeUtils {
         Instant instant = date.toInstant();
         ZoneId zone = ZoneId.systemDefault();
         LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zone);
-        Object java8Date = null;
-        switch (type) {
-            case 1:
-                java8Date = dateTime;
-                break;
-            case 2:
-                java8Date = dateTime.toLocalDate();
-                break;
-            case 3:
-                java8Date = dateTime.toLocalTime();
-                break;
-        }
-        return java8Date;
+        return switch (type) {
+            case 1 -> dateTime;
+            case 2 -> dateTime.toLocalDate();
+            case 3 -> dateTime.toLocalTime();
+            default -> null;
+        };
     }
 
     /**
@@ -608,7 +601,7 @@ public class DateTimeUtils {
     }
 
     public static void main(String[] args) {
-        System.out.println(DateTimeUtils.getMinusOrPlusMonths(-1, DateTimeUtils.dateTimeFormate14));
+//        System.out.println(DateTimeUtils.getMinusOrPlusMonths(-1, DateTimeUtils.dateTimeFormate14));
     }
 
 }

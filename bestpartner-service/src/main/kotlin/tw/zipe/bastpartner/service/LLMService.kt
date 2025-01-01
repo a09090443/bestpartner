@@ -14,7 +14,6 @@ import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
-import tw.zipe.bastpartner.util.DTOValidator
 
 /**
  * @author Gary
@@ -66,10 +65,6 @@ class LLMService(
      * 取得 LLM 設定
      */
     fun getLLMSetting(userId: String, platformId: String?, llmId: String?): List<LLMDTO?> {
-//        val llmSettingList = entityManager.createQuery(
-//            "SELECT ls FROM LLMSettingEntity ls WHERE ls.platform = :platform AND ls.account = :account",
-//            LLMSettingEntity::class.java
-//        ).setParameter("platform", platform).setParameter("account", account).resultList
         return llmSettingRepository.findByUserIdAndPlatformIdAndLLMId(userId, platformId, llmId)
             .map { llmSetting ->
                 LLMDTO().apply {
@@ -107,18 +102,17 @@ class LLMService(
      * 建立 LLM
      */
     fun buildLLM(id: String, type: ModelType): Any {
-        val llmSettingEntity = llmSettingRepository.findById(id)
-        return llmSettingEntity?.let {
-            val platform = llmPlatformRepository.findById(it.platformId).let {
-                if (it == null) {
-                    throw ServiceException("請確認存取的平台是否存在")
-                }
-                it
-            }
+        val llmSetting =
+            llmSettingRepository.findByUserIdAndPlatformIdAndLLMId(securityValidator.validateLoggedInUser(), null, id)
+                .firstOrNull()
+        return llmSetting?.let { setting ->
+            val platform =
+                llmPlatformRepository.findById(setting.platformId) ?: throw ServiceException("請確認存取的平台是否存在")
+            val llmModel = objectMapper.readValue(setting.modelSetting, LLModel::class.java)
             when (type) {
-                ModelType.EMBEDDING -> platform.name?.getLLMBean()?.embeddingModel(it.modelSetting)
-                ModelType.CHAT -> platform.name?.getLLMBean()?.chatModel(it.modelSetting)
-                ModelType.STREAMING_CHAT -> platform.name?.getLLMBean()?.chatModelStreaming(it.modelSetting)
+                ModelType.EMBEDDING -> platform.name?.getLLMBean()?.embeddingModel(llmModel)
+                ModelType.CHAT -> platform.name?.getLLMBean()?.chatModel(llmModel)
+                ModelType.STREAMING_CHAT -> platform.name?.getLLMBean()?.chatModelStreaming(llmModel)
             }
         } ?: throw ServiceException("請確認存取的 LLM 設定是否存在")
     }

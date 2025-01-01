@@ -256,7 +256,7 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
                             // Create new instance of nested object if null
                             val nestedClass = field.type
                             val nestedInstance = nestedClass.getDeclaredConstructor().newInstance()
-                            field.set(instance, nestedInstance)
+                            field[instance] = nestedInstance
                         }
                         field[instance]
                     }
@@ -296,18 +296,18 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             field.isAccessible = true
             try {
                 when (field.type) {
-                    String::class.java -> field.set(instance, value.toString())
-                    Int::class.java, Integer::class.java -> field.set(instance, value.toString().toIntOrNull() ?: 0)
-                    Long::class.java -> field.set(instance, value.toString().toLongOrNull() ?: 0L)
-                    Double::class.java -> field.set(instance, value.toString().toDoubleOrNull() ?: 0.0)
-                    Float::class.java -> field.set(instance, value.toString().toFloatOrNull() ?: 0.0f)
-                    Boolean::class.java -> field.set(instance, value.toString().toBoolean())
+                    String::class.java -> field[instance] = value.toString()
+                    Int::class.java, Integer::class.java -> field[instance] = value.toString().toIntOrNull() ?: 0
+                    Long::class.java -> field[instance] = value.toString().toLongOrNull() ?: 0L
+                    Double::class.java -> field[instance] = value.toString().toDoubleOrNull() ?: 0.0
+                    Float::class.java -> field[instance] = value.toString().toFloatOrNull() ?: 0.0f
+                    Boolean::class.java -> field[instance] = value.toString().toBoolean()
                     LocalDateTime::class.java -> when (value) {
-                        is LocalDateTime -> field.set(instance, value)
-                        is java.sql.Timestamp -> field.set(instance, value.toLocalDateTime())
+                        is LocalDateTime -> field[instance] = value
+                        is java.sql.Timestamp -> field[instance] = value.toLocalDateTime()
                         else -> println("Unsupported datetime type: ${value::class.java}")
                     }
-                    else -> field.set(instance, value)
+                    else -> field[instance] = value
                 }
             } catch (e: Exception) {
                 println("Error setting field ${field.name}: ${e.message}")

@@ -2,10 +2,8 @@ package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
 import java.util.UUID
-import tw.zipe.bastpartner.dto.PermissionDTO
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
-import tw.zipe.bastpartner.enumerate.UserStatus
 
 /**
  * @author Gary
