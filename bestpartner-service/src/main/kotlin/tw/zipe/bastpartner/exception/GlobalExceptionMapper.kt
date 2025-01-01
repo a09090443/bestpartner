@@ -32,7 +32,11 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
     override fun toResponse(exception: Exception): Response {
         logger.error("Exception occurred: ${exception.javaClass.simpleName} - ${exception.message}", exception)
         val response = when (exception) {
-            // 保留原有的异常处理
+            is ServiceException -> ApiResponse<Nothing>(
+                code = 400,
+                message = exception.message ?: "Service exception"
+            )
+            // 保留原有的異常處理
             is NotFoundException -> ApiResponse<Nothing>(
                 code = 404,
                 message = "Resource not found"

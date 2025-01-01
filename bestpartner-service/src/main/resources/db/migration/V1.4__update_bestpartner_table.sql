@@ -52,5 +52,18 @@ INSERT INTO bestpartner.llm_user (id, username, password, nickname, phone, email
 VALUES ('5554f255-08d5-4069-99d2-928372d4a87b', 'user',
         'b14361404c078ffd549c03db443c3fede2f3e534d73f78f77301ed97d4a436a9fd9db05ee8b325c0ad36438b43fec8510c204fc1c1edb21d0941c00e9e2c1ce2',
         '', '1234567890', 'user@bestpartner.com.tw', '', '1', '2024-12-23 14:37:11', null, '', '');
-INSERT INTO bestpartner.llm_user_role (user_id, role_num)
-VALUES ('5554f255-08d5-4069-99d2-928372d4a87b', 1);
+INSERT INTO bestpartner.llm_user_role (user_id, role_num) VALUES ('c88f57c8-ad26-4ea0-9f71-a65995b49357', 0);
+INSERT INTO bestpartner.llm_user_role (user_id, role_num) VALUES ('5554f255-08d5-4069-99d2-928372d4a87b', 1);
+
+-- 新增權限
+INSERT INTO bestpartner.llm_permission (id, name, num, description, created_at, updated_at, created_by, updated_by) VALUES ('720ad595-712e-43b0-a4f5-8d35794ddbf6', 'admin', 0, '最高權限', '2024-12-31 20:54:10', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.llm_permission (id, name, num, description, created_at, updated_at, created_by, updated_by) VALUES ('f8508ea8-3c0d-479c-a56d-1c604d99b4f6', 'all', 2, '一般權限', '2024-12-31 20:54:44', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.llm_permission (id, name, num, description, created_at, updated_at, created_by, updated_by) VALUES ('93ded4b1-c93d-424c-9aa4-330de9d8bbf7', 'user-read', 1, '一般使用者讀取', '2024-12-31 20:52:51', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+
+-- 新增 LLM 模型平台
+INSERT INTO bestpartner.llm_platform (id, name, created_at, updated_at, created_by, updated_by) VALUES ('166a5745-b89c-410e-ada4-7ae3da426af5', 'OLLAMA', '2024-12-31 21:42:28', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
+INSERT INTO bestpartner.llm_platform (id, name, created_at, updated_at, created_by, updated_by) VALUES ('340580a6-74cf-4126-9c95-55741ec3996c', 'OPENAI', '2024-12-31 21:42:38', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
+
+-- 新增 LLM 模型設定資訊
+INSERT INTO bestpartner.llm_setting (id, user_id, platform_id, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('a03a6e9a-1f48-4edc-a1dc-3def6a639be3', 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '340580a6-74cf-4126-9c95-55741ec3996c', 'EMBEDDING', 'local_embedding_test', '{"id": null, "url": null, "topK": null, "topP": 0.5, "apiKey": "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", "timeout": 6000, "platform": "OPENAI", "maxTokens": 4096, "modelName": "text-embedding-3-small", "dimensions": 1536, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2025-01-01 00:25:03', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
+INSERT INTO bestpartner.llm_setting (id, user_id, platform_id, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('fa07e6bb-3608-4228-ba02-f888aa38652d', 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '340580a6-74cf-4126-9c95-55741ec3996c', 'CHAT', 'openai_local_chat_test', '{"id": null, "url": null, "topK": null, "topP": 0.5, "apiKey": "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", "timeout": 6000, "platform": "OPENAI", "maxTokens": 4096, "modelName": "gpt-4o-mini", "dimensions": null, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2024-12-31 23:31:31', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');

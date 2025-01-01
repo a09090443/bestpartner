@@ -26,14 +26,14 @@ class LLMAdminResource : BaseLLMResource() {
     @POST
     @Path("/chat")
     fun chat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
-        val llm = chatModelMap[chatRequestDTO.platform.name] ?: throw ServiceException("Did not find the LLM model")
+        val llm = chatModelMap[chatRequestDTO.platform?.name] ?: throw ServiceException("Did not find the LLM model")
         return ApiResponse.success(baseChat(llm, chatRequestDTO.message!!))
     }
 
     @POST
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): Multi<String?> {
-        val llm = streamingChatModelMap[chatRequestDTO.platform.name] ?: throw ServiceException("Did not find the LLM model")
+        val llm = streamingChatModelMap[chatRequestDTO.platform?.name] ?: throw ServiceException("Did not find the LLM model")
         return baseStreamingChat(llm, chatRequestDTO.message!!)
     }
 }

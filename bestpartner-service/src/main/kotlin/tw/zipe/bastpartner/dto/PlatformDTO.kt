@@ -1,14 +1,10 @@
-package tw.zipe.bastpartner.model
+package tw.zipe.bastpartner.dto
 
 import kotlinx.serialization.Serializable
 import tw.zipe.bastpartner.enumerate.Platform
 
-/**
- * @author Gary
- * @created 2024/10/16
- */
 @Serializable
-open class BaseLLM {
+class PlatformDTO {
     var id: String? = null
     var platform: Platform? = null
 }

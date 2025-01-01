@@ -44,13 +44,9 @@ class LLMResource(
             requireNotEmpty("llmId", "message")
             throwOnInvalid()
         }
-
-        val llm = chatRequestDTO.llmId.let {
-            llmService.buildLLM(it.orEmpty(), ModelType.CHAT)
-        }.let {
+        val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT).let {
             it as ChatLanguageModel
         }
-
         return ApiResponse.success(baseChat(llm, chatRequestDTO.message!!))
     }
 
@@ -62,13 +58,9 @@ class LLMResource(
             requireNotEmpty("llmId", "message")
             throwOnInvalid()
         }
-
-        val llm = chatRequestDTO.llmId.let {
-            llmService.buildLLM(it!!, ModelType.STREAMING_CHAT)
-        }.let {
+        val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.STREAMING_CHAT).let {
             it as StreamingChatLanguageModel
         }
-
         return baseStreamingChat(llm, chatRequestDTO.message!!)
     }
 
