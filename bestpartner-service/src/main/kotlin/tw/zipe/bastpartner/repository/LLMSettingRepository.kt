@@ -3,7 +3,6 @@ package tw.zipe.bastpartner.repository
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.bastpartner.dto.LLMSettingDTO
 import tw.zipe.bastpartner.entity.LLMSettingEntity
-import tw.zipe.bastpartner.enumerate.Platform
 
 /**
  * @author Gary

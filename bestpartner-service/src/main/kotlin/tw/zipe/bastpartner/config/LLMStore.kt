@@ -4,7 +4,6 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15QuantizedEmbeddingModel
-import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Named
@@ -50,7 +49,7 @@ class LLMStore(
 //        openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
             llmUserService.findUserByName("admin")?.let {
-                llmService.getLLMSetting(it.id.orEmpty(), StringUtil.EMPTY_STRING, StringUtil.EMPTY_STRING ).forEach { llModel ->
+                llmService.getLLMSetting(it.id.orEmpty(), null, null ).forEach { llModel ->
                     if (llModel != null) {
                         when (llModel.platform) {
                             Platform.OLLAMA -> {
@@ -90,7 +89,7 @@ class LLMStore(
 
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
             val user = llmUserService.findUserByName("admin") ?: throw ServiceException("User not found")
-            llmService.getLLMSetting(user.id.orEmpty(), StringUtil.EMPTY_STRING, StringUtil.EMPTY_STRING).forEach { llModel ->
+            llmService.getLLMSetting(user.id.orEmpty(), null, null).forEach { llModel ->
                 if (llModel != null) {
                     when (llModel.platform) {
                         Platform.OLLAMA -> {

@@ -145,9 +145,6 @@ class EmbeddingService(
                 filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
             }
         }
-//        vectorStoreDTO.files?.let {
-//            filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
-//        }
         embeddingStore.removeAll(filter)
     }
 }

@@ -2,7 +2,6 @@ package tw.zipe.bastpartner.dto
 
 import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
-import tw.zipe.bastpartner.enumerate.UserStatus
 
 /**
  * @author Gary
