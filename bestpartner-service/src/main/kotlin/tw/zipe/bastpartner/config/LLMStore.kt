@@ -50,7 +50,7 @@ class LLMStore(
 //        openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
             llmUserService.findUserByName("admin")?.let {
-                llmService.getLLMSetting(it.id.orEmpty(), StringUtil.EMPTY_STRING).forEach { llModel ->
+                llmService.getLLMSetting(it.id.orEmpty(), StringUtil.EMPTY_STRING, StringUtil.EMPTY_STRING ).forEach { llModel ->
                     if (llModel != null) {
                         when (llModel.platform) {
                             Platform.OLLAMA -> {
@@ -90,7 +90,7 @@ class LLMStore(
 
         systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
             val user = llmUserService.findUserByName("admin") ?: throw ServiceException("User not found")
-            llmService.getLLMSetting(user.id.orEmpty(), StringUtil.EMPTY_STRING).forEach { llModel ->
+            llmService.getLLMSetting(user.id.orEmpty(), StringUtil.EMPTY_STRING, StringUtil.EMPTY_STRING).forEach { llModel ->
                 if (llModel != null) {
                     when (llModel.platform) {
                         Platform.OLLAMA -> {
