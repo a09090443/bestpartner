@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.resource
 
 import io.quarkus.security.Authenticated
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
@@ -9,6 +10,7 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.LLMDTO
+import tw.zipe.bastpartner.dto.PlatformDTO
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.util.DTOValidator
 
@@ -22,17 +24,17 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
 class LLMSettingResource(
-    private val lLMService: LLMService
+    private val llmService: LLMService
 ) {
 
     @POST
     @Path("/get")
     fun get(llmDTO: LLMDTO): ApiResponse<LLMDTO?> {
         DTOValidator.validate(llmDTO) {
-            requireNotEmpty("id")
+            requireNotEmpty("llmId")
             throwOnInvalid()
         }
-        val result = lLMService.getLLMSetting(llmDTO.id.orEmpty())
+        val result = llmService.getLLMSetting(llmDTO.llmId.orEmpty())
         return ApiResponse.success(result)
     }
 
@@ -48,8 +50,8 @@ class LLMSettingResource(
             throwOnInvalid()
         }
 
-        llmDTO.llmModel?.let {
-            lLMService.saveLLMSetting(llmDTO)
+        llmDTO.llmModel.let {
+            llmService.saveLLMSetting(llmDTO)
         }
         return ApiResponse.success(llmDTO)
     }
@@ -67,7 +69,7 @@ class LLMSettingResource(
         }
 
         llmDTO.llmModel?.let {
-            lLMService.updateLLMSetting(llmDTO)
+            llmService.updateLLMSetting(llmDTO)
         }
         return ApiResponse.success("成功更新 LLM 設定")
     }
@@ -80,6 +82,30 @@ class LLMSettingResource(
             throwOnInvalid()
         }
 
-        return ApiResponse.success(lLMService.deleteLLMSetting(llmDTO.id.orEmpty()))
+        return ApiResponse.success(llmService.deleteLLMSetting(llmDTO.id.orEmpty()))
+    }
+
+    @POST
+    @Path("/platform/add")
+    @RolesAllowed("admin")
+    fun addPlatform(platformDTO: PlatformDTO): ApiResponse<PlatformDTO> {
+        DTOValidator.validate(platformDTO) {
+            requireNotEmpty("platform")
+            throwOnInvalid()
+        }
+
+        llmService.addPlatform(platformDTO)
+        return ApiResponse.success(platformDTO)
+    }
+
+    @POST
+    @Path("/platform/delete")
+    fun deletePlatform(platformDTO: PlatformDTO): ApiResponse<Boolean> {
+        DTOValidator.validate(platformDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
+
+        return ApiResponse.success(llmService.deletePlatform(platformDTO.id.orEmpty()))
     }
 }
