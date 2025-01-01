@@ -25,7 +25,7 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Authenticated
 class LLMSettingResource(
     private val llmService: LLMService
-) {
+):BaseLLMResource() {
 
     @POST
     @Path("/get")
@@ -34,7 +34,8 @@ class LLMSettingResource(
             requireNotEmpty("llmId")
             throwOnInvalid()
         }
-        val result = llmService.getLLMSetting(llmDTO.llmId.orEmpty())
+        val result =
+            llmService.getLLMSetting(identity.principal.name, llmDTO.platformId, llmDTO.llmId.orEmpty()).firstOrNull()
         return ApiResponse.success(result)
     }
 
@@ -61,14 +62,13 @@ class LLMSettingResource(
     fun update(llmDTO: LLMDTO): ApiResponse<String> {
         DTOValidator.validate(llmDTO) {
             requireNotEmpty("id")
-            validateNested("llmModel") {
-                requireNotEmpty("id")
-                requireNotEmpty("modelName")
-            }
+            requireNotEmpty("platformId")
+            requireNotEmpty("modelType")
+            requireNotEmpty("llmModel")
             throwOnInvalid()
         }
 
-        llmDTO.llmModel?.let {
+        llmDTO.llmModel.let {
             llmService.updateLLMSetting(llmDTO)
         }
         return ApiResponse.success("成功更新 LLM 設定")

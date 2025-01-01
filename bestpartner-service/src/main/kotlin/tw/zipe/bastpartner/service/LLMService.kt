@@ -65,12 +65,12 @@ class LLMService(
     /**
      * 取得 LLM 設定
      */
-    fun getLLMSetting(userId: String, platformId: String): List<LLMDTO?> {
+    fun getLLMSetting(userId: String, platformId: String?, llmId: String?): List<LLMDTO?> {
 //        val llmSettingList = entityManager.createQuery(
 //            "SELECT ls FROM LLMSettingEntity ls WHERE ls.platform = :platform AND ls.account = :account",
 //            LLMSettingEntity::class.java
 //        ).setParameter("platform", platform).setParameter("account", account).resultList
-        return llmSettingRepository.findByUserIdAndPlatformId(userId, platformId)
+        return llmSettingRepository.findByUserIdAndPlatformIdAndLLMId(userId, platformId, llmId)
             .map { llmSetting ->
                 LLMDTO().apply {
                     id = llmSetting.id
@@ -86,15 +86,10 @@ class LLMService(
      * 更新 LLM 設定
      */
     fun updateLLMSetting(llmDTO: LLMDTO) {
-        DTOValidator.validate(llmDTO) {
-            requireNotEmpty("id")
-            throwOnInvalid()
-        }
-
         mapOf(
             "alias" to llmDTO.alias,
             "platformId" to llmDTO.platformId.orEmpty(),
-            "type" to llmDTO.modelType,
+            "type" to llmDTO.modelType?.name.orEmpty(),
             "modelSetting" to llmDTO.llmModel,
             "id" to llmDTO.id.orEmpty()
         ).let {
