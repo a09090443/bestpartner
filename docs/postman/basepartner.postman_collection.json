@@ -10,7 +10,7 @@
 			"name": "auth",
 			"item": [
 				{
-					"name": "login",
+					"name": "login(admin)",
 					"event": [
 						{
 							"listen": "test",
@@ -69,13 +69,44 @@
 					"response": []
 				},
 				{
-					"name": "check",
+					"name": "login(user)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// 從回傳資料中提取 user 資料 及 accessToken\r",
+									"const getData = pm.response.json();\r",
+									"const message = getData.message;\r",
+									"\r",
+									"// 進行回傳的資料測試\r",
+									"pm.test(\"Has properties\", function () {\r",
+									"    pm.expect(getData).to.have.property('data');\r",
+									"});\r",
+									"\r",
+									"// 測試成功後即可寫入變數中\r",
+									"if (pm.test(\"Has properties\")) {\r",
+									"    // 將 Token 寫入到 Postman 環境變數中\r",
+									"    pm.globals.set('token', getData.data);\r",
+									"}\r",
+									"\r",
+									"// 最後確認是否有寫入到 token 變數中\r",
+									"pm.test(\"Global token has been set\", function() {\r",
+									"    var token = pm.globals.get('token');\r",
+									"    pm.expect(token).to.eql(getData.data);\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \r\n}",
+							"raw": "{\r\n    \"email\":\"test@partmer.com.tw\",\r\n    \"password\":\"user\" \r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -95,6 +126,34 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "check",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/login/check",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"login",
+								"check"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
@@ -105,10 +164,16 @@
 					"name": "chat",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"llmId\": \"40605e2f-be98-47e1-9181-da9ca0d1df8b\",\r\n    \"message\": \"我想了解甚麼是 LLM 和 LMM\"\r\n}",
+							"raw": "{\r\n    \"llmId\": \"fa07e6bb-3608-4228-ba02-f888aa38652d\",\r\n    \"message\": \"我想了解甚麼是 LLM 和 LMM\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -388,6 +453,83 @@
 			"name": "setting",
 			"item": [
 				{
+					"name": "platform",
+					"item": [
+						{
+							"name": "Add_platform",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"platform\": \"OPENAI\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/setting/platform/add",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"setting",
+										"platform",
+										"add"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete_platform",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"id\":\"33dcef89-c9ed-43e9-91f4-76ff3336dec8\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/setting/platform/delete",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"setting",
+										"platform",
+										"delete"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
 					"name": "MILVUS_save_vector_store_setting",
 					"request": {
 						"method": "POST",
@@ -449,10 +591,16 @@
 					"name": "OPENAI_save_llm_chat_model_Setting",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platform\": \"OPENAI\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OPENAI\",\r\n    \"apiKey\": \"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\",\r\n    // \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    // \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"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\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -460,7 +608,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"raw": "http://{{domain}}/llm/setting/save",
 							"protocol": "http",
 							"host": [
 								"{{domain}}"
@@ -468,7 +616,42 @@
 							"path": [
 								"llm",
 								"setting",
-								"saveLLM"
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OPENAI_update_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"9c6838a3-7d20-4aca-9730-f198a8eb192c\",\r\n    \"alias\": \"openai_local_chat_test\",\r\n    \"modelType\": \"CHAT\",\r\n    \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"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\",\r\n        \"modelName\": \"gpt-4o-mini\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"update"
 							]
 						}
 					},
@@ -478,10 +661,16 @@
 					"name": "OPENAI_save_llm_embedding_Setting",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platform\": \"OPENAI\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OPENAI\",\r\n    \"apiKey\": \"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\",\r\n    // \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"text-embedding-3-small\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    // \"topK\": 40,\r\n    \"dimensions\": 1536,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"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\",\r\n    \"modelName\": \"text-embedding-3-small\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"dimensions\": 1536,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -489,7 +678,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"raw": "http://{{domain}}/llm/setting/save",
 							"protocol": "http",
 							"host": [
 								"{{domain}}"
@@ -497,7 +686,42 @@
 							"path": [
 								"llm",
 								"setting",
-								"saveLLM"
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OPENAI_update_llm_embedding_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"fbeafc72-eda0-4a2b-b79e-ed88f53db29f\",\r\n    \"alias\": \"local_embedding_test\",\r\n    \"modelType\": \"EMBEDDING\",\r\n    \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"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\",\r\n        \"modelName\": \"text-embedding-3-small\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"dimensions\": 1536,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"update"
 							]
 						}
 					},
@@ -507,10 +731,16 @@
 					"name": "OLLAMA_save_llm_chat_model_Setting",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"ollama_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platform\": \"OLLAMA\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OLLAMA\",\r\n    // \"apiKey\": \"sk-xxx\",\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"llama3.1:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"ollama_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"166a5745-b89c-410e-ada4-7ae3da426af5\",\r\n  \"llmModel\": {\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"llama3.1:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -518,7 +748,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"raw": "http://{{domain}}/llm/setting/save",
 							"protocol": "http",
 							"host": [
 								"{{domain}}"
@@ -526,7 +756,7 @@
 							"path": [
 								"llm",
 								"setting",
-								"saveLLM"
+								"save"
 							]
 						}
 					},
@@ -536,10 +766,16 @@
 					"name": "OLLAMA_save_llm_embedding_Setting",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"id\": \"\",\r\n  \"alias\": \"ollama_local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platform\": \"OLLAMA\",\r\n  \"llmModel\": {\r\n    \"id\": null,\r\n    \"platform\": \"OLLAMA\",\r\n    // \"apiKey\": \"sk-xxx\",\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"bge-m3:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"dimensions\": 1024,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"ollama_local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platformId\": \"166a5745-b89c-410e-ada4-7ae3da426af5\",\r\n  \"llmModel\": {\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"bge-m3:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"dimensions\": 1024,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -547,7 +783,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://{{domain}}/llm/setting/saveLLM",
+							"raw": "http://{{domain}}/llm/setting/save",
 							"protocol": "http",
 							"host": [
 								"{{domain}}"
@@ -555,7 +791,42 @@
 							"path": [
 								"llm",
 								"setting",
-								"saveLLM"
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get_settings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"llmId\":\"9fc35d01-65e7-43af-9780-a591bd644bf0\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/get",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"get"
 							]
 						}
 					},
@@ -570,10 +841,17 @@
 					"name": "register",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"password\":\"user\",\r\n    \"email\":\"user@bestpartner.com.tw\",\r\n    \"phone\":\"1234567890\"\r\n}",
+							"raw": "{\r\n    \"username\":\"user\",\r\n    \"password\":\"user\",\r\n    \"email\":\"user@bestpartner.com.tw\",\r\n    \"phone\":\"1234567890\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -590,6 +868,41 @@
 								"llm",
 								"user",
 								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\":\"670017b4-23d0-4339-a9c0-22b6d9446461\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/user/get",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"user",
+								"get"
 							]
 						}
 					},
@@ -619,6 +932,76 @@
 								"llm",
 								"user",
 								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "switch_status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\":\"34785ecf-d0ae-444c-9e55-81a4d62f7d25\",\r\n    \"status\":\"ACTIVE\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/user/switchStatus",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"user",
+								"switchStatus"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"25befb91-6a41-4fa7-9cc7-e6525a6e8df9\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/user/delete",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"user",
+								"delete"
 							]
 						}
 					},
@@ -986,6 +1369,116 @@
 								"tool",
 								"category",
 								"save"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "permission",
+			"item": [
+				{
+					"name": "add",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\":\"all\",\r\n    \"num\":2,\r\n    \"description\":\"一般權限\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/permission/add",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"permission",
+								"add"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"9562db0f-8415-4e1f-88a9-2f72684d8ec0\",\r\n    \"name\":\"user-write\",\r\n    \"num\":1,\r\n    \"description\":\"一般使用者寫入\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/permission/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"permission",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"2dae1075-490a-4cfc-9e38-f5dcad0e6f0e\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/permission/delete",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"permission",
+								"delete"
 							]
 						}
 					},
