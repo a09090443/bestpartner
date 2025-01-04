@@ -100,6 +100,7 @@ class LLMSettingResource(
 
     @POST
     @Path("/platform/delete")
+    @RolesAllowed("admin")
     fun deletePlatform(platformDTO: PlatformDTO): ApiResponse<Boolean> {
         DTOValidator.validate(platformDTO) {
             requireNotEmpty("id")
