@@ -12,7 +12,7 @@ import tw.zipe.bastpartner.entity.LLMSettingEntity
 class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
 
     fun findByUserIdAndPlatformIdAndLLMId(userId: String, platformId: String?, llmId: String?): List<LLMSettingDTO> {
-        val sql = """
+        var sql = """
             SELECT ls.id            AS id,
                    ls.user_id       AS userId,
                    ls.platform_id   AS platformId,
@@ -29,11 +29,11 @@ class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
         parameters["userId"] = userId
 
         platformId?.let {
-            sql.plus(" AND ls.platform_id = :platformId")
+            sql = sql.plus(" AND ls.platform_id = :platformId")
             parameters["platformId"] = it
         }
         llmId?.let {
-            sql.plus(" AND ls.id = :llmId")
+            sql = sql.plus(" AND ls.id = :llmId")
             parameters["llmId"] = it
         }
         return executeSelect(sql, parameters, LLMSettingDTO::class.java)
