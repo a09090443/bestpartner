@@ -9,7 +9,6 @@ import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.inject.Inject
-import jakarta.inject.Named
 import tw.zipe.bastpartner.assistant.AIAssistant
 import tw.zipe.bastpartner.util.logger
 
@@ -22,14 +21,6 @@ abstract class BaseLLMResource {
 
     @Inject
     protected lateinit var identity: SecurityIdentity
-
-    @Inject
-    @Named("chatModelMap")
-    protected lateinit var chatModelMap: Map<String, ChatLanguageModel>
-
-    @Inject
-    @Named("streamingChatModelMap")
-    protected lateinit var streamingChatModelMap: Map<String, StreamingChatLanguageModel>
 
     fun baseChat(llm: ChatLanguageModel, message: String): String {
         val assistant = AiServices.builder(AIAssistant::class.java)

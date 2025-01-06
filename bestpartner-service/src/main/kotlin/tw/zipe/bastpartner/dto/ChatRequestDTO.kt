@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.dto
 
 import kotlinx.serialization.Serializable
+import tw.zipe.bastpartner.enumerate.ModelType
 
 /**
  * @author Gary
@@ -12,5 +13,6 @@ class ChatRequestDTO(
     val promptContent: String? = null,
     val isRemember: Boolean = false,
     val memory: Memory? = null,
-    val tools: List<ToolDTO>? = null
+    val tools: List<ToolDTO>? = null,
+    var modelType: ModelType? = null,
 ) : BaseDTO()

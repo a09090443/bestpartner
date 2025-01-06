@@ -35,7 +35,12 @@ class LLMSettingResource(
             throwOnInvalid()
         }
         val result =
-            llmService.getLLMSetting(identity.principal.name, llmDTO.platformId, llmDTO.llmId.orEmpty()).firstOrNull()
+            llmService.getLLMSetting(
+                identity.principal.name,
+                llmDTO.platformId,
+                null,
+                llmDTO.llmId.orEmpty()
+            ).firstOrNull()
         return ApiResponse.success(result)
     }
 

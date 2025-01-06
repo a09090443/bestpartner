@@ -4,15 +4,17 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15QuantizedEmbeddingModel
+import jakarta.annotation.PostConstruct
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Named
-import tw.zipe.bastpartner.config.LLMStore.LLMStore.SYSTEM_DEFAULT_MODEL
+import tw.zipe.bastpartner.config.LLMStore.LLMStore.SYSTEM_DEFAULT_PLATFORM
 import tw.zipe.bastpartner.config.LLMStore.LLMStore.SYSTEM_DEFAULT_SETTING_PREFIX
 import tw.zipe.bastpartner.config.chatmodel.OllamaChatModelConfig
 import tw.zipe.bastpartner.config.chatmodel.OpenaiChatModelConfig
 import tw.zipe.bastpartner.config.embedding.OllamaEmbeddingModelConfig
 import tw.zipe.bastpartner.config.embedding.OpenaiEmbeddingModelConfig
+import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.LLMService
@@ -36,20 +38,18 @@ class LLMStore(
 
     object LLMStore {
         const val SYSTEM_DEFAULT_SETTING_PREFIX = "SYSTEM-"
-        const val SYSTEM_DEFAULT_MODEL = "default_model"
+        const val SYSTEM_DEFAULT_PLATFORM = "default_llm_platform"
     }
 
-    @Produces
-    @Named("chatModelMap")
-    fun getChatModelMap(): Map<String, ChatLanguageModel> {
+    val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
 
-        val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
+    val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
 
-//        ollamaChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OLLAMA.name] = it }
-//        openaiChatModelConfig.buildChatModel()?.let { chatModelMap[Platform.OPENAI.name] = it }
-        systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
+    @PostConstruct
+    fun initChatModelMap() {
+        systemService.getSystemSettingValue(SYSTEM_DEFAULT_PLATFORM)?.let { platform ->
             llmUserService.findUserByName("admin")?.let {
-                llmService.getLLMSetting(it.id.orEmpty(), null, null ).forEach { llModel ->
+                llmService.getLLMSetting(it.id.orEmpty(), null, platform, null).filter { dto -> dto?.modelType?.equals(ModelType.CHAT) == true }.forEach { llModel ->
                     if (llModel != null) {
                         when (llModel.platform) {
                             Platform.OLLAMA -> {
@@ -57,12 +57,20 @@ class LLMStore(
                                     ?.let { model ->
                                         chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
                                     }
+                                ollamaChatModelConfig.buildStreamingChatModel()
+                                    ?.let { model ->
+                                        streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
+                                    }
                             }
 
                             Platform.OPENAI -> {
                                 openaiChatModelConfig.buildChatModel()
                                     ?.let { model ->
                                         chatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
+                                    }
+                                openaiChatModelConfig.buildStreamingChatModel()
+                                    ?.let { model ->
+                                        streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
                                     }
                             }
 
@@ -75,45 +83,6 @@ class LLMStore(
 
             }
         }
-        return chatModelMap
-    }
-
-    @Produces
-    @Named("streamingChatModelMap")
-    fun getStreamingChatModel(): Map<String, StreamingChatLanguageModel> {
-
-        val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
-
-//        ollamaChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OLLAMA.name] = it }
-//        openaiChatModelConfig.buildStreamingChatModel()?.let { streamingChatModelMap[Platform.OPENAI.name] = it }
-
-        systemService.getSystemSettingValue(SYSTEM_DEFAULT_MODEL)?.let {
-            val user = llmUserService.findUserByName("admin") ?: throw ServiceException("User not found")
-            llmService.getLLMSetting(user.id.orEmpty(), null, null).forEach { llModel ->
-                if (llModel != null) {
-                    when (llModel.platform) {
-                        Platform.OLLAMA -> {
-                            ollamaChatModelConfig.buildStreamingChatModel()
-                                ?.let { model ->
-                                    streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OLLAMA.name] = model
-                                }
-                        }
-
-                        Platform.OPENAI -> {
-                            openaiChatModelConfig.buildStreamingChatModel()
-                                ?.let { model ->
-                                    streamingChatModelMap[SYSTEM_DEFAULT_SETTING_PREFIX + Platform.OPENAI.name] = model
-                                }
-                        }
-
-                        else -> {
-                            throw ServiceException("Platform not found")
-                        }
-                    }
-                }
-            }
-        }
-        return streamingChatModelMap
     }
 
     @Produces
