@@ -7,6 +7,7 @@ import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.service.AiServices
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
+import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.Consumes
@@ -17,7 +18,6 @@ import jakarta.ws.rs.core.MediaType
 import org.jboss.resteasy.reactive.RestStreamElementType
 import org.jetbrains.annotations.Blocking
 import tw.zipe.bastpartner.assistant.DynamicAssistant
-import tw.zipe.bastpartner.config.LLMStore
 import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ChatRequestDTO
@@ -37,8 +37,7 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Authenticated
 class LLMResource(
     private val llmService: LLMService,
-    private val toolService: ToolService,
-    private val llmStore: LLMStore
+    private val toolService: ToolService
 ) : BaseLLMResource() {
 
     @POST
@@ -51,7 +50,7 @@ class LLMResource(
         val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT).let {
             it as ChatLanguageModel
         }
-        return ApiResponse.success(baseChat(llm, chatRequestDTO.message!!))
+        return ApiResponse.success(baseChat(llm, chatRequestDTO.message.orEmpty()))
     }
 
     @POST
@@ -59,7 +58,7 @@ class LLMResource(
     @RestStreamElementType(MediaType.TEXT_PLAIN)
     @Blocking
     @Transactional
-    fun chatStreamingTest(chatRequestDTO: ChatRequestDTO): Multi<String?> {
+    fun chatStreaming(chatRequestDTO: ChatRequestDTO): Multi<String?> {
         DTOValidator.validate(chatRequestDTO) {
             requireNotEmpty("llmId", "message")
             throwOnInvalid()
@@ -71,24 +70,43 @@ class LLMResource(
     }
 
     @POST
+    @Path("/customAssistantChatStreaming")
+    @RestStreamElementType(MediaType.TEXT_PLAIN)
+    @Blocking
+    @Transactional
+    fun customAssistantChatStreaming(chatRequestDTO: ChatRequestDTO): Multi<String?> {
+        val aiService = buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
+        return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
+            aiService.build().streamingChat(chatRequestDTO.message.orEmpty())
+                .onNext { emitter.emit(it) }
+                .onComplete { emitter.complete() }
+                .onError { emitter.fail(it) }.start()
+        }
+    }
+
+    @POST
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
+        val aiService = buildAIService(chatRequestDTO, ModelType.CHAT)
+        return ApiResponse.success(aiService.build().chat(chatRequestDTO.message.orEmpty()).content().text())
+    }
+
+    private fun buildAIService(chatRequestDTO: ChatRequestDTO, modelType: ModelType): AiServices<DynamicAssistant> {
         DTOValidator.validate(chatRequestDTO) {
-            requireNotEmpty("llmId", "message", "modelType")
+            requireNotEmpty("llmId", "message")
             throwOnInvalid()
         }
 
-        val aiService = AiServices.builder(DynamicAssistant::class.java)
-            .chatLanguageModel(llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatLanguageModel)
-            .streamingChatLanguageModel(llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.STREAMING_CHAT) as StreamingChatLanguageModel)
-            .systemMessageProvider { _ -> chatRequestDTO.promptContent }
+        val aiService =
+            AiServices.builder(DynamicAssistant::class.java).systemMessageProvider { _ -> chatRequestDTO.promptContent }
 
-        chatRequestDTO.modelType?.let { llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), it) }.let { llm ->
-            when (llm) {
-                is ChatLanguageModel -> aiService.chatLanguageModel(llm)
-                is StreamingChatLanguageModel -> aiService.streamingChatLanguageModel(llm)
-                else -> throw IllegalArgumentException("Model type not found")
+        llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
+            when (modelType) {
+                ModelType.CHAT -> aiService.chatLanguageModel(llm as ChatLanguageModel)
+                ModelType.STREAMING_CHAT -> aiService.streamingChatLanguageModel(llm as StreamingChatLanguageModel)
+                else -> null
             }
+
         }
 
         val tools = chatRequestDTO.tools?.map {
@@ -112,7 +130,6 @@ class LLMResource(
             aiService.chatMemoryProvider(chatMemoryProvider)
         }
 
-        return ApiResponse.success(aiService.build().chat(chatRequestDTO.message!!).content().text())
+        return aiService
     }
-
 }
