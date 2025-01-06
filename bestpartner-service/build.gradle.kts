@@ -59,7 +59,7 @@ dependencies {
 }
 
 group = "tw.zipe.basepartner"
-version = "0.1.3-SNAPSHOT"
+version = "0.1.4-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -81,8 +81,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
         jvmTarget.set(JvmTarget.fromTarget("21")) // 使用 JvmTarget.fromTarget 轉換字串
         javaParameters.set(true) // 啟用參數名稱保留
-        freeCompilerArgs.add("-Xjava-parameters") // 新增額外參數
     }
+}
+
+tasks.named<JavaCompile>("compileJava") {
+    dependsOn(tasks.named("compileQuarkusGeneratedSourcesJava"))
 }
 
 tasks.withType<JavaCompile> {
