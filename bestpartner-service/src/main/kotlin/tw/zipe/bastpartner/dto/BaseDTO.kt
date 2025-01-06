@@ -13,5 +13,5 @@ open class BaseDTO(
     val llmId: String? = null,
     var platformId: String? = null,
     var platform: Platform? = null,
-    var llmModel: LLModel = LLModel(),
+    var llmModel: LLModel = LLModel()
 )

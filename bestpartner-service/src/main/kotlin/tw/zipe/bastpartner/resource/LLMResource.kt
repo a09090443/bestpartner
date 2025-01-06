@@ -8,13 +8,16 @@ import dev.langchain4j.service.AiServices
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.transaction.Transactional
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import org.jboss.resteasy.reactive.RestStreamElementType
+import org.jetbrains.annotations.Blocking
 import tw.zipe.bastpartner.assistant.DynamicAssistant
+import tw.zipe.bastpartner.config.LLMStore
 import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ChatRequestDTO
@@ -34,7 +37,8 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Authenticated
 class LLMResource(
     private val llmService: LLMService,
-    private val toolService: ToolService
+    private val toolService: ToolService,
+    private val llmStore: LLMStore
 ) : BaseLLMResource() {
 
     @POST
@@ -53,6 +57,8 @@ class LLMResource(
     @POST
     @Path("/chatStreaming")
     @RestStreamElementType(MediaType.TEXT_PLAIN)
+    @Blocking
+    @Transactional
     fun chatStreamingTest(chatRequestDTO: ChatRequestDTO): Multi<String?> {
         DTOValidator.validate(chatRequestDTO) {
             requireNotEmpty("llmId", "message")
@@ -68,13 +74,22 @@ class LLMResource(
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         DTOValidator.validate(chatRequestDTO) {
-            requireNotEmpty("llmId", "message", "platform")
+            requireNotEmpty("llmId", "message", "modelType")
             throwOnInvalid()
         }
 
         val aiService = AiServices.builder(DynamicAssistant::class.java)
-            .chatLanguageModel(chatModelMap[chatRequestDTO.platform?.name])
+            .chatLanguageModel(llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatLanguageModel)
+            .streamingChatLanguageModel(llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.STREAMING_CHAT) as StreamingChatLanguageModel)
             .systemMessageProvider { _ -> chatRequestDTO.promptContent }
+
+        chatRequestDTO.modelType?.let { llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), it) }.let { llm ->
+            when (llm) {
+                is ChatLanguageModel -> aiService.chatLanguageModel(llm)
+                is StreamingChatLanguageModel -> aiService.streamingChatLanguageModel(llm)
+                else -> throw IllegalArgumentException("Model type not found")
+            }
+        }
 
         val tools = chatRequestDTO.tools?.map {
             toolService.buildTool(it)

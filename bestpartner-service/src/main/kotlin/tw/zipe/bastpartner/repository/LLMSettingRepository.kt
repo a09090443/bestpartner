@@ -11,7 +11,7 @@ import tw.zipe.bastpartner.entity.LLMSettingEntity
 @ApplicationScoped
 class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
 
-    fun findByUserIdAndPlatformIdAndLLMId(userId: String, platformId: String?, llmId: String?): List<LLMSettingDTO> {
+    fun findByConditions(userId: String, platformId: String?, platformName: String?, llmId: String?): List<LLMSettingDTO> {
         var sql = """
             SELECT ls.id            AS id,
                    ls.user_id       AS userId,
@@ -31,6 +31,10 @@ class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
         platformId?.let {
             sql = sql.plus(" AND ls.platform_id = :platformId")
             parameters["platformId"] = it
+        }
+        platformName?.let {
+            sql = sql.plus(" AND lp.name = :platformName")
+            parameters["platformName"] = it
         }
         llmId?.let {
             sql = sql.plus(" AND ls.id = :llmId")

@@ -64,8 +64,8 @@ class LLMService(
     /**
      * 取得 LLM 設定
      */
-    fun getLLMSetting(userId: String, platformId: String?, llmId: String?): List<LLMDTO?> {
-        return llmSettingRepository.findByUserIdAndPlatformIdAndLLMId(userId, platformId, llmId)
+    fun getLLMSetting(userId: String, platformId: String?, platformName: String?, llmId: String?): List<LLMDTO?> {
+        return llmSettingRepository.findByConditions(userId, platformId, platformName, llmId)
             .map { llmSetting ->
                 LLMDTO().apply {
                     id = llmSetting.id
@@ -103,7 +103,7 @@ class LLMService(
      */
     fun buildLLM(id: String, type: ModelType): Any {
         val llmSetting =
-            llmSettingRepository.findByUserIdAndPlatformIdAndLLMId(securityValidator.validateLoggedInUser(), null, id)
+            llmSettingRepository.findByConditions(securityValidator.validateLoggedInUser(), null, null, id)
                 .firstOrNull()
         return llmSetting?.let { setting ->
             val platform =
