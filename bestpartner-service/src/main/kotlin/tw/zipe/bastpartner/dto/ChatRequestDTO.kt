@@ -1,7 +1,6 @@
 package tw.zipe.bastpartner.dto
 
 import kotlinx.serialization.Serializable
-import tw.zipe.bastpartner.enumerate.ModelType
 
 /**
  * @author Gary

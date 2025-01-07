@@ -1,4 +1,4 @@
-package tw.zipe.bastpartner.config
+package tw.zipe.bastpartner.config.security
 
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped

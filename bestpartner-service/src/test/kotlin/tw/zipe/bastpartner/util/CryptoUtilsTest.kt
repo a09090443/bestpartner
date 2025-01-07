@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.util
 
-import java.nio.file.Path
-import java.nio.file.Paths
+import java.security.Security
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.junit.jupiter.api.Test
 
 
@@ -30,16 +30,35 @@ class CryptoUtilsTest {
 
     @Test
     fun `test cert`() {
+        // 檢查 BouncyCastle 是否已註冊
+        if (Security.getProvider("BC") == null) {
+            Security.addProvider(BouncyCastleProvider())
+            println("BouncyCastle provider registered.")
+        } else {
+            println("BouncyCastle provider is already registered.")
+        }
+        // 載入 RSA 公鑰和私鑰
         val publicKey = CryptoUtils.loadPublicKeyFromCertificate("src/main/resources/cert/bestpartner.crt")
         val privateKey = CryptoUtils.loadPrivateKeyFromPKCS12(
             "src/main/resources/cert/bestpartner.p12",
             "bestpartner",
             "bestpartner"
         )
+
+        // 原始文字
         val originalText = "Hello, World!"
-        val encrypted = CryptoUtils.encrypt(originalText, publicKey)
-        val decrypted = CryptoUtils.decrypt(encrypted, privateKey)
-        assert(originalText == decrypted)
+
+        // 加密
+        val encrypted = CryptoUtils.rsaEncrypt(originalText, publicKey)
+
+        // 確保加密結果非空
+        assert(encrypted.isNotEmpty()) { "Encryption failed, resulting in empty string." }
+
+        // 解密
+        val decrypted = CryptoUtils.rsaDecrypt(encrypted, privateKey)
+
+        // 確認解密後文字與原始文字相同
+        assert(originalText == decrypted) { "Decryption failed, expected $originalText but got $decrypted" }
     }
 
     @Test
@@ -47,19 +66,14 @@ class CryptoUtilsTest {
         // 生成 AES 金鑰
         val aesKey = CryptoUtils.generateAesKey() // 預設 256 位元
 
-        // CBC 模式加密（推薦）
+        // GCN 模式加密（推薦）
         val dataToEncrypt = "Hello, World!"
-        val encryptedResult = CryptoUtils.encryptAesCBC(dataToEncrypt, aesKey)
+        val encryptedResult = CryptoUtils.encryptAesGCM(dataToEncrypt, aesKey)
         val encryptedData = encryptedResult["encrypted"]!! // 加密後的數據
         val iv = encryptedResult["iv"]!! // 初始向量
 
         // CBC 模式解密
-        val decryptedData = CryptoUtils.decryptAesCBC(encryptedData, aesKey, iv)
+        val decryptedData = CryptoUtils.decryptAesGCM(encryptedData, aesKey, iv)
         assert(dataToEncrypt == decryptedData)
-
-        // ECB 模式（較簡單但安全性較低）
-        val encryptedECB = CryptoUtils.encryptAesECB(dataToEncrypt, aesKey)
-        val decryptedECB = CryptoUtils.decryptAesECB(encryptedECB, aesKey)
-        assert(dataToEncrypt == decryptedECB)
     }
 }

@@ -3,7 +3,7 @@ package tw.zipe.bastpartner.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
-import tw.zipe.bastpartner.config.SecurityValidator
+import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.dto.PlatformDTO
 import tw.zipe.bastpartner.entity.LLMPlatformEntity
