@@ -7,7 +7,7 @@ import jakarta.transaction.Transactional
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
-import tw.zipe.bastpartner.config.SecurityValidator
+import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.ToolDTO
 import tw.zipe.bastpartner.entity.LLMToolCategoryEntity
 import tw.zipe.bastpartner.entity.LLMToolEntity

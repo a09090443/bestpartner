@@ -12,7 +12,7 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import javax.crypto.Cipher
-import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -21,6 +21,10 @@ import javax.crypto.spec.SecretKeySpec
  */
 class CryptoUtils {
     companion object {
+        private const val AES_KEY_SIZE = 256 // 預設 AES 金鑰大小（256 位元）
+        private const val GCM_IV_LENGTH = 12 // GCM 建議使用 12 位元組 IV
+        private const val GCM_TAG_LENGTH = 16 // GCM 標籤長度（位元組）
+
         // SHA-512 雜湊
         fun sha512(input: String): String {
             val messageDigest = MessageDigest.getInstance("SHA-512")
@@ -35,37 +39,30 @@ class CryptoUtils {
             return bytes.fold("") { str, it -> str + "%02x".format(it) }
         }
 
-        // 使用公鑰加密
-        fun encrypt(data: String, publicKey: PublicKey): String {
-            val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        // RSA encryption/decryption with OAEP padding
+        fun rsaEncrypt(data: String, publicKey: PublicKey): String {
+            val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding", "BC") // 强制使用 BouncyCastle 提供者
             cipher.init(Cipher.ENCRYPT_MODE, publicKey)
-            val encryptedBytes = cipher.doFinal(data.toByteArray())
-            return Base64.getEncoder().encodeToString(encryptedBytes)
+            return Base64.getEncoder().encodeToString(cipher.doFinal(data.toByteArray()))
         }
 
-        // 使用私鑰解密
-        fun decrypt(encryptedData: String, privateKey: PrivateKey): String {
-            val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        fun rsaDecrypt(encryptedData: String, privateKey: PrivateKey): String {
+            val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding", "BC") // 强制使用 BouncyCastle 提供者
             cipher.init(Cipher.DECRYPT_MODE, privateKey)
-            val decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData))
-            return String(decryptedBytes)
+            return String(cipher.doFinal(Base64.getDecoder().decode(encryptedData)))
         }
 
-        // AES CBC 模式加密
-        fun encryptAesCBC(data: String, key: String, iv: String? = null): Map<String, String> {
-            // 確保金鑰長度為 16、24 或 32 位元組（對應 AES-128、AES-192、AES-256）
+        // AES-GCM 模式加密
+        fun encryptAesGCM(data: String, key: String): Map<String, String> {
             val keyBytes = sha256(key).substring(0, 32).toByteArray()
             val secretKey = SecretKeySpec(keyBytes, "AES")
 
-            // 生成或使用提供的 IV
-            val ivBytes = if (iv != null) {
-                Base64.getDecoder().decode(iv)
-            } else {
-                ByteArray(16).apply { SecureRandom().nextBytes(this) }
-            }
+            // 生成隨機 IV
+            val ivBytes = ByteArray(GCM_IV_LENGTH)
+            SecureRandom().nextBytes(ivBytes)
 
-            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(ivBytes))
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_LENGTH * 8, ivBytes))
 
             val encryptedBytes = cipher.doFinal(data.toByteArray())
             return mapOf(
@@ -74,45 +71,21 @@ class CryptoUtils {
             )
         }
 
-        // AES CBC 模式解密
-        fun decryptAesCBC(encryptedData: String, key: String, iv: String): String {
+        // AES-GCM 模式解密
+        fun decryptAesGCM(encryptedData: String, key: String, iv: String): String {
             val keyBytes = sha256(key).substring(0, 32).toByteArray()
             val secretKey = SecretKeySpec(keyBytes, "AES")
             val ivBytes = Base64.getDecoder().decode(iv)
 
-            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(ivBytes))
-
-            val decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData))
-            return String(decryptedBytes)
-        }
-
-        // AES ECB 模式加密（注意：不推薦用於敏感數據）
-        fun encryptAesECB(data: String, key: String): String {
-            val keyBytes = sha256(key).substring(0, 32).toByteArray()
-            val secretKey = SecretKeySpec(keyBytes, "AES")
-
-            val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-
-            val encryptedBytes = cipher.doFinal(data.toByteArray())
-            return Base64.getEncoder().encodeToString(encryptedBytes)
-        }
-
-        // AES ECB 模式解密
-        fun decryptAesECB(encryptedData: String, key: String): String {
-            val keyBytes = sha256(key).substring(0, 32).toByteArray()
-            val secretKey = SecretKeySpec(keyBytes, "AES")
-
-            val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
-            cipher.init(Cipher.DECRYPT_MODE, secretKey)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_LENGTH * 8, ivBytes))
 
             val decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData))
             return String(decryptedBytes)
         }
 
         // 生成隨機 AES 金鑰
-        fun generateAesKey(keySize: Int = 256): String {
+        fun generateAesKey(keySize: Int = AES_KEY_SIZE): String {
             require(keySize in listOf(128, 192, 256)) { "Key size must be 128, 192, or 256 bits" }
             val keyBytes = ByteArray(keySize / 8)
             SecureRandom().nextBytes(keyBytes)
