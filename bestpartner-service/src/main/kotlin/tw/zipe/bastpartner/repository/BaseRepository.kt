@@ -295,19 +295,32 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
 
             field.isAccessible = true
             try {
-                when (field.type) {
-                    String::class.java -> field[instance] = value.toString()
-                    Int::class.java, Integer::class.java -> field[instance] = value.toString().toIntOrNull() ?: 0
-                    Long::class.java -> field[instance] = value.toString().toLongOrNull() ?: 0L
-                    Double::class.java -> field[instance] = value.toString().toDoubleOrNull() ?: 0.0
-                    Float::class.java -> field[instance] = value.toString().toFloatOrNull() ?: 0.0f
-                    Boolean::class.java -> field[instance] = value.toString().toBoolean()
-                    LocalDateTime::class.java -> when (value) {
+                val fieldType = field.type
+
+                when {
+                    fieldType == String::class.java -> field[instance] = value.toString()
+                    fieldType == Int::class.java || fieldType == Integer::class.java -> field[instance] = value.toString().toIntOrNull() ?: 0
+                    fieldType == Long::class.java -> field[instance] = value.toString().toLongOrNull() ?: 0L
+                    fieldType == Double::class.java -> field[instance] = value.toString().toDoubleOrNull() ?: 0.0
+                    fieldType == Float::class.java -> field[instance] = value.toString().toFloatOrNull() ?: 0.0f
+                    fieldType == Boolean::class.java -> field[instance] = value.toString().toBoolean()
+                    fieldType == LocalDateTime::class.java -> when (value) {
                         is LocalDateTime -> field[instance] = value
                         is java.sql.Timestamp -> field[instance] = value.toLocalDateTime()
                         else -> println("Unsupported datetime type: ${value::class.java}")
                     }
-                    else -> field[instance] = value
+                    fieldType.isEnum -> { // 處理枚舉類型
+                        @Suppress("UNCHECKED_CAST")
+                        val enumClass = fieldType as Class<Enum<*>>
+                        field[instance] = when (value) {
+                            is String -> enumClass.enumConstants?.firstOrNull { it.name == value }
+                                ?: throw IllegalArgumentException("No enum constant ${enumClass.name}.$value")
+                            is Number -> enumClass.enumConstants?.get(value.toInt())
+                                ?: throw IllegalArgumentException("No enum constant at index $value for ${enumClass.name}")
+                            else -> throw IllegalArgumentException("Unsupported value type for enum: ${value::class.java}")
+                        }
+                    }
+                    else -> field[instance] = value // 默認直接設置值
                 }
             } catch (e: Exception) {
                 println("Error setting field ${field.name}: ${e.message}")

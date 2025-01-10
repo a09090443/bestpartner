@@ -15,6 +15,8 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
+import me.kpavlov.langchain4j.kotlin.service.systemMessageProvider
 import org.jboss.resteasy.reactive.RestStreamElementType
 import org.jetbrains.annotations.Blocking
 import tw.zipe.bastpartner.assistant.DynamicAssistant
@@ -75,6 +77,10 @@ class LLMResource(
     @Blocking
     @Transactional
     fun customAssistantChatStreaming(chatRequestDTO: ChatRequestDTO): Multi<String?> {
+        DTOValidator.validate(chatRequestDTO) {
+            requireNotEmpty("llmId", "message")
+            throwOnInvalid()
+        }
         val aiService = buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
             aiService.build().streamingChat(chatRequestDTO.message.orEmpty())
@@ -88,17 +94,25 @@ class LLMResource(
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         val aiService = buildAIService(chatRequestDTO, ModelType.CHAT)
-        return ApiResponse.success(aiService.build().chat(chatRequestDTO.message.orEmpty()).content().text())
+        return ApiResponse.success(aiService.build().chat(chatRequestDTO.memory?.id, chatRequestDTO.message.orEmpty()).content().text())
     }
 
     private fun buildAIService(chatRequestDTO: ChatRequestDTO, modelType: ModelType): AiServices<DynamicAssistant> {
         DTOValidator.validate(chatRequestDTO) {
-            requireNotEmpty("llmId", "message")
+            requireNotEmpty("llmId", "message", "promptContent")
+            if(chatRequestDTO.isRemember) {
+                validateNested("memory") {
+                    requireNotEmpty("id", "maxSize")
+                }
+            }
             throwOnInvalid()
         }
 
-        val aiService =
-            AiServices.builder(DynamicAssistant::class.java).systemMessageProvider { _ -> chatRequestDTO.promptContent }
+        val aiService = AiServices.builder(DynamicAssistant::class.java).systemMessageProvider(
+            object : SystemMessageProvider {
+                override fun getSystemMessage(chatMemoryID: Any): String =
+                    chatRequestDTO.promptContent.orEmpty()
+            })
 
         llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
             when (modelType) {
@@ -106,7 +120,6 @@ class LLMResource(
                 ModelType.STREAMING_CHAT -> aiService.streamingChatLanguageModel(llm as StreamingChatLanguageModel)
                 else -> null
             }
-
         }
 
         val tools = chatRequestDTO.tools?.map {

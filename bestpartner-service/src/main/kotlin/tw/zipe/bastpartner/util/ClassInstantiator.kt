@@ -1,6 +1,9 @@
 package tw.zipe.bastpartner.util
 
+import io.quarkus.runtime.configuration.DurationConverter.parseDuration
+import java.time.Duration
 import java.util.Locale
+import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 
 /**
@@ -28,7 +31,7 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
                 constructor.parameters.all { param ->
                     param.name?.let { paramName ->
                         constructorArgs.containsKey(paramName) ||
-                                constructorArgs.containsKey(paramName.replaceFirstChar { it.lowercase(Locale.getDefault()) }) // 處理駝峰命名
+                                constructorArgs.containsKey(paramName.replaceFirstChar { it.lowercase(Locale.getDefault()) })
                     } ?: false
                 }
             } ?: kClass.primaryConstructor
@@ -44,18 +47,57 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
         return if (constructor.parameters.isEmpty()) {
             constructor.call()
         } else {
-            // 建立參數映射
+            // 建立參數映射，並進行型態轉換
             val args = constructor.parameters.mapNotNull { param ->
                 val paramName = param.name ?: return@mapNotNull null
                 val value = constructorArgs[paramName]
                     ?: constructorArgs[paramName.replaceFirstChar { it.lowercase() }]
                     ?: return@mapNotNull null
 
-                // 類型轉換和驗證
-                param to value
+                // 進行型態轉換
+                val convertedValue = when {
+                    value == null -> null
+                    param.type.isMarkedNullable && value == null -> null
+                    param.type.classifier == Int::class -> value.toString().trim('"').toIntOrNull()
+                    param.type.classifier == Long::class -> value.toString().trim('"').toLongOrNull()
+                    param.type.classifier == Double::class -> value.toString().trim('"').toDoubleOrNull()
+                    param.type.classifier == Float::class -> value.toString().trim('"').toFloatOrNull()
+                    param.type.classifier == Boolean::class -> when (value.toString().trim('"').lowercase()) {
+                        "true", "1", "yes" -> true
+                        "false", "0", "no" -> false
+                        else -> null
+                    }
+                    param.type.classifier == String::class -> value.toString().trim('"')
+                    param.type.classifier == Duration::class -> parseDuration(value.toString().trim('"'))
+                    // 處理列舉類型
+                    param.type.classifier is KClass<*> && (param.type.classifier as KClass<*>).java.isEnum -> {
+                        try {
+                            java.lang.Enum.valueOf(
+                                (param.type.classifier as KClass<*>).java as Class<out Enum<*>>,
+                                value.toString().trim('"')
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    // 如果是其他類型且值已經符合目標類型，直接使用
+                    param.type.classifier is KClass<*> &&
+                            (param.type.classifier as KClass<*>).java.isInstance(value) -> value
+                    else -> {
+                        logger().warn("無法轉換參數 ${param.name} 的值 $value 到類型 ${param.type}")
+                        null
+                    }
+                }
+
+                if (convertedValue == null && !param.type.isMarkedNullable) {
+                    logger().error("參數 ${param.name} 不可為 null，但轉換後得到 null 值")
+                    return null
+                }
+
+                param to convertedValue
             }.toMap()
 
-            // 使用參數呼叫構造函數
+            // 使用轉換後的參數呼叫構造函數
             constructor.callBy(args)
         }
 
@@ -65,6 +107,44 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
         logger().error("實例化過程中發生錯誤: ${e.message}")
     }
     return null
+}
+
+/**
+ * 解析 Duration 字串
+ * 支援的格式：
+ * - 純數字：視為毫秒
+ * - 帶單位：
+ *   - ms: 毫秒
+ *   - s: 秒
+ *   - m: 分鐘
+ *   - h: 小時
+ *   - d: 天
+ * 例如："1000"、"1000ms"、"1s"、"1m"、"1h"、"1d"
+ */
+private fun parseDuration(value: String): Duration? {
+    try {
+        // 如果是純數字，視為毫秒
+        if (value.matches(Regex("^\\d+$"))) {
+            return Duration.ofMillis(value.toLong())
+        }
+
+        // 解析帶單位的格式
+        val pattern = Regex("^(\\d+)(ms|s|m|h|d)$")
+        val matchResult = pattern.find(value) ?: return null
+        val (amount, unit) = matchResult.destructured
+
+        return when (unit) {
+            "ms" -> Duration.ofMillis(amount.toLong())
+            "s" -> Duration.ofSeconds(amount.toLong())
+            "m" -> Duration.ofMinutes(amount.toLong())
+            "h" -> Duration.ofHours(amount.toLong())
+            "d" -> Duration.ofDays(amount.toLong())
+            else -> null
+        }
+    } catch (e: Exception) {
+        logger().error("解析 Duration 失敗: $value")
+        return null
+    }
 }
 
 /**

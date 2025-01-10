@@ -50,6 +50,8 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom:$langchain4jVersion")
 
+    implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.4")
+
     implementation("org.bsc.langgraph4j:langgraph4j-core:$langgraph4jVersion")
     implementation("org.bouncycastle:bcprov-jdk18on:1.79")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.79")

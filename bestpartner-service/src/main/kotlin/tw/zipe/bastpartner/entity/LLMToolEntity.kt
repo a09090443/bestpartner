@@ -49,7 +49,7 @@ class LLMToolEntity : BaseEntity() {
      */
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
-    var type: ToolsType? = null
+    lateinit var type: ToolsType
 
     /**
      * 設定值欄位名稱, 以逗號分隔
