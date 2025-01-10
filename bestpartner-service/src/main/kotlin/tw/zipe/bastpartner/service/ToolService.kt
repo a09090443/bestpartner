@@ -127,9 +127,8 @@ class ToolService(
      * 建立工具
      */
     fun buildTool(toolDTO: ToolDTO): Any? {
-        var tool = ToolDTO()
-        toolDTO.id?.let {
-            tool = llmToolRepository.findByToolId(it) ?: throw ServiceException("找不到工具")
+        val tool = toolDTO.id?.let {
+            llmToolRepository.findByToolId(it) ?: throw ServiceException("找不到工具")
         } ?: throw ServiceException("請正確填寫 tool id")
 
         val toolSettingFields = tool.settingArgs
