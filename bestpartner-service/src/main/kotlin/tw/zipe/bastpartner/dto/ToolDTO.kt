@@ -19,6 +19,7 @@ class ToolDTO(
     val groupDescription: String? = null,
     val type: ToolsType? = null,
     val settingFields: List<String>? = null,
+    val settingArgs: String? = null,
     val settingContent: String = StringUtil.EMPTY_STRING,
     val description: String = StringUtil.EMPTY_STRING
 )

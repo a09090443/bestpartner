@@ -36,7 +36,7 @@ class ToolService(
     /**
      * 取得所有工具清單
      */
-    fun getTools() = llmToolRepository.findAllList()
+    fun getTools() = llmToolRepository.findByCondition(null)
 
     /**
      * 註冊工具
@@ -46,7 +46,7 @@ class ToolService(
             name = toolDTO.name.orEmpty()
             classPath = toolDTO.classPath
             categoryId = toolDTO.groupId
-            type = toolDTO.type
+            type = toolDTO.type ?: ToolsType.BUILT_IN
             settingFields = toolDTO.settingFields?.joinToString(",")
             description = toolDTO.description
             llmToolRepository.persist(this).let { toolDTO.id = id }
@@ -127,20 +127,27 @@ class ToolService(
      * 建立工具
      */
     fun buildTool(toolDTO: ToolDTO): Any? {
-        val tool = llmToolRepository.findById(toolDTO.id.orEmpty()) ?: throw ServiceException("找不到工具")
+        var tool = ToolDTO()
+        toolDTO.id?.let {
+            tool = llmToolRepository.findByToolId(it) ?: throw ServiceException("找不到工具")
+        } ?: throw ServiceException("請正確填寫 tool id")
 
-        val toolSettingFields = tool.settingFields.orEmpty()
-        val userSetting = llmToolUserSettingRepository.findSettingByUserIdAndToolId(
-            securityValidator.validateLoggedInUser(),
-            tool.id!!
-        )
-        val settingJson = userSetting?.let { jsonStringToMap(it.settingContent) } ?: emptyMap()
+        val toolSettingFields = tool.settingArgs
+        val userSetting = toolSettingFields?.let {
+            llmToolUserSettingRepository.findSettingByUserIdAndToolId(
+                securityValidator.validateLoggedInUser(),
+                toolDTO.id.orEmpty()
+            )
+        }
+        return userSetting?.let {
+            val settingJson = jsonStringToMap(userSetting.settingContent)
 
-        validateSettings(toolSettingFields, settingJson)
+            validateSettings(toolSettingFields, settingJson)
 
-        val sortFields = reorderAndRenameArguments(settingJson, toolSettingFields)
+            val sortFields = reorderAndRenameArguments(settingJson, toolSettingFields)
 
-        return instantiateTool(tool, sortFields, toolDTO.group!!)
+            instantiateTool(tool, sortFields)
+        } ?: return instantiateTool(tool, emptyMap())
     }
 
     /**
@@ -166,17 +173,15 @@ class ToolService(
     }
 
     private fun validateSettings(toolSettingFields: String, settingJson: Map<String, JsonElement>) {
-        jsonStringToMap(toolSettingFields).forEach { (key, _) ->
-            if (settingJson[key] == null) {
-                throw ServiceException("請設定欄位 $key 值")
-            }
+        toolSettingFields.split(",").forEach { field ->
+            settingJson[field] ?: throw ServiceException("請設定欄位 $field 值")
         }
     }
 
-    private fun instantiateTool(tool: LLMToolEntity, sortFields: Map<String, Any>, group: String): Any? {
+    private fun instantiateTool(tool: ToolDTO, sortFields: Map<String, Any>): Any? {
         val instance = instantiate(tool.classPath, sortFields)
         return when (tool.type) {
-            ToolsType.BUILT_IN -> when (group) {
+            ToolsType.BUILT_IN -> when (tool.group) {
                 "WEB_SEARCH" -> WebSearchTool.from(instance as WebSearchEngine)
                 else -> instance
             }

@@ -9,6 +9,6 @@ import tw.zipe.bastpartner.util.time.DateTimeUtils
  */
 class DateTool {
 
-    @Tool("取得現在日期時間，格式是yyyy-MM-dd HH:mm:ss")
+    @Tool("以台灣時間為基準，會根據不同時區取得當地日期時間，格式是yyyy-MM-dd HH:mm:ss")
     fun getCurrentTime() = DateTimeUtils.getDateNow(DateTimeUtils.dateTimeFormate1)
 }
