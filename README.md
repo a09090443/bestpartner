@@ -7,6 +7,11 @@ BestPartner project
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
 3. 未來目標為類似 Dify 或 Langflow 平台，可自行建立 AI agent 並支援多種 AI 模型
 
+## 1.4 版本變更說明
+1. 設定各API權限管理
+2. 修正動態建立LLM模型錯誤問題
+3. 修正Tools工具錯誤問題
+
 ## 1.3 版本變更說明
 1. 廢除 H2 db 改為使用 Mysql db
 2. 增加 llm tools 可註冊自製工具
@@ -21,6 +26,12 @@ BestPartner project
 1. 支援 OpenAI 及 Ollama 平台
 2. 支援 Chroma 及 Milvus 向量資料庫
 3. 可由資料庫設定 LLM 模型並可動態切換
+
+## 內建 Tools 工具
+| 工具名稱        | 工具類型       |
+|:------------|:-----------|
+| Google 搜尋引擎 | Web Search |
+| Date 日期     | Date       |
 
 ## 目錄結構
 ```
@@ -142,4 +153,3 @@ bestpartner
 ## 備註
 * Langchain4j 官網說明:[連結](https://docs.langchain4j.dev/)
 * 如有有興趣想討論，或有任何想法想加入開發，可跟我聯絡，信箱:zipe.daden@gmail.com
-* 目前以 h2 database 為預設資料庫，之後會支援 Mysql 資料庫
