@@ -17,7 +17,7 @@ data class ApiResponse<T>(
         fun <T> success(data: T): ApiResponse<T> =
             ApiResponse(code = HttpStatus.OK, message = "success", data = data)
 
-        fun <T> error(message: String, code: Int = HttpStatus.INTERNAL_SERVER_ERROR): ApiResponse<T> =
+        fun <T> error(message: String, code: Int = HttpStatus.INTERNAL_SERVER_ERROR, data: String? = null): ApiResponse<T> =
             ApiResponse(code = code, message = message)
     }
 }
