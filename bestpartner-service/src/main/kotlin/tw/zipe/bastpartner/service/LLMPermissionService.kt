@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import tw.zipe.bastpartner.dto.PermissionDTO
 import tw.zipe.bastpartner.entity.LLMPermissionEntity
+import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.repository.LLMPermissionRepository
 
 /**
@@ -31,6 +32,8 @@ class LLMPermissionService(
         permissionDTO.description.orEmpty()
     )
 
+    fun findUserPermissionByStatus(id: String, status: UserStatus) = llmPermissionRepository.findUserPermissionByStatus(id, status)
+    
     @Transactional
     fun delete(id: String) = llmPermissionRepository.deleteById(id)
 }

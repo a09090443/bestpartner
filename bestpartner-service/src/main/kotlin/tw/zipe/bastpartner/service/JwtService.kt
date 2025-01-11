@@ -24,7 +24,7 @@ class JwtService(
 ) {
     companion object {
         private const val ISSUER = "bast-partner"
-        private const val TOKEN_VALIDITY_MINUTES = 10L
+        private const val TOKEN_VALIDITY_MINUTES = 30L
         private const val REFRESH_THRESHOLD_MINUTES = 5L
     }
 
@@ -42,9 +42,7 @@ class JwtService(
         val expirationTime = Instant.now().plus(TOKEN_VALIDITY_MINUTES, ChronoUnit.MINUTES)
         return Jwt.issuer(ISSUER)
             .upn(userId)
-            .groups(permissions.ifEmpty {
-                llmPermissionRepository.findUserPermissionByStatus(userId, UserStatus.ACTIVE).map { it.name }.toSet()
-            })
+            .groups(permissions)
             .issuedAt(Instant.now())
             .expiresAt(expirationTime)
             .sign();

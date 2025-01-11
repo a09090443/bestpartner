@@ -4,10 +4,12 @@ import io.smallrye.jwt.build.Jwt
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import java.time.Duration
+import javax.naming.AuthenticationException
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
 import tw.zipe.bastpartner.entity.LLMUserRoleEntity
 import tw.zipe.bastpartner.enumerate.UserStatus
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMUserRepository
 import tw.zipe.bastpartner.repository.LLMUserRoleRepository
 import tw.zipe.bastpartner.util.CryptoUtils
@@ -50,8 +52,17 @@ class LLMUserService(
     fun findUserByName(username: String) = llmUserRepository.findUserByUsername(username)
 
     fun loginVerification(email: String, password: String): String? {
-        return llmUserRepository.findUserByEmail(email).takeIf { it?.password == CryptoUtils.sha512(password) }
-            .let { it?.id }
+        val user = llmUserRepository.findUserByEmail(email)
+
+        user?.let {
+            if (it.status != UserStatus.ACTIVE.ordinal.toString()) {
+                throw ServiceException("帳號已停用")
+            } else if (it.password != CryptoUtils.sha512(password)) {
+                throw AuthenticationException("密碼錯誤")
+            }
+        } ?: throw AuthenticationException("帳號不存在")
+
+        return user.id
     }
 
     fun updateUser(userDTO: UserDTO) {
