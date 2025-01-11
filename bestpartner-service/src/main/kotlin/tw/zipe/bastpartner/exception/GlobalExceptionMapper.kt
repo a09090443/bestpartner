@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 import javax.naming.AuthenticationException
+import kong.unirest.HttpStatus
 import org.hibernate.exception.ConstraintViolationException
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.util.logger
@@ -49,10 +50,12 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 code = 400,
                 message = exception.message ?: "DTO validation failed"
             )
-            is JwtValidationException -> ApiResponse<Nothing>(
-                code = 401,
-                message = exception.message ?: "Jwt validation failed"
-            )
+            is JwtValidationException -> {
+                ApiResponse<Nothing>(
+                    code = 401,
+                    message = exception.message ?: "Jwt validation failed"
+                )
+            }
             is JwtException -> ApiResponse<Nothing>(
                 code = 403,
                 message = exception.message ?: "Jwt validation failed"
@@ -81,7 +84,7 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
             }
             is AuthenticationException -> {
                 ApiResponse<Nothing>(
-                    code = 403,
+                    code = HttpStatus.UNAUTHORIZED,
                     message = exception.message ?: "Authentication failed"
                 )
             }

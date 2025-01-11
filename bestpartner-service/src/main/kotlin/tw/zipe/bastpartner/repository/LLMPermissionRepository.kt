@@ -17,12 +17,12 @@ class LLMPermissionRepository : BaseRepository<LLMPermissionEntity, String>() {
 
         val sql = """
             SELECT lp.num, lp.name
-            FROM llm_user lm
-                     JOIN llm_user_role lur ON lm.id = lur.user_id
+            FROM llm_user lu
+                     JOIN llm_user_role lur ON lu.id = lur.user_id
                      JOIN llm_role_permission lrp ON lur.ROLE_NUM = lrp.ROLE_NUM
                      JOIN llm_permission lp ON lrp.PERMISSION_NUM = lp.NUM
-            WHERE lm.id = :id AND lm.status = :status
-            ORDER BY lm.created_at DESC
+            WHERE lu.id = :id AND lu.status = :status
+            ORDER BY lu.created_at DESC
         """.trimIndent()
         return this.executeSelect(sql, paramMap, PermissionDTO::class.java)
     }

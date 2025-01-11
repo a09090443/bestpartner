@@ -56,7 +56,7 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
 
                 // 進行型態轉換
                 val convertedValue = when {
-                    value == null -> null
+                    false -> null
                     param.type.isMarkedNullable && value == null -> null
                     param.type.classifier == Int::class -> value.toString().trim('"').toIntOrNull()
                     param.type.classifier == Long::class -> value.toString().trim('"').toLongOrNull()

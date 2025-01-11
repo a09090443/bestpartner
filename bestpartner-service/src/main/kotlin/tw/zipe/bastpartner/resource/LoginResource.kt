@@ -11,10 +11,11 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.SecurityContext
-import kong.unirest.HttpStatus
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.UserDTO
+import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.service.JwtService
+import tw.zipe.bastpartner.service.LLMPermissionService
 import tw.zipe.bastpartner.service.LLMUserService
 import tw.zipe.bastpartner.util.DTOValidator
 
@@ -28,6 +29,7 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Consumes(MediaType.APPLICATION_JSON)
 class LoginResource(
     val llmUserService: LLMUserService,
+    val llmPermissionService: LLMPermissionService,
     val jwtService: JwtService,
     val identity: SecurityIdentity
 ) {
@@ -42,9 +44,10 @@ class LoginResource(
             throwOnInvalid()
         }
         val loginResult = llmUserService.loginVerification(userDTO.email.orEmpty(), userDTO.password.orEmpty())
-            ?: return ApiResponse.error("登入帳號或密碼錯誤", HttpStatus.UNAUTHORIZED)
-        return loginResult.let {
-            val token = jwtService.generateJwtToken(it, setOf())
+
+        return loginResult.let { loginId ->
+            val permissions = llmPermissionService.findUserPermissionByStatus(loginId.orEmpty(), UserStatus.ACTIVE).map { it.name }.toSet()
+            val token = jwtService.generateJwtToken(loginId.orEmpty(), permissions)
             ApiResponse.success(token)
         }
     }
