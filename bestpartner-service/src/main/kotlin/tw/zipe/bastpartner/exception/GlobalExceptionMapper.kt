@@ -51,9 +51,10 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 message = exception.message ?: "DTO validation failed"
             )
             is JwtValidationException -> {
-                ApiResponse<Nothing>(
+                ApiResponse<String>(
                     code = 401,
-                    message = exception.message ?: "Jwt validation failed"
+                    message = exception.message ?: "Jwt validation failed",
+                    data = exception.newToken
                 )
             }
             is JwtException -> ApiResponse<Nothing>(
