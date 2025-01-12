@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import dev.langchain4j.web.search.WebSearchEngine
 import dev.langchain4j.web.search.WebSearchTool
 import jakarta.enterprise.context.ApplicationScoped
@@ -17,7 +18,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMToolCategoryRepository
 import tw.zipe.bastpartner.repository.LLMToolRepository
 import tw.zipe.bastpartner.repository.LLMToolUserSettingRepository
-import tw.zipe.bastpartner.util.DTOValidator
+import tw.zipe.bastpartner.util.generateFieldJson
 import tw.zipe.bastpartner.util.instantiate
 import tw.zipe.bastpartner.util.reorderAndRenameArguments
 
@@ -30,13 +31,28 @@ class ToolService(
     private val llmToolRepository: LLMToolRepository,
     private val llmToolCategoryRepository: LLMToolCategoryRepository,
     private val llmToolUserSettingRepository: LLMToolUserSettingRepository,
-    private val securityValidator: SecurityValidator
+    private val securityValidator: SecurityValidator,
+    private val objectMapper: ObjectMapper
 ) {
 
     /**
      * 取得所有工具清單
      */
     fun getTools() = llmToolRepository.findByCondition(null)
+
+    /**
+     * 取得工具
+     */
+    fun getTool(toolId: String): ToolDTO {
+        val tool = llmToolRepository.findByToolId(toolId) ?: throw ServiceException("找不到工具")
+        tool.configObjectPath?.let {
+            val clazz = Class.forName(it)
+            val kClass = clazz.kotlin
+            val fields = generateFieldJson(kClass)
+            tool.settingArgs = fields
+        }
+        return tool
+    }
 
     /**
      * 註冊工具
@@ -47,8 +63,8 @@ class ToolService(
             classPath = toolDTO.classPath
             categoryId = toolDTO.groupId
             type = toolDTO.type ?: ToolsType.BUILT_IN
-            settingFields = toolDTO.settingFields?.joinToString(",")
             description = toolDTO.description
+            configObjectPath = toolDTO.configObjectPath
             llmToolRepository.persist(this).let { toolDTO.id = id }
         }
     }
@@ -69,15 +85,15 @@ class ToolService(
      */
     @Transactional
     fun saveSetting(toolDTO: ToolDTO) {
-        verifySettingFields(toolDTO).let { tool ->
-            LLMToolUserSettingEntity().apply {
-                toolId = tool.id.orEmpty()
+        llmToolRepository.findByToolId(toolDTO.id.orEmpty())?.let {
+            with(LLMToolUserSettingEntity()) {
+                toolId = toolDTO.id.orEmpty()
                 userId = securityValidator.validateLoggedInUser()
                 settingContent = toolDTO.settingContent
                 llmToolUserSettingRepository.persist(this)
                 toolDTO.settingId = id
             }
-        }
+        } ?: throw ServiceException("找不到工具")
     }
 
     /**
@@ -112,8 +128,7 @@ class ToolService(
      */
     @Transactional
     fun updateSetting(toolDTO: ToolDTO) {
-        verifySettingFields(toolDTO)
-        llmToolUserSettingRepository.updateSettingsByNative(toolDTO.settingId!!, toolDTO.settingContent)
+        llmToolUserSettingRepository.updateSettingsByNative(toolDTO.settingId.orEmpty(), toolDTO.settingContent.orEmpty())
     }
 
     fun getSettingByUserIdAndToolId(toolId: String) =
@@ -139,7 +154,7 @@ class ToolService(
             )
         }
         return userSetting?.let {
-            val settingJson = jsonStringToMap(userSetting.settingContent)
+            val settingJson = jsonStringToMap(userSetting.settingContent.orEmpty())
 
             validateSettings(toolSettingFields, settingJson)
 
@@ -147,28 +162,6 @@ class ToolService(
 
             instantiateTool(tool, sortFields)
         } ?: return instantiateTool(tool, emptyMap())
-    }
-
-    /**
-     * 驗證設定欄位
-     */
-    private fun verifySettingFields(toolDTO: ToolDTO): LLMToolEntity {
-
-        DTOValidator.validate(toolDTO) {
-            validateJson("settingContent")
-            throwOnInvalid()
-        }
-
-        return llmToolRepository.findByName(toolDTO.name!!)?.let { tool ->
-            val validationFields = tool.settingFields?.split(",")?.toList()
-            val settingJson = jsonStringToMap(toolDTO.settingContent)
-            validationFields?.forEach {
-                if (settingJson[it] == null) {
-                    throw ServiceException("請設定欄位 $it 值")
-                }
-            }
-            tool
-        } ?: throw ServiceException("找不到工具")
     }
 
     private fun validateSettings(toolSettingFields: String, settingJson: Map<String, JsonElement>) {

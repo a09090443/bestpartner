@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
-import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
 import tw.zipe.bastpartner.dto.ToolDTO
@@ -63,63 +62,46 @@ class ToolServiceTest {
         @BeforeAll
         @JvmStatic
         fun init() {
-            dateTool()
+//            dateTool()
 //            googleSearchTool()
+            tavilySearchTool()
         }
 
         private fun dateTool() {
             toolDTO = ToolDTO(
                 name = "DateTool",
                 classPath = "tw.zipe.bastpartner.tool.DateTool",
-                group = "DATE",
+                groupId = "ea8a08e2-342d-4ade-9579-127d2d1443c5",
                 groupDescription = "日期群組",
                 type = ToolsType.BUILT_IN,
                 description = "內建日期工具",
             )
-//            val tools = instantiate(toolDTO.classPath)
-//            println(tools)
         }
 
         private fun googleSearchTool() {
             toolDTO = ToolDTO(
                 name = "GoogleSearch",
                 classPath = "dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine",
-                group = "WEB_SEARCH",
+                groupId = "90caee3f-2c87-48b9-8912-3dd810f62377",
                 groupDescription = "網頁搜尋群組",
+                configObjectPath = "tw.zipe.bastpartner.tool.config.Google",
+                settingContent = "{\"apiKey\":\"AIzaSyDOSA26AyzMOO87_j_fcypWVoaTJXqaYj0\",\"csi\":\"f009fbd9a12af4ccb\",\"siteRestrict\":false,\"includeImages\":true,\"timeout\":100000,\"maxRetries\":10,\"logRequests\":true,\"logResponses\":true}",
                 type = ToolsType.BUILT_IN,
                 description = "內建 Google 搜尋工具",
-                settingFields = listOf(
-                    "apiKey",
-                    "csi",
-                    "siteRestrict",
-                    "includeImages",
-                    "timeout",
-                    "maxRetries",
-                    "logRequests",
-                    "logResponses"
-                )
             )
+        }
 
-//            val argMap = mutableMapOf<String, Any>(
-//                "maxRetries" to 3,
-//                "logRequests" to true,
-//                "apiKey" to "123456",
-//                "csi" to "123456",
-//                "siteRestrict" to false,
-//                "timeout" to java.time.Duration.ofSeconds(60),
-//                "includeImages" to true,
-//                "logResponses" to true
-//            )
-//
-//            val tools = instantiate(
-//                "dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine",
-//                reorderAndRenameArguments(
-//                    argMap,
-//                    "apiKey, csi, siteRestrict, includeImages, timeout, maxRetries, logRequests, logResponses"
-//                )
-//            )
-//            val webSearchTool = WebSearchTool.from(tools as GoogleCustomWebSearchEngine?)
-//            println(webSearchTool)
+        private fun tavilySearchTool() {
+            toolDTO = ToolDTO(
+                name = "TavilySearch",
+                classPath = "dev.langchain4j.web.search.tavily.TavilyWebSearchEngine",
+                groupId = "90caee3f-2c87-48b9-8912-3dd810f62377",
+                groupDescription = "網頁搜尋群組",
+                configObjectPath = "tw.zipe.bastpartner.tool.config.Tavily",
+                settingContent = "{\"apiKey\":\"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\",\"timeout\":100000,\"includeAnswer\":true,\"includeRawContent\":false,\"includeDomains\":[],\"excludeDomains\":[]}",
+                type = ToolsType.BUILT_IN,
+                description = "內建 Tavily 搜尋工具",
+            )
         }
     }
 }

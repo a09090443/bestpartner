@@ -43,8 +43,38 @@ CREATE TABLE `llm_setting`
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模型配置表';
 
+-- LLM 模型工具表
+DROP TABLE IF EXISTS `llm_tool`;
+create table llm_tool
+(
+    id                 varchar(36)  not null comment '主鍵'
+        primary key,
+    name               varchar(100) not null comment '工具名稱',
+    class_path         varchar(100) not null comment 'Class path',
+    category_id        varchar(36)  not null comment '工具群組表 ID',
+    type               varchar(10)  not null comment '工具類型',
+    config_object_path varchar(500) null comment 'Tool設定物件Path',
+    description        text         null comment '工具描述',
+    created_at         timestamp    not null comment '創建時間',
+    updated_at         timestamp    null comment '更新時間',
+    created_by         varchar(50)  null comment '創建者',
+    updated_by         varchar(50)  null comment '最後更新者',
+    constraint name
+        unique (name)
+)
+    comment '工具表' collate = utf8mb4_unicode_ci;
+
 alter table llm_user
     modify status CHAR default '0' null comment '狀態 0 無效 1有效';
+
+-- 刪除工具
+DELETE FROM bestpartner.llm_tool WHERE name = 'GoogleSearch';
+DELETE FROM bestpartner.llm_tool WHERE name = 'DateTool';
+DELETE FROM bestpartner.llm_tool WHERE name = 'TavilySearch';
+-- 新增工具
+INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, config_object_path, description, created_at, updated_at, updated_by, created_by) VALUES ('0c743a37-1f98-444f-bba8-b063604e5bfb', 'GoogleSearch', 'dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine', '90caee3f-2c87-48b9-8912-3dd810f62377', 'BUILT_IN', 'tw.zipe.bastpartner.tool.config.Google', '內建 Google 搜尋工具', '2025-01-12 21:26:15', null, '', 'c88f57c8-ad26-4ea0-9f71-a65995b49357');
+INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, config_object_path, description, created_at, updated_at, updated_by, created_by) VALUES ('10c07da4-7616-4572-90aa-7e77a608fce9', 'DateUtil', 'tw.zipe.bastpartner.tool.DateTool', '90caee3f-2c87-48b9-8912-3dd810f62377', 'BUILT_IN', null, '內建日期工具', '2025-01-12 21:37:27', null, '', 'c88f57c8-ad26-4ea0-9f71-a65995b49357');
+INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, config_object_path, description, created_at, updated_at, updated_by, created_by) VALUES ('528e6798-8e4e-4233-97c0-3c6fce76ba0d', 'TavilySearch', 'dev.langchain4j.web.search.tavily.TavilyWebSearchEngine', '90caee3f-2c87-48b9-8912-3dd810f62377', 'BUILT_IN', 'tw.zipe.bastpartner.tool.config.Tavily', '內建 Tavily 搜尋工具', '2025-01-12 21:26:00', null, '', 'c88f57c8-ad26-4ea0-9f71-a65995b49357');
 
 -- 新增使用者
 INSERT INTO bestpartner.llm_user (id, username, password, nickname, phone, email, avatar, status, created_at,

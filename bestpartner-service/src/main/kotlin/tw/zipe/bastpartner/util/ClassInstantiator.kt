@@ -4,6 +4,7 @@ import io.quarkus.runtime.configuration.DurationConverter.parseDuration
 import java.time.Duration
 import java.util.Locale
 import kotlin.reflect.KClass
+import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 
 /**
@@ -67,6 +68,7 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
                         "false", "0", "no" -> false
                         else -> null
                     }
+
                     param.type.classifier == String::class -> value.toString().trim('"')
                     param.type.classifier == Duration::class -> parseDuration(value.toString().trim('"'))
                     // 處理列舉類型
@@ -83,6 +85,7 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
                     // 如果是其他類型且值已經符合目標類型，直接使用
                     param.type.classifier is KClass<*> &&
                             (param.type.classifier as KClass<*>).java.isInstance(value) -> value
+
                     else -> {
                         logger().warn("無法轉換參數 ${param.name} 的值 $value 到類型 ${param.type}")
                         null
@@ -186,4 +189,20 @@ fun reorderAndRenameArguments(inputMap: Map<String, Any>, fields: String): Map<S
     return fieldOrder.mapIndexedNotNull { index, field ->
         inputMap[field]?.let { "arg$index" to it } // 找到對應值並產生新鍵
     }.toMap()
+}
+
+// 函數：將資料類別的欄位與型態轉成 JSON 格式
+fun generateFieldJson(clazz: KClass<*>): String {
+    val fields = clazz.memberProperties.map { property ->
+        val fieldType = when (property.returnType.toString()) {
+            "kotlin.String?" -> "String"
+            "kotlin.String" -> "String"
+            "kotlin.Long" -> "Long"
+            "kotlin.Boolean" -> "Boolean"
+            "kotlin.collections.List<kotlin.String>?" -> "List<String>"
+            else -> property.returnType.toString() // 回傳原始型態名稱
+        }
+        "\"${property.name}\": \"$fieldType\""
+    }
+    return "{ ${fields.joinToString(", ")} }"
 }

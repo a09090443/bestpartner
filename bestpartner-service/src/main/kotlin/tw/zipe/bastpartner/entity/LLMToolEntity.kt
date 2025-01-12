@@ -52,10 +52,10 @@ class LLMToolEntity : BaseEntity() {
     lateinit var type: ToolsType
 
     /**
-     * 設定值欄位名稱, 以逗號分隔
+     * Tool設定物件Path
      */
-    @Column(name = "setting_fields", nullable = true)
-    var settingFields: String? = null
+    @Column(name = "config_object_path", nullable = true)
+    var configObjectPath: String? = null
 
     /**
      * 工具描述
