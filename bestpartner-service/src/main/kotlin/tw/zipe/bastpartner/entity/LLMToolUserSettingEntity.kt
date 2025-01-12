@@ -36,9 +36,9 @@ class LLMToolUserSettingEntity : BaseEntity() {
     var toolId: String = StringUtil.EMPTY_STRING
 
     /**
-     * Class path
+     * 設定值內容
      */
-    @Column(name = "setting_content", nullable = false)
-    var settingContent: String = StringUtil.EMPTY_STRING
+    @Column(name = "setting_content", nullable = true)
+    var settingContent: String? = null
 
 }

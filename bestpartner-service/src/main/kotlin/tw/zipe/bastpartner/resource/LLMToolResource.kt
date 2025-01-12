@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.resource
 
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
@@ -26,13 +27,24 @@ class LLMToolResource(
 
     @GET
     @Path("/list")
-    fun tools() = toolService.getTools()
+    fun tools() =  ApiResponse.success(toolService.getTools())
+
+    @POST
+    @Path("/get")
+    fun get(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
+        DTOValidator.validate(toolDTO) {
+            requireNotEmpty("id")
+            throwOnInvalid()
+        }
+        return ApiResponse.success(toolService.getTool(toolDTO.id.orEmpty()))
+    }
 
     @POST
     @Path("/register")
+    @RolesAllowed("admin")
     fun register(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
-            requireNotEmpty("name", "classPath", "group", "type")
+            requireNotEmpty("name", "classPath", "groupId", "type")
             throwOnInvalid()
         }
         toolService.registerTool(toolDTO)
@@ -41,6 +53,7 @@ class LLMToolResource(
 
     @POST
     @Path("/delete")
+    @RolesAllowed("admin")
     fun delete(toolDTO: ToolDTO): ApiResponse<Boolean> {
         DTOValidator.validate(toolDTO) {
             requireNotEmpty("id")
@@ -53,7 +66,7 @@ class LLMToolResource(
     @Path("/saveSetting")
     fun saveSetting(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
-            requireNotEmpty("id", "settingContent")
+            requireNotEmpty("id")
             throwOnInvalid()
         }
         toolService.saveSetting(toolDTO)
@@ -73,6 +86,7 @@ class LLMToolResource(
 
     @POST
     @Path("/category/save")
+    @RolesAllowed("admin")
     fun categorySave(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
             requireNotEmpty("group")
@@ -84,6 +98,7 @@ class LLMToolResource(
 
     @POST
     @Path("/category/update")
+    @RolesAllowed("admin")
     fun categoryUpdate(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
             requireNotEmpty("groupId", "group")
@@ -95,6 +110,7 @@ class LLMToolResource(
 
     @POST
     @Path("/category/delete")
+    @RolesAllowed("admin")
     fun categoryDelete(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
             requireNotEmpty("groupId")

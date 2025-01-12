@@ -19,19 +19,19 @@ class LLMToolRepository : BaseRepository<LLMToolEntity, String>() {
 
     fun findByCondition(toolId: String?): List<ToolDTO> {
         var sql = """
-            SELECT lt.id             AS id,
-                   lt.name           AS name,
-                   lt.class_path     AS classPath,
-                   lt.type           AS type,
-                   lt.category_id    AS groupId,
-                   lt.description    AS description,
-                   lt.setting_fields AS settingArgs,
-                   ltc.name          AS `group`,
-                   ltc.description   AS groupDescription
+            SELECT lt.id                 AS id,
+                   lt.name               AS name,
+                   lt.class_path         AS classPath,
+                   lt.type               AS type,
+                   lt.category_id        AS groupId,
+                   lt.description        AS description,
+                   lt.config_object_path AS configObjectPath,
+                   ltc.name              AS `group`,
+                   ltc.description       AS groupDescription
             FROM llm_tool lt
                      LEFT JOIN llm_tool_category ltc ON lt.category_id = ltc.id
-            WHERE 1=1
-                 """.trimIndent()
+            WHERE 1 = 1
+        """.trimIndent()
         val parameters = mutableMapOf<String, Any>()
 
         toolId?.let {
