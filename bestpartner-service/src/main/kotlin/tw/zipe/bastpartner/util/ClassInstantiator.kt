@@ -4,6 +4,8 @@ import io.quarkus.runtime.configuration.DurationConverter.parseDuration
 import java.time.Duration
 import java.util.Locale
 import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
+import kotlin.reflect.KParameter
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 
@@ -16,100 +18,77 @@ import kotlin.reflect.full.primaryConstructor
  */
 @Suppress("UNCHECKED_CAST")
 fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap()): Any? {
-    try {
-        // 取得Class對象
+    return try {
         val clazz = Class.forName(className)
         val kClass = clazz.kotlin
-
-        // 找出適合的構造函數
-        val constructor = if (constructorArgs.isEmpty()) {
-            // 如果沒有參數，優先使用無參數構造函數
-            kClass.constructors.find { it.parameters.isEmpty() }
-                ?: kClass.primaryConstructor
-        } else {
-            kClass.constructors.find { constructor ->
-                // 檢查參數數量和名稱是否匹配
-                constructor.parameters.all { param ->
-                    param.name?.let { paramName ->
-                        constructorArgs.containsKey(paramName) ||
-                                constructorArgs.containsKey(paramName.replaceFirstChar { it.lowercase(Locale.getDefault()) })
-                    } ?: false
-                }
-            } ?: kClass.primaryConstructor
-        }
-
-        // 檢查是否找到構造函數
-        if (constructor == null) {
-            logger().error("找不到匹配的構造函數")
-            return null
-        }
-
-        // 處理無參數情況
-        return if (constructor.parameters.isEmpty()) {
-            constructor.call()
-        } else {
-            // 建立參數映射，並進行型態轉換
-            val args = constructor.parameters.mapNotNull { param ->
-                val paramName = param.name ?: return@mapNotNull null
-                val value = constructorArgs[paramName]
-                    ?: constructorArgs[paramName.replaceFirstChar { it.lowercase() }]
-                    ?: return@mapNotNull null
-
-                // 進行型態轉換
-                val convertedValue = when {
-                    false -> null
-                    param.type.isMarkedNullable && value == null -> null
-                    param.type.classifier == Int::class -> value.toString().trim('"').toIntOrNull()
-                    param.type.classifier == Long::class -> value.toString().trim('"').toLongOrNull()
-                    param.type.classifier == Double::class -> value.toString().trim('"').toDoubleOrNull()
-                    param.type.classifier == Float::class -> value.toString().trim('"').toFloatOrNull()
-                    param.type.classifier == Boolean::class -> when (value.toString().trim('"').lowercase()) {
-                        "true", "1", "yes" -> true
-                        "false", "0", "no" -> false
-                        else -> null
-                    }
-
-                    param.type.classifier == String::class -> value.toString().trim('"')
-                    param.type.classifier == Duration::class -> parseDuration(value.toString().trim('"'))
-                    // 處理列舉類型
-                    param.type.classifier is KClass<*> && (param.type.classifier as KClass<*>).java.isEnum -> {
-                        try {
-                            java.lang.Enum.valueOf(
-                                (param.type.classifier as KClass<*>).java as Class<out Enum<*>>,
-                                value.toString().trim('"')
-                            )
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }
-                    // 如果是其他類型且值已經符合目標類型，直接使用
-                    param.type.classifier is KClass<*> &&
-                            (param.type.classifier as KClass<*>).java.isInstance(value) -> value
-
-                    else -> {
-                        logger().warn("無法轉換參數 ${param.name} 的值 $value 到類型 ${param.type}")
-                        null
-                    }
-                }
-
-                if (convertedValue == null && !param.type.isMarkedNullable) {
-                    logger().error("參數 ${param.name} 不可為 null，但轉換後得到 null 值")
-                    return null
-                }
-
-                param to convertedValue
-            }.toMap()
-
-            // 使用轉換後的參數呼叫構造函數
-            constructor.callBy(args)
-        }
-
+        val constructor = findConstructor(kClass, constructorArgs) ?: return null
+        val args = prepareConstructorArgs(constructor, constructorArgs) ?: return null
+        constructor.callBy(args)
     } catch (e: ClassNotFoundException) {
         logger().error("找不到指定的類別: $className")
+        null
     } catch (e: Exception) {
-        logger().error("實例化過程中發生錯誤: ${e.message}")
+        logger().error("實例化過程中發生錯誤: ${e.message}", e)
+        null
     }
-    return null
+}
+
+private fun findConstructor(kClass: KClass<*>, constructorArgs: Map<String, Any?>): KFunction<Any>? {
+    return if (constructorArgs.isEmpty()) {
+        kClass.constructors.find { it.parameters.isEmpty() } ?: kClass.primaryConstructor
+    } else {
+        kClass.constructors.find { constructor ->
+            constructor.parameters.all { param ->
+                param.name?.let { paramName ->
+                    constructorArgs.containsKey(paramName) ||
+                            constructorArgs.containsKey(paramName.replaceFirstChar { it.lowercase(Locale.getDefault()) })
+                } ?: false
+            }
+        } ?: kClass.primaryConstructor
+    }
+}
+
+private fun prepareConstructorArgs(constructor: KFunction<Any>, constructorArgs: Map<String, Any?>): Map<KParameter, Any?>? {
+    return constructor.parameters.mapNotNull { param ->
+        val paramName = param.name ?: return@mapNotNull null
+        val value = constructorArgs[paramName]
+            ?: constructorArgs[paramName.replaceFirstChar { it.lowercase() }]
+
+        val convertedValue = convertValue(param, value) ?: return null
+        param to convertedValue
+    }.toMap()
+}
+
+private fun convertValue(param: KParameter, value: Any?): Any? {
+    return when {
+        param.type.isMarkedNullable && value == null -> null
+        param.type.classifier == Int::class -> value.toString().trim('"').toIntOrNull()
+        param.type.classifier == Long::class -> value.toString().trim('"').toLongOrNull()
+        param.type.classifier == Double::class -> value.toString().trim('"').toDoubleOrNull()
+        param.type.classifier == Float::class -> value.toString().trim('"').toFloatOrNull()
+        param.type.classifier == Boolean::class -> when (value.toString().trim('"').lowercase()) {
+            "true", "1", "yes" -> true
+            "false", "0", "no" -> false
+            else -> null
+        }
+        param.type.classifier == String::class -> value.toString().trim('"')
+        param.type.classifier == Duration::class -> parseDuration(value.toString().trim('"'))
+        param.type.classifier is KClass<*> && (param.type.classifier as KClass<*>).java.isEnum -> {
+            try {
+                java.lang.Enum.valueOf(
+                    (param.type.classifier as KClass<*>).java as Class<out Enum<*>>,
+                    value.toString().trim('"')
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+        param.type.classifier is KClass<*> && (param.type.classifier as KClass<*>).java.isInstance(value) -> value
+        else -> {
+            logger().warn("無法轉換參數 ${param.name} 的值 $value 到類型 ${param.type}")
+            null
+        }
+    }
 }
 
 /**
@@ -181,13 +160,13 @@ fun printConstructorInfo(className: String) {
  * @param fields 指定的欄位順序，以逗號分隔的字串
  * @return 重新排序並重新命名後的鍵值對
  */
-fun reorderAndRenameArguments(inputMap: Map<String, Any>, fields: String): Map<String, Any> {
+fun reorderAndRenameArguments(inputMap: Map<String, Any>, fields: String): Map<String, Any?> {
     // 以逗號分割欄位字串並移除多餘空格
     val fieldOrder = fields.split(",").map { it.trim() }
 
     // 根據字段順序重新排列並產生新的鍵值對
-    return fieldOrder.mapIndexedNotNull { index, field ->
-        inputMap[field]?.let { "arg$index" to it } // 找到對應值並產生新鍵
+    return fieldOrder.mapIndexed { index, field ->
+        "arg$index" to inputMap[field]
     }.toMap()
 }
 

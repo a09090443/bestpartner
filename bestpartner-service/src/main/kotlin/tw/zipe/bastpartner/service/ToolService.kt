@@ -48,8 +48,7 @@ class ToolService(
         tool.configObjectPath?.let {
             val clazz = Class.forName(it)
             val kClass = clazz.kotlin
-            val fields = generateFieldJson(kClass)
-            tool.settingArgs = fields
+            tool.settingArgs = generateFieldJson(kClass)
         }
         return tool
     }
@@ -143,11 +142,10 @@ class ToolService(
      */
     fun buildTool(toolDTO: ToolDTO): Any? {
         val tool = toolDTO.id?.let {
-            llmToolRepository.findByToolId(it) ?: throw ServiceException("找不到工具")
+            getTool(it)
         } ?: throw ServiceException("請正確填寫 tool id")
 
-        val toolSettingFields = tool.settingArgs
-        val userSetting = toolSettingFields?.let {
+        val userSetting = tool.configObjectPath?.let {
             llmToolUserSettingRepository.findSettingByUserIdAndToolId(
                 securityValidator.validateLoggedInUser(),
                 toolDTO.id.orEmpty()
@@ -155,22 +153,16 @@ class ToolService(
         }
         return userSetting?.let {
             val settingJson = jsonStringToMap(userSetting.settingContent.orEmpty())
-
-            validateSettings(toolSettingFields, settingJson)
-
-            val sortFields = reorderAndRenameArguments(settingJson, toolSettingFields)
+            // 需使用 java 反射才能取得有順序性的 fields
+            val clazz = Class.forName(tool.configObjectPath)
+            val fields = clazz.declaredFields.joinToString(", ") { it.name }
+            val sortFields = reorderAndRenameArguments(settingJson, fields)
 
             instantiateTool(tool, sortFields)
         } ?: return instantiateTool(tool, emptyMap())
     }
 
-    private fun validateSettings(toolSettingFields: String, settingJson: Map<String, JsonElement>) {
-        toolSettingFields.split(",").forEach { field ->
-            settingJson[field] ?: throw ServiceException("請設定欄位 $field 值")
-        }
-    }
-
-    private fun instantiateTool(tool: ToolDTO, sortFields: Map<String, Any>): Any? {
+    private fun instantiateTool(tool: ToolDTO, sortFields: Map<String, Any?>): Any? {
         val instance = instantiate(tool.classPath, sortFields)
         return when (tool.type) {
             ToolsType.BUILT_IN -> when (tool.group) {
