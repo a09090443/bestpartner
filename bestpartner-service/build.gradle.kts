@@ -57,6 +57,7 @@ dependencies {
     implementation("org.bsc.langgraph4j:langgraph4j-core:$langgraph4jVersion")
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
     implementation("org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion") // Add this line
 
