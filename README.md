@@ -11,6 +11,7 @@ BestPartner project
 1. 設定各API權限管理
 2. 修正動態建立LLM模型錯誤問題
 3. 修正Tools工具錯誤問題
+4. 新增 tavily 網路搜尋引擎工具
 
 ## 1.3 版本變更說明
 1. 廢除 H2 db 改為使用 Mysql db
@@ -31,6 +32,7 @@ BestPartner project
 | 工具名稱        | 工具類型       |
 |:------------|:-----------|
 | Google 搜尋引擎 | Web Search |
+| Tavily 搜尋引擎 | Web Search |
 | Date 日期     | Date       |
 
 ## 目錄結構
