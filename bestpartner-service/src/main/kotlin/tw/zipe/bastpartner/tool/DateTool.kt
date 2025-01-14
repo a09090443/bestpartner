@@ -12,7 +12,7 @@ import tw.zipe.bastpartner.util.time.DateTimeUtils
 class DateTool {
 
     @Tool("""
-        以台灣時間為基準，會根據不同時區取得當地日期時間，timeZon的輸入格式為"國家/城市"，格式是yyyy-MM-dd HH:mm:
+        以台灣時間為基準，會根據不同時區取得當地日期時間，timeZone的輸入格式為"國家/城市"，如:Australia/Darwin, Asia/Taipei, Africa/Harare
         """)
     fun getCurrentTime(@P("根據國家或城市回應正確的當地時間") timeZone: String): String {
         // 格式化時間
