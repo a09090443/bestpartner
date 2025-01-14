@@ -54,14 +54,14 @@ private fun prepareConstructorArgs(constructor: KFunction<Any>, constructorArgs:
         val value = constructorArgs[paramName]
             ?: constructorArgs[paramName.replaceFirstChar { it.lowercase() }]
 
-        val convertedValue = convertValue(param, value) ?: return null
+        val convertedValue = convertValue(param, value)
         param to convertedValue
     }.toMap()
 }
 
 private fun convertValue(param: KParameter, value: Any?): Any? {
     return when {
-        param.type.isMarkedNullable && value == null -> null
+        value == null -> null
         param.type.classifier == Int::class -> value.toString().trim('"').toIntOrNull()
         param.type.classifier == Long::class -> value.toString().trim('"').toLongOrNull()
         param.type.classifier == Double::class -> value.toString().trim('"').toDoubleOrNull()
