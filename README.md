@@ -5,7 +5,7 @@ BestPartner project
 ## 說明
 1. 該專案為一個AI應用大平台，可動態建立 AI agent 並支援多種 AI 模型
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
-3. 未來目標為類似 Dify 或 Langflow 平台，可自行建立 AI agent 並支援多種 AI 模型
+3. 未來目標為類似 Dify 或 Coze 平台，可自行建立 AI agent 並支援多種 AI 模型
 
 ## 1.4 版本變更說明
 1. 設定各API權限管理
@@ -132,6 +132,14 @@ bestpartner
 ![](docs/images/service-start.png)
 
 ## 開發紀錄
+* 2025.01.16 BestPartner 0.1.4 版本完成
+  + 完成 LLM 可動態調用 Tools 工具測試
+  + API 新增權限管理
+  + 修正 LLM streaming 錯誤問題
+  + 新增 tavily 網路搜尋引擎工具
+  + 修改 log 輸出設定
+  + 修正 jwt 錯誤問題
+
 * 2024.12.11 BestPartner 0.1.3 版本完成
   + 支援自製LLM工具註冊
   + 支援動態呼叫自製LLM工具
