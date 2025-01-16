@@ -198,10 +198,16 @@
 					"name": "chat_streaming",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"llmId\": \"45d5c19f-819a-4a3a-83ad-d76812f97db0\",\r\n    \"message\": \"我是Gary\"\r\n}",
+							"raw": "{\r\n    \"llmId\": \"4069f3c2-ba50-4eed-b3d3-0cc53478dd9a\",\r\n    \"message\": \"我是Gary\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -226,10 +232,16 @@
 					"name": "custom_assistant_chat",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Gary\",\r\n    \"promptContent\":\"你是專業的AI助理\"\r\n}",
+							"raw": "{\r\n    \"llmId\":\"42758e05-0c8f-4acd-9f72-3b9f6f38c5df\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問2025年程式語言排行\",\r\n    \"promptContent\":\"你是一位網路搜尋專家，會根據問題回答出正確資訊，一律以最新資訊回答\",\r\n    \"tools\":[{\"id\":\"7af4b81f-0dbe-4055-a9f9-306b7e031c72\"}]\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -245,6 +257,40 @@
 							"path": [
 								"llm",
 								"customAssistantChat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "custom_assistant_chat_streaming",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"llmId\":\"4069f3c2-ba50-4eed-b3d3-0cc53478dd9a\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你有記住我的名字嗎?\",\r\n    \"promptContent\":\"你是專業的AI助理\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/customAssistantChatStreaming",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"customAssistantChatStreaming"
 							]
 						}
 					},
@@ -600,7 +646,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"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\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-xxxxx\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -635,7 +681,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"id\": \"9c6838a3-7d20-4aca-9730-f198a8eb192c\",\r\n    \"alias\": \"openai_local_chat_test\",\r\n    \"modelType\": \"CHAT\",\r\n    \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"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\",\r\n        \"modelName\": \"gpt-4o-mini\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
+							"raw": "{\r\n    \"id\": \"9c6838a3-7d20-4aca-9730-f198a8eb192c\",\r\n    \"alias\": \"openai_local_chat_test\",\r\n    \"modelType\": \"CHAT\",\r\n    \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"sk-xxxxx\",\r\n        \"modelName\": \"gpt-4o-mini\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -670,7 +716,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"alias\": \"local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"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\",\r\n    \"modelName\": \"text-embedding-3-small\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"dimensions\": 1536,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-xxxxx\",\r\n    \"modelName\": \"text-embedding-3-small\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"dimensions\": 1536,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -705,7 +751,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"id\": \"fbeafc72-eda0-4a2b-b79e-ed88f53db29f\",\r\n    \"alias\": \"local_embedding_test\",\r\n    \"modelType\": \"EMBEDDING\",\r\n    \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"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\",\r\n        \"modelName\": \"text-embedding-3-small\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"dimensions\": 1536,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
+							"raw": "{\r\n    \"id\": \"fbeafc72-eda0-4a2b-b79e-ed88f53db29f\",\r\n    \"alias\": \"local_embedding_test\",\r\n    \"modelType\": \"EMBEDDING\",\r\n    \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"sk-xxxxx\",\r\n        \"modelName\": \"text-embedding-3-small\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"dimensions\": 1536,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -740,7 +786,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"alias\": \"ollama_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"166a5745-b89c-410e-ada4-7ae3da426af5\",\r\n  \"llmModel\": {\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"llama3.1:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"ollama_user_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"166a5745-b89c-410e-ada4-7ae3da426af5\",\r\n  \"llmModel\": {\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"llama3.1:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1121,20 +1167,89 @@
 			"name": "tool",
 			"item": [
 				{
-					"name": "tool_register",
+					"name": "tool_register_Google",
 					"request": {
 						"method": "POST",
 						"header": [
 							{
 								"key": "Authorization",
 								"value": "Bearer {{token}}",
-								"type": "text",
-								"disabled": true
+								"type": "text"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"name\": \"date\",\r\n    \"classPath\": \"tw.zipe.bastpartner.tool.DateTool\"\r\n}",
+							"raw": "{\r\n    \"name\": \"GoogleSearch\",\r\n    \"classPath\": \"dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine\",\r\n    \"groupId\": \"90caee3f-2c87-48b9-8912-3dd810f62377\",\r\n    \"type\": \"BUILT_IN\",\r\n    \"configObjectPath\": \"tw.zipe.bastpartner.tool.config.Google\",\r\n    \"description\": \"內建 Google 搜尋工具\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "tool_register_Tavily",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"TavilySearch\",\r\n    \"classPath\": \"dev.langchain4j.web.search.tavily.TavilyWebSearchEngine\",\r\n    \"groupId\": \"90caee3f-2c87-48b9-8912-3dd810f62377\",\r\n    \"type\": \"BUILT_IN\",\r\n    \"configObjectPath\": \"tw.zipe.bastpartner.tool.config.Tavily\",\r\n    \"description\": \"內建 Tavily 搜尋工具\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "tool_register_Date",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"DateUtil\",\r\n    \"classPath\": \"tw.zipe.bastpartner.tool.DateTool\",\r\n    \"groupId\": \"ea8a08e2-342d-4ade-9579-127d2d1443c5\",\r\n    \"type\": \"BUILT_IN\",\r\n    \"description\": \"內建日期工具\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1196,6 +1311,41 @@
 					"response": []
 				},
 				{
+					"name": "tool_get",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"528e6798-8e4e-4233-97c0-3c6fce76ba0d\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/get",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"get"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "tool_delete",
 					"request": {
 						"method": "POST",
@@ -1208,7 +1358,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"id\": \"0dfaffc1-071d-4039-a0cc-791b51a59f68\"\r\n}",
+							"raw": "{\r\n    \"id\": \"636f98ef-dd8f-4f68-9122-402ddc5a55d2\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1231,7 +1381,7 @@
 					"response": []
 				},
 				{
-					"name": "tool_setting_add",
+					"name": "tool_setting_add_google",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -1243,7 +1393,42 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"id\": \"0dfaffc1-071d-4039-a0cc-791b51a59f68\",\r\n    \"name\": \"date\",\r\n    \"settingContent\": \"{\\\"test1\\\":\\\"tttt\\\", \\\"test2\\\":\\\"aaaaa\\\"}\"\r\n}",
+							"raw": "{\r\n    \"id\": \"7af4b81f-0dbe-4055-a9f9-306b7e031c72\",\r\n    \"name\": \"GoogleSearch\",\r\n    \"settingContent\": \"{\\\"apiKey\\\":\\\"AIzaSyDOSA26AyzMOO87_j_fcypWVoaTJXqaYj0\\\",\\\"csi\\\":\\\"f009fbd9a12af4ccb\\\",\\\"siteRestrict\\\":false,\\\"includeImages\\\":true,\\\"timeout\\\":\\\"100000\\\",\\\"maxRetries\\\":\\\"100\\\",\\\"logRequests\\\":true,\\\"logResponses\\\":true}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/saveSetting",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"saveSetting"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "tool_setting_add_tavily",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"7af4b81f-0dbe-4055-a9f9-306b7e031c72\",\r\n    \"name\": \"GoogleSearch\",\r\n    \"settingContent\": \"{\\\"apiKey\\\":\\\"AIzaSyDOSA26AyzMOO87_j_fcypWVoaTJXqaYj0\\\",\\\"csi\\\":\\\"f009fbd9a12af4ccb\\\",\\\"siteRestrict\\\":false,\\\"includeImages\\\":true,\\\"timeout\\\":\\\"100000\\\",\\\"maxRetries\\\":\\\"100\\\",\\\"logRequests\\\":true,\\\"logResponses\\\":true}\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1278,7 +1463,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"settingId\": \"9f3d67eb-05b9-4816-8df4-1ff3b3ebff57\",\r\n    \"name\": \"date\",\r\n    \"settingContent\": \"{\\\"test1\\\":\\\"test111111\\\", \\\"test2\\\":\\\"test222222\\\"}\"\r\n}",
+							"raw": "{\r\n    \"settingId\": \"397cdab1-29f3-42a3-905d-6542aebb15a1\",\r\n    \"name\": \"GoogleSearch\",\r\n    \"settingContent\": \"{\\\"apiKey\\\":\\\"AIzaSyDOSA26AyzMOO87_j_fcypWVoaTJXqaYj0\\\",\\\"csi\\\":\\\"f009fbd9a12af4ccb\\\",\\\"siteRestrict\\\":false,\\\"includeImages\\\":false,\\\"timeout\\\":\\\"100000\\\",\\\"maxRetries\\\":\\\"3\\\",\\\"logRequests\\\":true,\\\"logResponses\\\":true}\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
