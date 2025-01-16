@@ -16,8 +16,8 @@ val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
 val langchain4jVersion = "0.36.2"
-val langgraph4jVersion = "1.2.0"
 val bouncycastleVersion = "1.79"
+val okhttp3Version = "4.12.0"
 val kotlinSerializationVersion = "1.7.3"
 
 dependencies {
@@ -54,10 +54,9 @@ dependencies {
 
     implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.4")
 
-    implementation("org.bsc.langgraph4j:langgraph4j-core:$langgraph4jVersion")
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
     implementation("org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:$okhttp3Version")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion") // Add this line
 
