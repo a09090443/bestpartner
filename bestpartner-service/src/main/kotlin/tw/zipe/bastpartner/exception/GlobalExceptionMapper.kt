@@ -12,7 +12,7 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 import javax.naming.AuthenticationException
-import kong.unirest.HttpStatus
+import org.apache.http.HttpStatus
 import org.hibernate.exception.ConstraintViolationException
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.util.logger
@@ -85,7 +85,7 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
             }
             is AuthenticationException -> {
                 ApiResponse<Nothing>(
-                    code = HttpStatus.UNAUTHORIZED,
+                    code = HttpStatus.SC_UNAUTHORIZED,
                     message = exception.message ?: "Authentication failed"
                 )
             }
