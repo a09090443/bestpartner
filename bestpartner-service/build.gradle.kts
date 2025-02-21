@@ -24,9 +24,9 @@ dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("io.quarkus:quarkus-resteasy-reactive")
-    implementation("io.quarkus:quarkus-resteasy-reactive-jackson")
-    implementation("io.quarkus:quarkus-resteasy-reactive-kotlin")
+    implementation("io.quarkus:quarkus-rest")
+    implementation("io.quarkus:quarkus-rest-jackson")
+    implementation("io.quarkus:quarkus-rest-kotlin")
     implementation("io.quarkus:quarkus-container-image-docker")
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-websockets-next")
@@ -53,6 +53,7 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-web-search-engine-tavily:$langchain4jVersion")
 
     implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.4")
+    implementation("com.github.jsqlparser:jsqlparser:5.1")
 
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
     implementation("org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion")
