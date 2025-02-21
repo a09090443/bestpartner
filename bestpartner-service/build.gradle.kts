@@ -15,7 +15,7 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "0.36.2"
+val langchain4jVersion = "1.0.0-beta1"
 val bouncycastleVersion = "1.79"
 val okhttp3Version = "4.12.0"
 val kotlinSerializationVersion = "1.7.3"
