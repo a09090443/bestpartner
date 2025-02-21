@@ -1,6 +1,13 @@
 package tw.zipe.bastpartner.service
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
+import dev.langchain4j.agent.tool.ToolSpecification
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema
+import dev.langchain4j.service.tool.ToolExecutor
+import dev.langchain4j.service.tool.ToolProvider
+import dev.langchain4j.service.tool.ToolProviderRequest
+import dev.langchain4j.service.tool.ToolProviderResult
 import dev.langchain4j.web.search.WebSearchEngine
 import dev.langchain4j.web.search.WebSearchTool
 import jakarta.enterprise.context.ApplicationScoped
@@ -64,6 +71,9 @@ class ToolService(
             type = toolDTO.type ?: ToolsType.BUILT_IN
             description = toolDTO.description
             configObjectPath = toolDTO.configObjectPath
+            functionName = toolDTO.functionName
+            functionDescription = toolDTO.functionDescription
+            functionParams = toolDTO.functionParams
             llmToolRepository.persist(this).let { toolDTO.id = id }
         }
     }
@@ -127,7 +137,10 @@ class ToolService(
      */
     @Transactional
     fun updateSetting(toolDTO: ToolDTO) {
-        llmToolUserSettingRepository.updateSettingsByNative(toolDTO.settingId.orEmpty(), toolDTO.settingContent.orEmpty())
+        llmToolUserSettingRepository.updateSettingsByNative(
+            toolDTO.settingId.orEmpty(),
+            toolDTO.settingContent.orEmpty()
+        )
     }
 
     fun getSettingByUserIdAndToolId(toolId: String) =
@@ -174,4 +187,59 @@ class ToolService(
         }
     }
 
+    fun buildToolProvider(toolDTO: ToolDTO): ToolProvider {
+        val tool = toolDTO.id?.let {
+            getTool(it)
+        } ?: throw ServiceException("請正確填寫 tool id")
+
+        val toolExecutor: ToolExecutor = instantiate(tool.classPath) as ToolExecutor
+
+        var jsonObjectSchema = JsonObjectSchema.builder()
+        toolDTO.functionParams?.let {
+            val map: Map<String, List<Any>> =
+                objectMapper.readValue(it, object : TypeReference<Map<String, List<Any>>>() {})
+            validateFunctionParams(map)
+            var description:String
+            map.map { (key, value) ->
+                description = value[0].toString()
+                jsonObjectSchema = when (value[1]) {
+                    "String" -> jsonObjectSchema.addStringProperty(key, description)
+                    "Int" -> jsonObjectSchema.addIntegerProperty(key, description)
+                    "Long" -> jsonObjectSchema.addIntegerProperty(key, description)
+                    "Double" -> jsonObjectSchema.addNumberProperty(key, description)
+                    "Boolean" -> jsonObjectSchema.addBooleanProperty(key, description)
+                    else -> throw ServiceException("型態不正確: $key")
+                }
+            }
+        }
+
+        return ToolProvider { _ ->
+            val toolSpecification = ToolSpecification.builder()
+                .name(toolDTO.functionName)
+                .description(toolDTO.functionDescription)
+                .parameters(
+                    jsonObjectSchema.build()
+                )
+                .build()
+
+            ToolProviderResult.builder()
+                .add(toolSpecification, toolExecutor)
+                .build()
+        }
+    }
+
+    fun validateFunctionParams(paramsMap: Map<String, List<Any>>) {
+        paramsMap.map { (_, value) ->
+            if (value.size == 2) {
+                val actualValue = value[0]
+
+                if (actualValue !is String) {
+                    throw ServiceException("function params 欄位格式錯誤 (應為 [value, type])，value 應為 String")
+                }
+
+            } else {
+                throw ServiceException("function params 欄位格式錯誤 (應為 [value, type])")
+            }
+        }
+    }
 }

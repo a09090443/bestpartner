@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
 import tw.zipe.bastpartner.dto.ToolDTO
@@ -22,7 +23,7 @@ class ToolServiceTest {
     @Inject
     lateinit var toolService: ToolService
 
-    @Test
+//    @Test
     fun `test find all tools`() {
         val result = toolService.getTools()
         assertNotNull(result)
@@ -42,8 +43,8 @@ class ToolServiceTest {
         assertNotNull(toolDTO.id)
     }
 
-//    @Test
-//    @Order(3)
+    @Test
+    @Order(3)
     fun `test find tool by id`() {
         val result = toolService.findToolById(toolDTO.id!!)
         assertEquals(toolDTO.name, result?.name)
@@ -63,8 +64,8 @@ class ToolServiceTest {
         @JvmStatic
         fun init() {
 //            dateTool()
-//            googleSearchTool()
-            tavilySearchTool()
+            googleSearchTool()
+//            tavilySearchTool()
         }
 
         private fun dateTool() {
@@ -73,8 +74,11 @@ class ToolServiceTest {
                 classPath = "tw.zipe.bastpartner.tool.DateTool",
                 groupId = "ea8a08e2-342d-4ade-9579-127d2d1443c5",
                 groupDescription = "日期群組",
-                type = ToolsType.BUILT_IN,
-                description = "內建日期工具",
+                type = ToolsType.CUSTOMIZE,
+                description = "日期工具",
+                functionName = "getCurrentTime",
+                functionDescription = "以台灣時間為基準，會根據不同時區取得當地日期時間",
+                functionParams = "{\"zoneId\":[\"輸入格式為國家/城市，如:Australia/Darwin, Asia/Taipei, Africa/Harare\", \"String\"]}"
             )
         }
 

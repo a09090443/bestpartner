@@ -39,13 +39,13 @@ class LLMToolEntity : BaseEntity() {
     var classPath: String = StringUtil.EMPTY_STRING
 
     /**
-     * Category id
+     * 工具群組表 ID
      */
     @Column(name = "category_id", nullable = false)
     var categoryId: String? = null
 
     /**
-     * Type
+     * 工具類型
      */
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -56,6 +56,24 @@ class LLMToolEntity : BaseEntity() {
      */
     @Column(name = "config_object_path", nullable = true)
     var configObjectPath: String? = null
+
+    /**
+     * 功能名稱
+     */
+    @Column(name = "function_name", nullable = true)
+    var functionName: String? = null
+
+    /**
+     * 功能描述
+     */
+    @Column(name = "function_description", nullable = true)
+    var functionDescription: String? = null
+
+    /**
+     * 功能描述
+     */
+    @Column(name = "function_params", nullable = true)
+    var functionParams: String? = null
 
     /**
      * 工具描述

@@ -21,5 +21,8 @@ class ToolDTO(
     var settingArgs: String? = null,
     val settingContent: String? = null,
     val configObjectPath: String? = null,
-    val description: String = StringUtil.EMPTY_STRING
+    val description: String = StringUtil.EMPTY_STRING,
+    val functionName: String = StringUtil.EMPTY_STRING,
+    val functionDescription: String = StringUtil.EMPTY_STRING,
+    val functionParams: String? = null
 )

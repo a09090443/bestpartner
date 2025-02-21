@@ -14,4 +14,11 @@ enum class Platform(val builder: ModelProvider) {
 
     fun getLLMBean() = builder
 
+    // 取得 platform 透過 name 的方式
+    companion object {
+        fun getPlatform(name: String): Platform {
+            return entries.firstOrNull { it.name == name }
+                ?: throw IllegalArgumentException("找不到對應的平台")
+        }
+    }
 }

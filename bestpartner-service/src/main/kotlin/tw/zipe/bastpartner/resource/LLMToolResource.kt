@@ -1,5 +1,7 @@
 package tw.zipe.bastpartner.resource
 
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
@@ -10,6 +12,7 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ToolDTO
+import tw.zipe.bastpartner.enumerate.ToolsType
 import tw.zipe.bastpartner.service.ToolService
 import tw.zipe.bastpartner.util.DTOValidator
 
@@ -22,12 +25,13 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class LLMToolResource(
-    val toolService: ToolService
+    val toolService: ToolService,
+    private val objectMapper: ObjectMapper
 ) : BaseLLMResource() {
 
     @GET
     @Path("/list")
-    fun tools() =  ApiResponse.success(toolService.getTools())
+    fun tools() = ApiResponse.success(toolService.getTools())
 
     @POST
     @Path("/get")
@@ -45,6 +49,13 @@ class LLMToolResource(
     fun register(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
             requireNotEmpty("name", "classPath", "groupId", "type")
+            if (toolDTO.type == ToolsType.CUSTOMIZE) {
+                requireNotEmpty("functionName", "functionDescription")
+            }
+            toolDTO.functionParams?.let {
+                val map: Map<String, List<Any>> =
+                    objectMapper.readValue(it, object : TypeReference<Map<String, List<Any>>>() {})
+                toolService.validateFunctionParams(map) }
             throwOnInvalid()
         }
         toolService.registerTool(toolDTO)
@@ -59,7 +70,7 @@ class LLMToolResource(
             requireNotEmpty("id")
             throwOnInvalid()
         }
-        return ApiResponse.success( toolService.deleteTool(toolDTO.id!!))
+        return ApiResponse.success(toolService.deleteTool(toolDTO.id!!))
     }
 
     @POST
