@@ -5,12 +5,8 @@ import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
-import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolExecutor
-import dev.langchain4j.service.tool.ToolProvider
-import dev.langchain4j.service.tool.ToolProviderRequest
-import dev.langchain4j.service.tool.ToolProviderResult
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
@@ -32,9 +28,7 @@ import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.service.ToolService
-import tw.zipe.bastpartner.tool.DateTool
 import tw.zipe.bastpartner.util.DTOValidator
-import tw.zipe.bastpartner.util.instantiate
 
 /**
  * @author Gary
@@ -92,8 +86,8 @@ class LLMResource(
         val aiService = buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
             aiService.build().streamingChat(chatRequestDTO.message.orEmpty())
-                .onNext { emitter.emit(it) }
-                .onComplete { emitter.complete() }
+                .onPartialResponse { emitter.emit(it) }
+                .onCompleteResponse { emitter.complete() }
                 .onError { emitter.fail(it) }.start()
         }
     }
@@ -102,13 +96,15 @@ class LLMResource(
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         val aiService = buildAIService(chatRequestDTO, ModelType.CHAT)
-        return ApiResponse.success(aiService.build().chat(chatRequestDTO.memory?.id, chatRequestDTO.message.orEmpty()).content().text())
+        return ApiResponse.success(
+            aiService.build().chat(chatRequestDTO.memory?.id, chatRequestDTO.message.orEmpty()).content().text()
+        )
     }
 
     private fun buildAIService(chatRequestDTO: ChatRequestDTO, modelType: ModelType): AiServices<DynamicAssistant> {
         DTOValidator.validate(chatRequestDTO) {
             requireNotEmpty("llmId", "message", "promptContent")
-            if(chatRequestDTO.isRemember) {
+            if (chatRequestDTO.isRemember) {
                 validateNested("memory") {
                     requireNotEmpty("id", "maxSize")
                 }
@@ -130,37 +126,17 @@ class LLMResource(
             }
         }
 
-        chatRequestDTO.tools?.map {
-            val toolProvider = toolService.buildToolProvider(it)
-            aiService.toolProvider(toolProvider)
+        val tools = chatRequestDTO.tools?.map {
+            toolService.buildTool(it)
+        } ?: emptyList()
+
+        @Suppress("UNCHECKED_CAST")
+        tools.map { tool ->
+            when (tool) {
+                is Map<*, *> -> aiService.tools(tool as Map<ToolSpecification, ToolExecutor>)
+                else -> aiService.tools(tool)
+            }
         }
-
-//        val toolExecutor: ToolExecutor = instantiate("tw.zipe.bastpartner.tool.DateTool") as ToolExecutor
-//
-//        val toolProvider = ToolProvider { toolProviderRequest: ToolProviderRequest ->
-//            val toolSpecification = ToolSpecification.builder()
-//                .name("getCurrentTime")
-//                .description("以台灣時間為基準，會根據不同時區取得當地日期時間")
-//                .parameters(
-//                    JsonObjectSchema.builder()
-//                        .addStringProperty("zoneId", "輸入格式為國家/城市，如:Australia/Darwin, Asia/Taipei, Africa/Harare")
-//                        .build()
-//                )
-//                .build()
-//
-//            ToolProviderResult.builder()
-//                .add(toolSpecification, toolExecutor)
-//                .build()
-//        }
-
-
-//        val tools = chatRequestDTO.tools?.map {
-//            toolService.buildTool(it)
-//        } ?: emptyList()
-//
-//        tools.isNotEmpty().let {
-//            aiService.tools(tools)
-//        }
 
         if (chatRequestDTO.isRemember) {
             val chatMemoryProvider = chatRequestDTO.memory?.let {

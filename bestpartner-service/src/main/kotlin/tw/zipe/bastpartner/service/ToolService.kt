@@ -5,9 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import dev.langchain4j.service.tool.ToolExecutor
-import dev.langchain4j.service.tool.ToolProvider
-import dev.langchain4j.service.tool.ToolProviderRequest
-import dev.langchain4j.service.tool.ToolProviderResult
 import dev.langchain4j.web.search.WebSearchEngine
 import dev.langchain4j.web.search.WebSearchTool
 import jakarta.enterprise.context.ApplicationScoped
@@ -182,17 +179,16 @@ class ToolService(
                 "WEB_SEARCH" -> WebSearchTool.from(instance as WebSearchEngine)
                 else -> instance
             }
+            ToolsType.CUSTOMIZE -> when (instance) {
+                is ToolExecutor -> buildToolProvider(tool, instance)
+                else -> throw ServiceException("工具類型錯誤")
+            }
 
             else -> instance
         }
     }
 
-    fun buildToolProvider(toolDTO: ToolDTO): ToolProvider {
-        val tool = toolDTO.id?.let {
-            getTool(it)
-        } ?: throw ServiceException("請正確填寫 tool id")
-
-        val toolExecutor: ToolExecutor = instantiate(tool.classPath) as ToolExecutor
+    fun buildToolProvider(toolDTO: ToolDTO, toolExecutor: ToolExecutor): Map<ToolSpecification, ToolExecutor> {
 
         var jsonObjectSchema = JsonObjectSchema.builder()
         toolDTO.functionParams?.let {
@@ -212,20 +208,28 @@ class ToolService(
                 }
             }
         }
+        val toolSpecification = ToolSpecification.builder()
+            .name(toolDTO.functionName)
+            .description(toolDTO.functionDescription)
+            .parameters(
+                jsonObjectSchema.build()
+            )
+            .build()
 
-        return ToolProvider { _ ->
-            val toolSpecification = ToolSpecification.builder()
-                .name(toolDTO.functionName)
-                .description(toolDTO.functionDescription)
-                .parameters(
-                    jsonObjectSchema.build()
-                )
-                .build()
-
-            ToolProviderResult.builder()
-                .add(toolSpecification, toolExecutor)
-                .build()
-        }
+        return mapOf(toolSpecification to toolExecutor)
+//        return ToolProvider { _ ->
+//            val toolSpecification = ToolSpecification.builder()
+//                .name(toolDTO.functionName)
+//                .description(toolDTO.functionDescription)
+//                .parameters(
+//                    jsonObjectSchema.build()
+//                )
+//                .build()
+//
+//            ToolProviderResult.builder()
+//                .add(toolSpecification, toolExecutor)
+//                .build()
+//        }
     }
 
     fun validateFunctionParams(paramsMap: Map<String, List<Any>>) {
