@@ -12,7 +12,7 @@ CREATE TABLE llm_tool_user_setting
     created_by      VARCHAR(50) NULL COMMENT '創建者',
     updated_by      VARCHAR(50) NULL COMMENT '最後更新者',
     PRIMARY KEY (user_id, tool_id)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='使用者自訂工具表';
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='使用者自訂工具表';
 
 DROP TABLE IF EXISTS llm_tool;
 CREATE TABLE llm_tool
@@ -34,7 +34,7 @@ CREATE TABLE llm_tool
     updated_by           VARCHAR(50) NULL COMMENT '最後更新者',
     CONSTRAINT NAME
         UNIQUE (name)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工具表';
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='工具表';
 
 -- 使用者自訂工具表
 INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('2e8d3421-9ebb-44fa-a468-4fc2d8196d5a', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '0c743a37-1f98-444f-bba8-b063604e5bfb', '{"csi": "xxxxxx", "apiKey": "AIxxxxx", "timeout": 100000, "maxRetries": 5, "logRequests": true, "logResponses": true, "includeImages": false}', '2025-01-13 10:45:56', '2025-01-14 11:44:45', '670017b4-23d0-4339-a9c0-22b6d9446461', '670017b4-23d0-4339-a9c0-22b6d9446461');
@@ -44,5 +44,6 @@ INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, sett
 INSERT INTO bestpartner.llm_tool_category (id, name, description, created_at, updated_at, created_by, updated_by) VALUES ('d09e84b9-17f2-4c07-bfa6-4dcf9201bd17', 'TEXT2SQL', 'Text2SQL群組', '2025-02-18 17:41:00', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
 
 -- 內建工具表
-INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, config_object_path, description, created_at, updated_at, created_by, updated_by) VALUES ('169614bc-7b87-4397-8fc1-ebbfc3f555fe', 'Text2SQLTool', 'tw.zipe.bastpartner.tool.text2sql.Text2SQLTool', 'd09e84b9-17f2-4c07-bfa6-4dcf9201bd17', 'BUILT_IN', 'tw.zipe.bastpartner.tool.text2sql.config.Text2SQL', '內建TEXT2SQL工具', '2025-02-19 15:48:34', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
+INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, config_object_path, function_name, function_description, function_params, description, created_at, updated_at, created_by, updated_by) VALUES ('3737ec4a-2c88-490e-8301-ebc611f2433f', 'DateTool', 'tw.zipe.bastpartner.tool.DateTool', 'ea8a08e2-342d-4ade-9579-127d2d1443c5', 'CUSTOMIZE', null, 'getCurrentTime', '以台灣時間為基準，會根據不同時區取得當地日期時間', '{"zoneId": ["輸入格式為國家/城市，如:Australia/Darwin, Asia/Taipei, Africa/Harare", "String"]}', '日期工具', '2025-02-20 16:07:44', null, '', '');
+INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, config_object_path, function_name, function_description, function_params, description, created_at, updated_at, created_by, updated_by) VALUES ('c14e82ca-511f-424c-b20c-a96d93cae920', 'GoogleSearch', 'dev.langchain4j.web.search.google.customsearch.GoogleCustomWebSearchEngine', '90caee3f-2c87-48b9-8912-3dd810f62377', 'BUILT_IN', 'tw.zipe.bastpartner.tool.config.Google', '', '', null, '內建 Google 搜尋工具', '2025-02-20 16:08:47', null, '', '');
 
