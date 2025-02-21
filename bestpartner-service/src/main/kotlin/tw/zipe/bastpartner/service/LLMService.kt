@@ -12,8 +12,10 @@ import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
+import tw.zipe.bastpartner.provider.ModelProvider
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
+import tw.zipe.bastpartner.util.LLMBuilder
 
 /**
  * @author Gary
@@ -105,15 +107,13 @@ class LLMService(
         val llmSetting =
             llmSettingRepository.findByConditions(securityValidator.validateLoggedInUser(), null, null, id)
                 .firstOrNull()
+
         return llmSetting?.let { setting ->
-            val platform =
-                llmPlatformRepository.findById(setting.platformId) ?: throw ServiceException("請確認存取的平台是否存在")
-            val llmModel = objectMapper.readValue(setting.modelSetting, LLModel::class.java)
-            when (type) {
-                ModelType.EMBEDDING -> platform.name?.getLLMBean()?.embeddingModel(llmModel)
-                ModelType.CHAT -> platform.name?.getLLMBean()?.chatModel(llmModel)
-                ModelType.STREAMING_CHAT -> platform.name?.getLLMBean()?.chatModelStreaming(llmModel)
+
+            if (setting.type != type.name) {
+                throw ServiceException("請確認存取的 LLM 設定是否為 $type")
             }
+            LLMBuilder().build(setting, type)
         } ?: throw ServiceException("請確認存取的 LLM 設定是否存在")
     }
 
