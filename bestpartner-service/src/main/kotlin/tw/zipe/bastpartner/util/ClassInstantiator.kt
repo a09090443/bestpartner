@@ -2,7 +2,6 @@ package tw.zipe.bastpartner.util
 
 import io.quarkus.runtime.configuration.DurationConverter.parseDuration
 import java.time.Duration
-import java.util.Locale
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
@@ -38,22 +37,30 @@ private fun findConstructor(kClass: KClass<*>, constructorArgs: Map<String, Any?
         kClass.constructors.find { it.parameters.isEmpty() } ?: kClass.primaryConstructor
     } else {
         kClass.constructors.find { constructor ->
-            constructor.parameters.all { param ->
-                param.name?.let { paramName ->
-                    constructorArgs.containsKey(paramName) ||
-                            constructorArgs.containsKey(paramName.replaceFirstChar { it.lowercase(Locale.getDefault()) })
-                } ?: false
+            // 檢查參數數量是否符合
+            if (constructor.parameters.size != constructorArgs.size) {
+                return@find false
             }
+
+            // 建立原始參數名稱到 arg index 的映射
+            val parameterMapping = constructor.parameters
+                .mapIndexed { index, param -> param.name to "arg$index" }
+                .toMap()
+
+            // 檢查是否所有必要的參數都存在
+            val hasAllRequiredArgs = constructor.parameters.mapIndexed { index, _ ->
+                constructorArgs.containsKey("arg$index")
+            }.all { it }
+
+            hasAllRequiredArgs
         } ?: kClass.primaryConstructor
     }
 }
 
 private fun prepareConstructorArgs(constructor: KFunction<Any>, constructorArgs: Map<String, Any?>): Map<KParameter, Any?>? {
-    return constructor.parameters.mapNotNull { param ->
-        val paramName = param.name ?: return@mapNotNull null
-        val value = constructorArgs[paramName]
-            ?: constructorArgs[paramName.replaceFirstChar { it.lowercase() }]
-
+    return constructor.parameters.mapIndexed { index, param ->
+        val argKey = "arg$index"
+        val value = constructorArgs[argKey]
         val convertedValue = convertValue(param, value)
         param to convertedValue
     }.toMap()
