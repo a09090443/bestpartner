@@ -1,10 +1,11 @@
 package tw.zipe.bastpartner.tool.text2sql
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.mysql.cj.jdbc.MysqlDataSource
-import dev.langchain4j.agent.tool.P
-import dev.langchain4j.agent.tool.Tool
+import dev.langchain4j.agent.tool.ToolExecutionRequest
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.rag.query.Query
+import dev.langchain4j.service.tool.ToolExecutor
 import javax.sql.DataSource
 import tw.zipe.bastpartner.assistant.SqlDatabaseContentRetriever
 import tw.zipe.bastpartner.enumerate.ModelType
@@ -23,22 +24,22 @@ class Text2SQLTool(
     private val datasourceUsername: String,
     private val datasourcePassword: String,
     private val datasourceDatabaseType: String,
-) {
+): ToolExecutor {
     private val logger = logger()
 
-    @Tool(name = "text2sql", value = ["將自然語言查詢轉換為對應的 SQL 查詢語句。"])
-    fun text2sql(@P("query") query: String?): String {
-        logger.info("呼叫 Text2SQL 工具")
-
-        val content = SqlDatabaseContentRetriever.builder()
-            .dataSource(buildDatasource())
-            .sqlDialect(datasourceDatabaseType)
-//            .databaseStructure("")
-            .chatLanguageModel(buildLLM())
-            .build()
-        val retrieved = content.retrieve(Query.from(query))
-        return retrieved[0].textSegment().text()
-    }
+//    @Tool(name = "text2sql", value = ["將自然語言查詢轉換為對應的 SQL 查詢語句。"])
+//    fun text2sql(@P("query") query: String?): String {
+//        logger.info("呼叫 Text2SQL 工具")
+//
+//        val content = SqlDatabaseContentRetriever.builder()
+//            .dataSource(buildDatasource())
+//            .sqlDialect(datasourceDatabaseType)
+////            .databaseStructure("")
+//            .chatLanguageModel(buildLLM())
+//            .build()
+//        val retrieved = content.retrieve(Query.from(query))
+//        return retrieved[0].textSegment().text()
+//    }
 
     fun buildDatasource(): DataSource {
         return when (DatabaseType.valueOf(datasourceDatabaseType)) {
@@ -63,5 +64,20 @@ class Text2SQLTool(
         return LLMBuilder().build(Platform.getPlatform(platform), llmModel, ModelType.CHAT).let {
             it as ChatLanguageModel
         }
+    }
+
+    override fun execute(toolExecutionRequest: ToolExecutionRequest?, memoryId: Any?): String {
+        logger.info("呼叫 Text2SQL 工具")
+        val paramMap = ObjectMapper().readValue(toolExecutionRequest?.arguments(), Map::class.java)
+        val query = paramMap["query"].toString()
+
+        val content = SqlDatabaseContentRetriever.builder()
+            .dataSource(buildDatasource())
+            .sqlDialect(datasourceDatabaseType)
+//            .databaseStructure("")
+            .chatLanguageModel(buildLLM())
+            .build()
+        val retrieved = content.retrieve(Query.from(query))
+        return retrieved[0].textSegment().text()
     }
 }

@@ -164,8 +164,8 @@ class ToolService(
         return userSetting?.let {
             val settingJson = jsonStringToMap(userSetting.settingContent.orEmpty())
             // 需使用 java 反射才能取得有順序性的 fields
-            val clazz = Class.forName(tool.configObjectPath)
-            val fields = clazz.declaredFields.joinToString(", ") { it.name }
+            val configClazz = Class.forName(tool.configObjectPath)
+            val fields = configClazz.declaredFields.joinToString(", ") { it.name }
             val sortFields = reorderAndRenameArguments(settingJson, fields)
 
             instantiateTool(tool, sortFields)
