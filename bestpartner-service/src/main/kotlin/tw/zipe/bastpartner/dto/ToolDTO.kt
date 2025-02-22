@@ -11,6 +11,7 @@ import tw.zipe.bastpartner.enumerate.ToolsType
 @Serializable
 class ToolDTO(
     var id: String? = null,
+    var alias: String? = null,
     var settingId: String? = null,
     val name: String? = null,
     val classPath: String = StringUtil.EMPTY_STRING,

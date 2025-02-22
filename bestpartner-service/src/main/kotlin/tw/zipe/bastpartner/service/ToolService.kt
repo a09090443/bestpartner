@@ -93,6 +93,7 @@ class ToolService(
     fun saveSetting(toolDTO: ToolDTO) {
         llmToolRepository.findByToolId(toolDTO.id.orEmpty())?.let {
             with(LLMToolUserSettingEntity()) {
+                alias = toolDTO.alias.orEmpty()
                 toolId = toolDTO.id.orEmpty()
                 userId = securityValidator.validateLoggedInUser()
                 settingContent = toolDTO.settingContent
