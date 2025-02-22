@@ -38,8 +38,8 @@ abstract class BaseLLMResource {
 
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
             assistant.streamingChat(message)
-                .onNext { emitter.emit(it) }
-                .onComplete { emitter.complete() }
+                .onPartialResponse { emitter.emit(it) }
+                .onCompleteResponse { emitter.complete() }
                 .onError { emitter.fail(it) }.start()
         }
     }

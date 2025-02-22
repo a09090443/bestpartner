@@ -85,7 +85,7 @@ class LLMResource(
         }
         val aiService = buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
-            aiService.build().streamingChat(chatRequestDTO.message.orEmpty())
+            aiService.build().streamingChat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty())
                 .onPartialResponse { emitter.emit(it) }
                 .onCompleteResponse { emitter.complete() }
                 .onError { emitter.fail(it) }.start()
@@ -97,7 +97,7 @@ class LLMResource(
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         val aiService = buildAIService(chatRequestDTO, ModelType.CHAT)
         return ApiResponse.success(
-            aiService.build().chat(chatRequestDTO.memory?.id, chatRequestDTO.message.orEmpty()).content().text()
+            aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text()
         )
     }
 

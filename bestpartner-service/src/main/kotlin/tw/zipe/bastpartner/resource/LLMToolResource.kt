@@ -77,7 +77,7 @@ class LLMToolResource(
     @Path("/saveSetting")
     fun saveSetting(toolDTO: ToolDTO): ApiResponse<ToolDTO> {
         DTOValidator.validate(toolDTO) {
-            requireNotEmpty("id")
+            requireNotEmpty("id", "alias")
             throwOnInvalid()
         }
         toolService.saveSetting(toolDTO)

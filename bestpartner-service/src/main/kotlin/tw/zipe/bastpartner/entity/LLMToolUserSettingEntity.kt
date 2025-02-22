@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.util.UUID
 
 /**
  * @author Gary
@@ -22,6 +23,12 @@ class LLMToolUserSettingEntity : BaseEntity() {
     @Column(name = "id", nullable = false)
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: String? = null
+
+    /**
+     * 自定義別名
+     */
+    @Column(name = "alias", nullable = false)
+    var alias: String = UUID.randomUUID().toString()
 
     /**
      * 使用者ID

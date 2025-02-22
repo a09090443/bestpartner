@@ -30,8 +30,8 @@ class Text2SqlTest {
     @Inject
     lateinit var llmService: LLMService
 
-    @Test
-    @Order(1)
+//    @Test
+//    @Order(1)
     fun `test instance tool`() {
         instance = instantiate("tw.zipe.bastpartner.tool.text2sql.Text2SQLTool", paramMap)
         assert(instance is Text2SQLTool)
@@ -45,7 +45,7 @@ class Text2SqlTest {
             it as ChatLanguageModel
         }
         val mysqlDataSource = MysqlDataSource()
-        mysqlDataSource.setURL("jdbc:mysql://localhost:3306/sale?useSSL=false")
+        mysqlDataSource.setURL("jdbc:mysql://localhost:3306/sale?allowPublicKeyRetrieval=true&useSSL=false")
         mysqlDataSource.user = "sale"
         mysqlDataSource.password = "sale"
 

@@ -11,6 +11,6 @@ class ChatRequestDTO(
     val message: String? = null,
     val promptContent: String? = null,
     val isRemember: Boolean = false,
-    val memory: Memory? = null,
+    val memory: Memory = Memory(),
     val tools: List<ToolDTO>? = null
 ) : BaseDTO()
