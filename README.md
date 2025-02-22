@@ -7,6 +7,10 @@ BestPartner project
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
 3. 未來目標為類似 Dify 或 Coze 平台，可自行建立 AI agent 並支援多種 AI 模型
 
+## 1.5 版本變更說明
+1. 修改工具建立邏輯
+2. 新增 TEXT2SQL 工具
+
 ## 1.4 版本變更說明
 1. 設定各API權限管理
 2. 修正動態建立LLM模型錯誤問題
@@ -113,7 +117,7 @@ bestpartner
 * Chroma latest
 * Milvus latest
 * Kotlin 2.1.0
-* Quarkus 3.15.1
+* Quarkus 3.18.4
 * Langchain4j 0.36.2
 * Gradle latest
 * Postman latest
