@@ -35,6 +35,7 @@ dependencies {
     implementation("io.quarkus:quarkus-hibernate-orm")
     implementation("io.quarkus:quarkus-hibernate-orm-panache-kotlin")
     implementation("io.quarkus:quarkus-jdbc-mysql")
+    implementation("io.quarkus:quarkus-jdbc-postgresql")
     implementation("io.quarkus:quarkus-flyway")
     implementation("io.quarkus:quarkus-security-jpa")
     implementation("io.quarkus:quarkus-smallrye-jwt")

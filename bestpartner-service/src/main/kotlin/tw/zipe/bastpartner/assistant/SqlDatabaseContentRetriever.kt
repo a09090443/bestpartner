@@ -16,6 +16,7 @@ import javax.sql.DataSource
 import net.sf.jsqlparser.JSQLParserException
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.select.Select
+import tw.zipe.bastpartner.util.logger
 
 /**
  * 本程式來源由 Langchain4j 專案提供，為一個 SQL 資料庫內容檢索器。
@@ -29,6 +30,8 @@ class SqlDatabaseContentRetriever private constructor(
     private val chatLanguageModel: ChatLanguageModel,
     private val maxRetries: Int
 ) : ContentRetriever {
+
+    private val logger = logger()
 
     private val sqlDialect: String = sqlDialect ?: getSqlDialect(dataSource)
     private val databaseStructure: String = databaseStructure ?: generateDDL(dataSource)
@@ -209,7 +212,7 @@ class SqlDatabaseContentRetriever private constructor(
 
             try {
                 validate(sqlQuery)
-
+                logger.info("Executing SQL query: $sqlQuery")
                 dataSource.connection.use { connection ->
                     connection.createStatement().use { statement ->
                         val result = execute(sqlQuery, statement)
@@ -225,7 +228,7 @@ class SqlDatabaseContentRetriever private constructor(
         return emptyList()
     }
 
-    protected fun generateSqlQuery(
+    private fun generateSqlQuery(
         naturalLanguageQuery: Query,
         previousSqlQuery: String?,
         previousErrorMessage: String?
@@ -238,11 +241,10 @@ class SqlDatabaseContentRetriever private constructor(
             messages.add(AiMessage.from(previousSqlQuery))
             messages.add(UserMessage.from(previousErrorMessage))
         }
-
-        return chatLanguageModel.generate(messages).content().text()
+        return chatLanguageModel.chat(messages).aiMessage().text();
     }
 
-    protected fun createSystemPrompt(): Prompt {
+    private fun createSystemPrompt(): Prompt {
         val variables = mapOf(
             "sqlDialect" to sqlDialect,
             "databaseStructure" to databaseStructure
@@ -250,7 +252,7 @@ class SqlDatabaseContentRetriever private constructor(
         return promptTemplate.apply(variables)
     }
 
-    protected fun clean(sqlQuery: String): String {
+    private fun clean(sqlQuery: String): String {
         return when {
             sqlQuery.contains("```sql") -> sqlQuery.substring(
                 sqlQuery.indexOf("```sql") + 6,
@@ -264,11 +266,11 @@ class SqlDatabaseContentRetriever private constructor(
         }
     }
 
-    protected open fun validate(sqlQuery: String) {
+    fun validate(sqlQuery: String) {
         // Override this method to add custom validation
     }
 
-    protected fun isSelect(sqlQuery: String): Boolean {
+    private fun isSelect(sqlQuery: String): Boolean {
         return try {
             CCJSqlParserUtil.parse(sqlQuery) is Select
         } catch (e: JSQLParserException) {
@@ -276,7 +278,7 @@ class SqlDatabaseContentRetriever private constructor(
         }
     }
 
-    protected fun execute(sqlQuery: String, statement: Statement): String {
+    private fun execute(sqlQuery: String, statement: Statement): String {
         val resultRows = mutableListOf<String>()
 
         statement.executeQuery(sqlQuery).use { resultSet ->
