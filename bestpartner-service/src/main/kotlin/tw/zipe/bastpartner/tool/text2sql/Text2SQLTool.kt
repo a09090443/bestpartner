@@ -7,6 +7,7 @@ import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.rag.query.Query
 import dev.langchain4j.service.tool.ToolExecutor
 import javax.sql.DataSource
+import org.postgresql.ds.PGSimpleDataSource
 import tw.zipe.bastpartner.assistant.SqlDatabaseContentRetriever
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
@@ -27,20 +28,6 @@ class Text2SQLTool(
 ): ToolExecutor {
     private val logger = logger()
 
-//    @Tool(name = "text2sql", value = ["將自然語言查詢轉換為對應的 SQL 查詢語句。"])
-//    fun text2sql(@P("query") query: String?): String {
-//        logger.info("呼叫 Text2SQL 工具")
-//
-//        val content = SqlDatabaseContentRetriever.builder()
-//            .dataSource(buildDatasource())
-//            .sqlDialect(datasourceDatabaseType)
-////            .databaseStructure("")
-//            .chatLanguageModel(buildLLM())
-//            .build()
-//        val retrieved = content.retrieve(Query.from(query))
-//        return retrieved[0].textSegment().text()
-//    }
-
     fun buildDatasource(): DataSource {
         return when (DatabaseType.valueOf(datasourceDatabaseType)) {
             DatabaseType.MYSQL -> MysqlDataSource().apply {
@@ -48,7 +35,11 @@ class Text2SQLTool(
                 user = datasourceUsername
                 password = datasourcePassword
             }
-
+            DatabaseType.POSTGRESQL -> PGSimpleDataSource().apply {
+                setURL(datasourceUrl)
+                user = datasourceUsername
+                password = datasourcePassword
+            }
             else -> throw IllegalArgumentException("Unsupported database type: $datasourceDatabaseType")
         }
     }
@@ -59,6 +50,8 @@ class Text2SQLTool(
             url = llmUrl
             modelName = llmModelName
             temperature = 0.0
+            logRequests = true
+            logResponses = true
         }
 
         return LLMBuilder().build(Platform.getPlatform(platform), llmModel, ModelType.CHAT).let {
