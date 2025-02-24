@@ -42,13 +42,8 @@ private fun findConstructor(kClass: KClass<*>, constructorArgs: Map<String, Any?
                 return@find false
             }
 
-            // 建立原始參數名稱到 arg index 的映射
-            val parameterMapping = constructor.parameters
-                .mapIndexed { index, param -> param.name to "arg$index" }
-                .toMap()
-
             // 檢查是否所有必要的參數都存在
-            val hasAllRequiredArgs = constructor.parameters.mapIndexed { index, _ ->
+            val hasAllRequiredArgs = List(constructor.parameters.size) { index ->
                 constructorArgs.containsKey("arg$index")
             }.all { it }
 

@@ -145,7 +145,7 @@ class LLMResource(
         }
 
         if (chatRequestDTO.isRemember) {
-            val chatMemoryProvider = chatRequestDTO.memory?.let {
+            val chatMemoryProvider = chatRequestDTO.memory.let {
                 ChatMemoryProvider { _: Any? ->
                     MessageWindowChatMemory.builder()
                         .id(it.id)

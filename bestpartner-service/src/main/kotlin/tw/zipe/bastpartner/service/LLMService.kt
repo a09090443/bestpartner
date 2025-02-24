@@ -12,7 +12,6 @@ import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
-import tw.zipe.bastpartner.provider.ModelProvider
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
 import tw.zipe.bastpartner.util.LLMBuilder
