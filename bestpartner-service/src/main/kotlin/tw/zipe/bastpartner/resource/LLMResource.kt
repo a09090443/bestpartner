@@ -126,9 +126,15 @@ class LLMResource(
             }
         }
 
-        val tools = chatRequestDTO.tools?.map {
-            toolService.buildTool(it)
-        } ?: emptyList()
+        val tools:MutableList<Any?> = mutableListOf()
+
+        chatRequestDTO.toolIds?.map {
+            toolService.buildToolWithoutSetting(it)
+        }?.let { tools.addAll(it) }
+
+        chatRequestDTO.toolSettingIds?.map {
+            toolService.buildToolWithSetting(it)
+        }?.let { tools.addAll(it) }
 
         @Suppress("UNCHECKED_CAST")
         tools.map { tool ->

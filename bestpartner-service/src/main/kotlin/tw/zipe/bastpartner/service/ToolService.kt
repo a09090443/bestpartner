@@ -10,8 +10,8 @@ import dev.langchain4j.web.search.WebSearchTool
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
+import org.apache.poi.util.StringUtil
 import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.ToolDTO
 import tw.zipe.bastpartner.entity.LLMToolCategoryEntity
@@ -24,6 +24,7 @@ import tw.zipe.bastpartner.repository.LLMToolRepository
 import tw.zipe.bastpartner.repository.LLMToolUserSettingRepository
 import tw.zipe.bastpartner.util.generateFieldJson
 import tw.zipe.bastpartner.util.instantiate
+import tw.zipe.bastpartner.util.logger
 import tw.zipe.bastpartner.util.reorderAndRenameArguments
 
 /**
@@ -38,6 +39,7 @@ class ToolService(
     private val securityValidator: SecurityValidator,
     private val objectMapper: ObjectMapper
 ) {
+    private val logger = logger()
 
     /**
      * 取得所有工具清單
@@ -141,29 +143,46 @@ class ToolService(
         )
     }
 
-    fun getSettingByUserIdAndToolId(toolId: String) =
-        llmToolUserSettingRepository.findSettingByUserIdAndToolId(toolId, securityValidator.validateLoggedInUser())
+    /**
+     * 建立工具-無需設定值的工具
+     */
+    fun buildToolWithoutSetting(toolId: String): Any? {
+        val tool = getTool(toolId)
 
-    fun jsonStringToMap(json: String): Map<String, JsonElement> {
-        return Json.parseToJsonElement(json).jsonObject
+        if (StringUtil.isNotBlank(tool.configObjectPath)) {
+            logger.warn("工具 ${tool.name} 無法使用")
+            return null;
+        }
+
+        return instantiateTool(tool, emptyMap())
+    }
+
+    /**
+     * 建立工具-需自定義設定值的工具
+     */
+    fun buildToolWithSetting(toolSettingId: String): Any? {
+
+        val tool = llmToolUserSettingRepository.findById(toolSettingId)?.let {
+            buildTool(it.toolId)
+        }
+        return tool;
     }
 
     /**
      * 建立工具
      */
-    fun buildTool(toolDTO: ToolDTO): Any? {
-        val tool = toolDTO.id?.let {
-            getTool(it)
-        } ?: throw ServiceException("請正確填寫 tool id")
+    fun buildTool(toolDTOId: String): Any? {
+        val tool = getTool(toolDTOId)
 
         val userSetting = tool.configObjectPath?.let {
             llmToolUserSettingRepository.findSettingByUserIdAndToolId(
                 securityValidator.validateLoggedInUser(),
-                toolDTO.id.orEmpty()
+                toolDTOId
             )
         }
+
         return userSetting?.let {
-            val settingJson = jsonStringToMap(userSetting.settingContent.orEmpty())
+            val settingJson = Json.parseToJsonElement(userSetting.settingContent.orEmpty()).jsonObject
             // 需使用 java 反射才能取得有順序性的 fields
             val configClazz = Class.forName(tool.configObjectPath)
             val fields = configClazz.declaredFields.joinToString(", ") { it.name }
@@ -189,6 +208,9 @@ class ToolService(
         }
     }
 
+    /**
+     * 建立工具提供者
+     */
     fun buildToolProvider(toolDTO: ToolDTO, toolExecutor: ToolExecutor): Map<ToolSpecification, ToolExecutor> {
 
         var jsonObjectSchema = JsonObjectSchema.builder()
@@ -218,21 +240,11 @@ class ToolService(
             .build()
 
         return mapOf(toolSpecification to toolExecutor)
-//        return ToolProvider { _ ->
-//            val toolSpecification = ToolSpecification.builder()
-//                .name(toolDTO.functionName)
-//                .description(toolDTO.functionDescription)
-//                .parameters(
-//                    jsonObjectSchema.build()
-//                )
-//                .build()
-//
-//            ToolProviderResult.builder()
-//                .add(toolSpecification, toolExecutor)
-//                .build()
-//        }
     }
 
+    /**
+     * 驗證 function params
+     */
     fun validateFunctionParams(paramsMap: Map<String, List<Any>>) {
         paramsMap.map { (_, value) ->
             if (value.size == 2) {
