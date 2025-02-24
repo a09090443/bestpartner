@@ -9,7 +9,6 @@ import java.time.temporal.ChronoUnit
 import org.jose4j.json.JsonUtil
 import org.jose4j.jws.JsonWebSignature
 import org.jose4j.jwx.JsonWebStructure
-import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.repository.LLMPermissionRepository
 import tw.zipe.bastpartner.util.logger
 
