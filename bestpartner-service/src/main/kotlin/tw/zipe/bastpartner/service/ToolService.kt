@@ -192,18 +192,13 @@ class ToolService(
         } ?: return instantiateTool(tool, emptyMap())
     }
 
+    /**
+     * 實例化工具
+     */
     private fun instantiateTool(tool: ToolDTO, sortFields: Map<String, Any?>): Any? {
-        val instance = instantiate(tool.classPath, sortFields)
-        return when (tool.type) {
-            ToolsType.BUILT_IN -> when (tool.group) {
-                "WEB_SEARCH" -> WebSearchTool.from(instance as WebSearchEngine)
-                else -> instance
-            }
-            ToolsType.CUSTOMIZE -> when (instance) {
-                is ToolExecutor -> buildToolProvider(tool, instance)
-                else -> throw ServiceException("工具類型錯誤")
-            }
-
+        return when(val instance = instantiate(tool.classPath, sortFields)){
+            is WebSearchEngine -> WebSearchTool.from(instance)
+            is ToolExecutor -> buildToolProvider(tool, instance)
             else -> instance
         }
     }
