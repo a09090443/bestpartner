@@ -10,6 +10,7 @@ BestPartner project
 ## 1.5 版本變更說明
 1. 修改工具建立邏輯
 2. 新增 TEXT2SQL 工具
+3. 修改LLM工具建立邏輯，當工具需要使用者自定義內容時須帶入toolSettingIds參數，而工具無須自定義內容時帶入參數toolIds，可參考 postman 中 custom_assistant_chat(text2sql) 範例
 
 ## 1.4 版本變更說明
 1. 設定各API權限管理
@@ -118,7 +119,7 @@ bestpartner
 * Milvus latest
 * Kotlin 2.1.0
 * Quarkus 3.18.4
-* Langchain4j 0.36.2
+* Langchain4j 1.0.0-beta1
 * Gradle latest
 * Postman latest
 * Mysql Database latest
