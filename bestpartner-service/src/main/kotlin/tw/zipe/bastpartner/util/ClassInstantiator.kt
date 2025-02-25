@@ -15,17 +15,29 @@ import kotlin.reflect.full.primaryConstructor
  * @param constructorArgs 建構函數參數
  * @return 建立的實例，如果失敗則傳回null
  */
-@Suppress("UNCHECKED_CAST")
 fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap()): Any? {
-    return try {
-        val clazz = Class.forName(className)
-        val kClass = clazz.kotlin
-        val constructor = findConstructor(kClass, constructorArgs) ?: return null
-        val args = prepareConstructorArgs(constructor, constructorArgs) ?: return null
-        constructor.callBy(args)
+    val clazz: Class<*> = try {
+        Class.forName(className)
     } catch (e: ClassNotFoundException) {
         logger().error("找不到指定的類別: $className")
-        null
+        return null
+    }
+    val kClass = clazz.kotlin
+    return instantiate(kClass, constructorArgs)
+}
+
+/**
+ * 透過 KClass 實例化一個類
+ *
+ * @param clazz KClass 實例
+ * @param constructorArgs 建構函數參數
+ * @return 建立的實例，如果失敗則傳回null
+ */
+fun instantiate(clazz: KClass<*>, constructorArgs: Map<String, Any?> = emptyMap()): Any? {
+    return try {
+        val constructor = findConstructor(clazz, constructorArgs) ?: return null
+        val args = prepareConstructorArgs(constructor, constructorArgs) ?: return null
+        constructor.callBy(args)
     } catch (e: Exception) {
         logger().error("實例化過程中發生錯誤: ${e.message}", e)
         null
