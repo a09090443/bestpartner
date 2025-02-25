@@ -161,11 +161,9 @@ class ToolService(
      * 建立工具-需自定義設定值的工具
      */
     fun buildToolWithSetting(toolSettingId: String): Any? {
+        val tool = llmToolUserSettingRepository.findById(toolSettingId) ?: throw ServiceException("找不到使用者工具設定值")
 
-        val tool = llmToolUserSettingRepository.findById(toolSettingId)?.let {
-            buildTool(it.toolId)
-        }
-        return tool;
+        return buildTool(tool.toolId);
     }
 
     /**
