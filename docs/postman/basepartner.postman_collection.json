@@ -230,6 +230,18 @@
 				},
 				{
 					"name": "custom_assistant_chat",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [
@@ -241,7 +253,53 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"llmId\":\"42758e05-0c8f-4acd-9f72-3b9f6f38c5df\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問2025年程式語言排行\",\r\n    \"promptContent\":\"你是一位網路搜尋專家，會根據問題回答出正確資訊，一律以最新資訊回答\",\r\n    \"tools\":[{\"id\":\"7af4b81f-0dbe-4055-a9f9-306b7e031c72\"}]\r\n}",
+							"raw": "{\r\n    \"llmId\":\"f138c97a-a7fe-4328-9ff5-5f25375739ba\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Tom\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"toolSettingIds\":[\"c14e82ca-511f-424c-b20c-a96d93cae920\"]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/customAssistantChat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"customAssistantChat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "custom_assistant_chat(text2sql)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"llmId\":\"42758e05-0c8f-4acd-9f72-3b9f6f38c5df\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"現在公司總共有多少產品?\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"toolIds\":[\"3737ec4a-2c88-490e-8301-ebc611f2433f\"],\r\n    \"toolSettingIds\":[\"d946c66f-74c2-4b71-a140-7bf8d6eb08d5\", \"c544a5f9-0d1f-48f2-9d98-afd4b75a22e8\"]\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -275,7 +333,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"llmId\":\"4069f3c2-ba50-4eed-b3d3-0cc53478dd9a\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你有記住我的名字嗎?\",\r\n    \"promptContent\":\"你是專業的AI助理\"\r\n}",
+							"raw": "{\r\n    \"llmId\":\"91a777cf-9b1f-47d5-8690-73542c74d45e\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你還記得我是誰嗎?\",\r\n    \"promptContent\":\"你是專業的AI助理\",\r\n    \"toolIds\":[\"3737ec4a-2c88-490e-8301-ebc611f2433f\"]\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1272,6 +1330,41 @@
 					"response": []
 				},
 				{
+					"name": "tool_register_Text2SQL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"Text2SQLTool\",\r\n    \"classPath\": \"tw.zipe.bastpartner.tool.text2sql.Text2SQLTool\",\r\n    \"groupId\": \"d09e84b9-17f2-4c07-bfa6-4dcf9201bd17\",\r\n    \"type\": \"CUSTOMIZE\",\r\n    \"configObjectPath\": \"tw.zipe.bastpartner.tool.text2sql.config.Text2SQL\",\r\n    \"description\": \"text2sql工具\",\r\n    \"functionName\": \"text2sql\",\r\n    \"functionDescription\": \"將自然語言查詢轉換為對應的 SQL 查詢語句\",\r\n    \"functionParams\":\"{\\\"query\\\":[\\\"使用者輸入的需求內容\\\", \\\"String\\\"]}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "tool_list",
 					"protocolProfileBehavior": {
 						"disableBodyPruning": true
@@ -1451,7 +1544,77 @@
 					"response": []
 				},
 				{
+					"name": "tool_setting_add_text2sql",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"eaa798ce-e57e-4782-ac13-bc9fbcd826bf\",\r\n    \"name\": \"Text2SQLTool\",\r\n    \"settingContent\": \"{\\\"platform\\\":\\\"OLLAMA\\\",\\\"llmApiKey\\\":null,\\\"llmUrl\\\":\\\"http://localhost:11434\\\",\\\"llmModelName\\\":\\\"llama3.1:latest\\\",\\\"datasourceUrl\\\":\\\"jdbc:mysql://localhost:3306/sale?allowPublicKeyRetrieval=true&useSSL=false\\\",\\\"datasourceUsername\\\":\\\"sale\\\",\\\"datasourcePassword\\\":\\\"sale\\\",\\\"datasourceDatabaseType\\\":\\\"MYSQL\\\"}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/saveSetting",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"saveSetting"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "tool_setting_update",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"settingId\": \"397cdab1-29f3-42a3-905d-6542aebb15a1\",\r\n    \"name\": \"GoogleSearch\",\r\n    \"settingContent\": \"{\\\"apiKey\\\":\\\"AIzaSyDOSA26AyzMOO87_j_fcypWVoaTJXqaYj0\\\",\\\"csi\\\":\\\"f009fbd9a12af4ccb\\\",\\\"siteRestrict\\\":false,\\\"includeImages\\\":false,\\\"timeout\\\":\\\"100000\\\",\\\"maxRetries\\\":\\\"3\\\",\\\"logRequests\\\":true,\\\"logResponses\\\":true}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/tool/updateSetting",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"tool",
+								"updateSetting"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "tool_setting_update_text2sql",
 					"request": {
 						"method": "POST",
 						"header": [
