@@ -104,10 +104,8 @@ class LLMResource(
     private fun buildAIService(chatRequestDTO: ChatRequestDTO, modelType: ModelType): AiServices<DynamicAssistant> {
         DTOValidator.validate(chatRequestDTO) {
             requireNotEmpty("llmId", "message", "promptContent")
-            if (chatRequestDTO.isRemember) {
-                validateNested("memory") {
-                    requireNotEmpty("id", "maxSize")
-                }
+            validateNested("memory") {
+                requireNotEmpty("id")
             }
             throwOnInvalid()
         }
@@ -144,19 +142,16 @@ class LLMResource(
             }
         }
 
-        if (chatRequestDTO.isRemember) {
-            val chatMemoryProvider = chatRequestDTO.memory.let {
-                ChatMemoryProvider { _: Any? ->
-                    MessageWindowChatMemory.builder()
-                        .id(it.id)
-                        .maxMessages(it.maxSize)
-                        .chatMemoryStore(PersistentChatMemoryStore())
-                        .build()
-                }
+        val chatMemoryProvider = chatRequestDTO.memory.let {
+            ChatMemoryProvider { _: Any? ->
+                MessageWindowChatMemory.builder()
+                    .id(it.id)
+                    .maxMessages(it.maxSize)
+                    .chatMemoryStore(PersistentChatMemoryStore())
+                    .build()
             }
-            aiService.chatMemoryProvider(chatMemoryProvider)
         }
-
+        aiService.chatMemoryProvider(chatMemoryProvider)
         return aiService
     }
 }
