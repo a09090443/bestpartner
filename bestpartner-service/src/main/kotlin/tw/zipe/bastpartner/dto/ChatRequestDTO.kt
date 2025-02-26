@@ -10,7 +10,6 @@ import kotlinx.serialization.Serializable
 class ChatRequestDTO(
     val message: String? = null,
     val promptContent: String? = null,
-    val isRemember: Boolean = false,
     val memory: Memory = Memory(),
     val toolIds: List<String>? = null,
     val toolSettingIds: List<String>? = null
