@@ -13,19 +13,17 @@ import tw.zipe.bastpartner.provider.ModelProvider
  */
 abstract class ChatModelConfig {
 
-    fun convertChatModelSetting(baseAIPlatform: BaseAIPlatform): LLModel{
-        with(LLModel()) {
-            apiKey = baseAIPlatform.apiKey().orElse(StringUtil.EMPTY_STRING)
-            url = baseAIPlatform.url().orElse(StringUtil.EMPTY_STRING)
-            modelName = baseAIPlatform.modelName()
-            temperature = baseAIPlatform.temperature()
-            topP = baseAIPlatform.topP().orElse(Double.MIN_VALUE)
-            topK = baseAIPlatform.topK().orElse(Int.MIN_VALUE)
-            timeout = baseAIPlatform.timeout().toMillis()
-            logRequests = baseAIPlatform.logRequests().orElse(false)
-            logResponses = baseAIPlatform.logResponses().orElse(false)
-            return this
-        }
+    fun convertChatModelSetting(baseAIPlatform: BaseAIPlatform) = with(LLModel()) {
+        apiKey = baseAIPlatform.apiKey().orElse(StringUtil.EMPTY_STRING)
+        url = baseAIPlatform.url().orElse(StringUtil.EMPTY_STRING)
+        modelName = baseAIPlatform.modelName()
+        temperature = baseAIPlatform.temperature()
+        topP = baseAIPlatform.topP().orElse(Double.MIN_VALUE)
+        topK = baseAIPlatform.topK().orElse(Int.MIN_VALUE)
+        timeout = baseAIPlatform.timeout().toMillis()
+        logRequests = baseAIPlatform.logRequests().orElse(false)
+        logResponses = baseAIPlatform.logResponses().orElse(false)
+        this
     }
 
     fun buildChatModel(llmConfig: LLModel, modelProvider: ModelProvider): ChatLanguageModel {

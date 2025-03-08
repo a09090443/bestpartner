@@ -57,6 +57,9 @@ class EmbeddingService(
         }
     }
 
+    /**
+     * 更新向量資料庫設定
+     */
     fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): Int {
         return mapOf(
             "id" to vectorStoreDTO.id.orEmpty(),
@@ -93,7 +96,7 @@ class EmbeddingService(
     }
 
     /**
-     * 分割文件並儲存至向量資料庫
+     * 分割文件並儲存至向量資料庫，並回傳文件 ID
      */
     fun embeddingDocs(
         files: List<FileUpload>,
@@ -124,11 +127,9 @@ class EmbeddingService(
     /**
      * 將文件資訊存入知識庫中
      */
-    @Transactional
     fun saveKnowledge(files: List<FileUpload>, filesForm: FilesFromRequest) {
         val docs = files.map {
-            val llmDocEntity = LLMDocEntity()
-            with(llmDocEntity) {
+            with(LLMDocEntity()) {
                 knowledgeId = filesForm.knowledgeId
                 vectorStoreId = filesForm.embeddingStoreId
                 name = it.fileName()
@@ -137,10 +138,10 @@ class EmbeddingService(
                 url = filesForm.fileUrl ?: StringUtil.EMPTY_STRING
                 size = it.size()
                 vectorStoreId = filesForm.embeddingStoreId
+                this
             }
-            llmDocEntity
         }.toList()
-        llmDocRepository.persist(docs)
+        llmDocRepository.saveEntities(docs)
     }
 
     /**
