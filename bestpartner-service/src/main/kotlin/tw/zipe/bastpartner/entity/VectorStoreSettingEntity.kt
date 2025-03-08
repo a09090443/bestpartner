@@ -30,17 +30,17 @@ class VectorStoreSettingEntity : BaseEntity() {
     var id: String? = null
 
     /**
-     * 使用者
+     * 使用者ID
      */
-    @Column(name = "account", nullable = false)
-    var account: String = StringUtil.EMPTY_STRING
+    @Column(name = "user_id", nullable = false)
+    var userId: String = StringUtil.EMPTY_STRING
 
     /**
      * 向量資料庫類型
      */
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
-    var type: VectorStore = VectorStore.MILVUS
+    var type: VectorStore? = null
 
     /**
      * 自定義別名

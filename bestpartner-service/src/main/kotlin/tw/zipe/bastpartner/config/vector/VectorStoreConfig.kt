@@ -11,12 +11,11 @@ import tw.zipe.bastpartner.properties.BaseVector
  */
 abstract class VectorStoreConfig {
 
-    fun convertVectorStoreSetting(baseVector: BaseVector): VectorStoreModel = run {
-        VectorStoreModel(
-            url = baseVector.url(),
-            collectionName = baseVector.collectionName().orElse(null),
-            dimension = baseVector.dimension().orElse(384),
-        )
+    fun convertVectorStoreSetting(baseVector: BaseVector): VectorStoreModel = with(VectorStoreModel()){
+        url = baseVector.url()
+        collectionName = baseVector.collectionName().orElse(null)
+        dimension = baseVector.dimension().orElse(384)
+        this
     }
 
     /**

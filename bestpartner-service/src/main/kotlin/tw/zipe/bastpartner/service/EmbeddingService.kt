@@ -5,17 +5,25 @@ import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser
 import dev.langchain4j.data.document.splitter.DocumentSplitters
 import dev.langchain4j.data.embedding.Embedding
 import dev.langchain4j.data.segment.TextSegment
+import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.embedding.EmbeddingModel
+import dev.langchain4j.rag.DefaultRetrievalAugmentor
+import dev.langchain4j.rag.RetrievalAugmentor
+import dev.langchain4j.rag.content.retriever.ContentRetriever
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
+import dev.langchain4j.rag.query.transformer.CompressingQueryTransformer
 import dev.langchain4j.store.embedding.EmbeddingStore
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
+import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.entity.LLMDocEntity
 import tw.zipe.bastpartner.entity.VectorStoreSettingEntity
 import tw.zipe.bastpartner.enumerate.ModelType
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.repository.LLMDocRepository
 import tw.zipe.bastpartner.repository.VectorStoreSettingRepository
@@ -30,7 +38,8 @@ import tw.zipe.bastpartner.util.logger
 class EmbeddingService(
     private val llmService: LLMService,
     private val vectorStoreSettingRepository: VectorStoreSettingRepository,
-    private val llmDocRepository: LLMDocRepository
+    private val llmDocRepository: LLMDocRepository,
+    private val securityValidator: SecurityValidator,
 ) {
 
     private val logger = logger()
@@ -38,15 +47,26 @@ class EmbeddingService(
     /**
      * 儲存向量資料庫設定
      */
-    @Transactional
     fun saveVectorStore(vectorStoreDTO: VectorStoreDTO) {
-        val vectorStoreSettingEntity = VectorStoreSettingEntity()
-        vectorStoreSettingEntity.alias = vectorStoreDTO.alias
-        vectorStoreSettingEntity.type = vectorStoreDTO.vectorStoreType
-        vectorStoreSettingEntity.vectorSetting = vectorStoreDTO.vectorStore!!
-        vectorStoreSettingRepository.persist(vectorStoreSettingEntity)
+        with(VectorStoreSettingEntity()) {
+            userId = securityValidator.validateLoggedInUser()
+            alias = vectorStoreDTO.alias
+            type = vectorStoreDTO.vectorStoreType
+            vectorSetting = vectorStoreDTO.vectorStore
+            vectorStoreSettingRepository.saveOrUpdate(this).also { vectorStoreDTO.id = this.id }
+        }
     }
 
+    fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): Int {
+        return mapOf(
+            "id" to vectorStoreDTO.id.orEmpty(),
+            "alias" to vectorStoreDTO.alias,
+            "type" to vectorStoreDTO.vectorStoreType?.name.orEmpty(),
+            "vectorSetting" to vectorStoreDTO.vectorStore
+        ).let {
+            vectorStoreSettingRepository.updateSetting(it)
+        }
+    }
     /**
      * 取得向量資料庫設定
      */
@@ -68,8 +88,8 @@ class EmbeddingService(
     fun buildVectorStore(id: String): EmbeddingStore<TextSegment> {
         val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
         return vectorStoreSettingEntity?.let {
-            it.type.getVactorStore().embeddingStore(it.vectorSetting)
-        } ?: throw IllegalArgumentException("vectorStoreId is required")
+            it.type?.getVectorStore()?.embeddingStore(it.vectorSetting)
+        } ?: throw ServiceException("無向量資料庫設定資料: id = $id")
     }
 
     /**
@@ -94,6 +114,9 @@ class EmbeddingService(
         val embeddings: List<Embedding> = embeddingModel.embedAll(segments)?.content() ?: return emptyList()
         val ids = embeddingStore.addAll(embeddings, segments)
 
+        ids.map { id ->
+            logger.info("embeddingDocs: id = $id")
+        }
         logger.info("embeddingDocs: ids = $ids")
         return ids
     }
@@ -140,11 +163,40 @@ class EmbeddingService(
             throwOnInvalid()
         }
         val embeddingStore = this.buildVectorStore(vectorStoreDTO.id!!)
-        val filter = MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId).let { filter ->
-            vectorStoreDTO.files?.let {
-                filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
+        val filter =
+            MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId).let { filter ->
+                vectorStoreDTO.files?.let {
+                    filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
+                }
             }
-        }
         embeddingStore.removeAll(filter)
+    }
+
+    /**
+     * 建立檢索增強器
+     */
+    fun buildRetrievalAugmentor(
+        embeddingDocIds: List<String>,
+        embeddingStoreId: String,
+        embeddingModelId: String,
+        chatModel: ChatLanguageModel
+    ): RetrievalAugmentor {
+
+        val embeddingStore = this.buildVectorStore(embeddingStoreId)
+
+        val embeddingModel = llmService.buildLLM(embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
+
+        val contentRetriever: ContentRetriever = EmbeddingStoreContentRetriever.builder()
+            .embeddingStore(embeddingStore)
+            .embeddingModel(embeddingModel)
+//            .maxResults(3)
+//            .minScore(0.6)
+            .build()
+
+        return DefaultRetrievalAugmentor
+            .builder()
+            .queryTransformer(CompressingQueryTransformer(chatModel))
+            .contentRetriever(contentRetriever)
+            .build()
     }
 }

@@ -12,6 +12,6 @@ enum class VectorStore (val builder: VectorStoreProvider){
     CHROMA(ChromaBuilder()),
     MILVUS(MilvusBuilder());
 
-    fun getVactorStore() = builder
+    fun getVectorStore() = builder
 
 }

@@ -1,6 +1,5 @@
 package tw.zipe.bastpartner.repository
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.bastpartner.entity.VectorStoreSettingEntity
 import tw.zipe.bastpartner.enumerate.VectorStore
@@ -10,7 +9,7 @@ import tw.zipe.bastpartner.enumerate.VectorStore
  * @created 2024/10/11
  */
 @ApplicationScoped
-class VectorStoreSettingRepository : PanacheRepositoryBase<VectorStoreSettingEntity, String> {
+class VectorStoreSettingRepository : BaseRepository<VectorStoreSettingEntity, String>() {
 
     fun findByAlias(alias: String) = find("alias", alias).singleResult()
 
@@ -36,14 +35,15 @@ class VectorStoreSettingRepository : PanacheRepositoryBase<VectorStoreSettingEnt
         return list(query, parameters)
     }
 
-    fun updateSetting(parasMap: Map<String, Any>) {
+    fun updateSetting(parasMap: Map<String, Any>): Int {
         val sql = """
-            UPDATE VectorStoreSettingEntity vss 
+            UPDATE vector_store_setting vss 
             SET vss.alias = :alias,
                 vss.type = :type,
-                vss.vectorSetting = :vectorSetting
-            WHERE ls.id = :id
+                vss.vector_setting = :vectorSetting
+            WHERE vss.id = :id
         """.trimIndent()
-        update(sql, parasMap)
+        val executor = createSqlExecutor().withSql(sql).withParamMap(parasMap)
+        return executeUpdateWithTransaction(executor)
     }
 }

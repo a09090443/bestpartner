@@ -12,5 +12,8 @@ class ChatRequestDTO(
     val promptContent: String? = null,
     val memory: Memory = Memory(),
     val toolIds: List<String>? = null,
-    val toolSettingIds: List<String>? = null
+    val toolSettingIds: List<String>? = null,
+    val embeddingStoreId: String? = null,
+    val embeddingDocIds: List<String>? = null,
+    val embeddingModelId: String? = null,
 ) : BaseDTO()
