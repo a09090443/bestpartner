@@ -1,9 +1,21 @@
 package tw.zipe.bastpartner.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import dev.langchain4j.agent.tool.ToolSpecification
+import dev.langchain4j.memory.chat.ChatMemoryProvider
+import dev.langchain4j.memory.chat.MessageWindowChatMemory
+import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.service.AiServices
+import dev.langchain4j.service.tool.ToolExecutor
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
+import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
+import me.kpavlov.langchain4j.kotlin.service.systemMessageProvider
+import tw.zipe.bastpartner.assistant.DynamicAssistant
+import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.dto.PlatformDTO
 import tw.zipe.bastpartner.entity.LLMPlatformEntity
@@ -14,6 +26,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
+import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.LLMBuilder
 
 /**
@@ -25,13 +38,15 @@ class LLMService(
     private val llmSettingRepository: LLMSettingRepository,
     private val llmPlatformRepository: LLMPlatformRepository,
     private val securityValidator: SecurityValidator,
-    private val objectMapper: ObjectMapper
+    private val toolService: ToolService,
+    private val embeddingService: EmbeddingService,
+    private val objectMapper: ObjectMapper,
 ) {
 
     /**
      * 儲存 LLM 設定
      */
-    fun saveLLMSetting(llmDTO: LLMDTO): LLMSettingEntity {
+    fun saveLLMSetting(llmDTO: LLMDTO) {
         val platform = llmPlatformRepository.findById(llmDTO.platformId.orEmpty())
             ?: throw ServiceException("請確認存取的平台是否存在")
         llmDTO.llmModel.platform = platform.name
@@ -43,7 +58,6 @@ class LLMService(
             alias = llmDTO.alias
             modelSetting = llmDTO.llmModel
             llmSettingRepository.saveOrUpdate(this).also { llmDTO.id = this.id }
-            return this
         }
     }
 
@@ -131,4 +145,80 @@ class LLMService(
      */
     @Transactional
     fun deletePlatform(id: String) = llmPlatformRepository.deleteById(id)
+
+    /**
+     * 建立 AIService
+     */
+    fun buildAIService(chatRequestDTO: ChatRequestDTO, modelType: ModelType): AiServices<DynamicAssistant> {
+        DTOValidator.validate(chatRequestDTO) {
+            requireNotEmpty("llmId", "message", "promptContent")
+            validateNested("memory") {
+                requireNotEmpty("id")
+            }
+            throwOnInvalid()
+        }
+
+        val aiService = AiServices.builder(DynamicAssistant::class.java).systemMessageProvider(
+            object : SystemMessageProvider {
+                override fun getSystemMessage(chatMemoryID: Any): String =
+                    chatRequestDTO.promptContent.orEmpty()
+            })
+
+        val llm = buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
+            when (llm){
+                is ChatLanguageModel -> {
+                    aiService.chatLanguageModel(llm)
+                }
+                is StreamingChatLanguageModel -> {
+                    aiService.streamingChatLanguageModel(llm)
+                }
+                else -> throw ServiceException("LLM 類型錯誤")
+            }
+            llm
+        }
+
+        if (llm is ChatLanguageModel) {
+            DTOValidator.validate(chatRequestDTO) {
+                requireNotEmpty("embeddingDocIds", "embeddingStoreId", "embeddingModelId")
+                throwOnInvalid()
+            }
+
+            embeddingService.buildRetrievalAugmentor(
+                chatRequestDTO.embeddingDocIds.orEmpty(),
+                chatRequestDTO.embeddingStoreId.orEmpty(),
+                chatRequestDTO.embeddingModelId.orEmpty(),
+                llm
+            ).let { aiService.retrievalAugmentor(it) }
+        }
+
+        val tools: MutableList<Any?> = mutableListOf()
+
+        chatRequestDTO.toolIds?.map {
+            toolService.buildToolWithoutSetting(it)?.let { tool -> tools.add(tool) }
+        }
+
+        chatRequestDTO.toolSettingIds?.map {
+            toolService.buildToolWithSetting(it)?.let { tool -> tools.add(tool) }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        tools.map { tool ->
+            when (tool) {
+                is Map<*, *> -> aiService.tools(tool as Map<ToolSpecification, ToolExecutor>)
+                else -> aiService.tools(tool)
+            }
+        }
+
+        val chatMemoryProvider = chatRequestDTO.memory.let {
+            ChatMemoryProvider { _: Any? ->
+                MessageWindowChatMemory.builder()
+                    .id(it.id)
+                    .maxMessages(it.maxSize)
+                    .chatMemoryStore(PersistentChatMemoryStore())
+                    .build()
+            }
+        }
+        aiService.chatMemoryProvider(chatMemoryProvider)
+        return aiService
+    }
 }

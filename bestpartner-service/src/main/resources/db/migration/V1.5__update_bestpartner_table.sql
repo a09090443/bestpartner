@@ -1,5 +1,4 @@
 -- 使用者自訂工具表
--- 使用者自訂工具表
 DROP TABLE IF EXISTS llm_tool_user_setting;
 CREATE TABLE llm_tool_user_setting
 (
@@ -37,6 +36,9 @@ CREATE TABLE llm_tool
         UNIQUE (name)
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='工具表';
 
+alter table vector_store_setting
+    change account user_id varchar(36) not null comment '使用者';
+
 -- 使用者自訂工具表
 INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('2e8d3421-9ebb-44fa-a468-4fc2d8196d5a', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', '0c743a37-1f98-444f-bba8-b063604e5bfb', '{"csi": "xxxxxx", "apiKey": "AIxxxxx", "timeout": 100000, "maxRetries": 5, "logRequests": true, "logResponses": true, "includeImages": false}', '2025-01-13 10:45:56', '2025-01-14 11:44:45', '670017b4-23d0-4339-a9c0-22b6d9446461', '670017b4-23d0-4339-a9c0-22b6d9446461');
 INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('5eac36a5-e780-4992-a1b6-494829f782a3', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', '528e6798-8e4e-4233-97c0-3c6fce76ba0d', '{"apiKey": "tvly-uxxxxxx", "timeout": 100000, "includeAnswer": true, "excludeDomains": [], "includeDomains": [], "includeRawContent": false}', '2025-01-13 10:45:19', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
@@ -52,3 +54,7 @@ INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, confi
 
 -- 新增使用者 LLM 模型資料
 INSERT INTO bestpartner.llm_setting (id, user_id, platform_id, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('91a777cf-9b1f-47d5-8690-73542c74d45e', '670017b4-23d0-4339-a9c0-22b6d9446461', '340580a6-74cf-4126-9c95-55741ec3996c', 'STREAMING_CHAT', 'openai_local_chat_test', '{"url": null, "topK": null, "topP": 0.5, "apiKey": "sk-proj-xxxxx", "timeout": 6000, "platform": "OPENAI", "maxTokens": 4096, "modelName": "gpt-4o-mini", "dimensions": null, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2025-02-22 22:43:37', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+
+-- 新增向量資料庫設定
+INSERT INTO bestpartner.vector_store_setting (id, user_id, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('b6776d0e-406b-454f-85b0-08e18aaf9248', '670017b4-23d0-4339-a9c0-22b6d9446461', 'MILVUS', 'local-test', '{"url": "http://localhost:19530", "password": null, "username": null, "dimension": 1024, "requestLog": false, "responseLog": false, "collectionName": "ollama_local_collection"}', '2025-03-08 14:21:47', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.vector_store_setting (id, user_id, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('d3c6465c-c14e-4968-9a2a-34a05e90189b', '670017b4-23d0-4339-a9c0-22b6d9446461', 'CHROMA', 'chroma-local-test', '{"url": "http://localhost:8000", "password": null, "username": null, "dimension": 1024, "requestLog": false, "responseLog": false, "collectionName": "chroma_local_collection"}', '2025-03-08 14:23:00', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');

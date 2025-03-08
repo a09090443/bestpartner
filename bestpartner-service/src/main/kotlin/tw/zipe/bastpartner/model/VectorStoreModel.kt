@@ -7,12 +7,12 @@ import kotlinx.serialization.Serializable
  * @created 2024/10/9
  */
 @Serializable
-data class VectorStoreModel(
-    val url: String,
-    val username: String? = null,
-    val password: String? = null,
-    val collectionName: String? = null,
-    val dimension: Int? = null,
-    val requestLog: Boolean = false,
+class VectorStoreModel(){
+    var url: String? = null
+    val username: String? = null
+    val password: String? = null
+    var collectionName: String? = null
+    var dimension: Int? = null
+    val requestLog: Boolean = false
     val responseLog: Boolean = false
-)
+}

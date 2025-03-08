@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.resource
 
+import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
@@ -22,6 +23,7 @@ import tw.zipe.bastpartner.util.logger
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Authenticated
 class LLMVectorResource(
     val embeddingService: EmbeddingService
 ) {
@@ -43,7 +45,7 @@ class LLMVectorResource(
 
     @POST
     @Path("/update")
-    fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
+    fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): ApiResponse<Int> {
         DTOValidator.validate(vectorStoreDTO) {
             requireNotEmpty("id")
             validateNested("vectorStore") {
@@ -52,19 +54,25 @@ class LLMVectorResource(
             }
             throwOnInvalid()
         }
-        embeddingService.saveVectorStore(vectorStoreDTO)
-        return ApiResponse.success("成功儲存向量資料庫設定")
+        val result = embeddingService.updateVectorStore(vectorStoreDTO)
+        return ApiResponse.success(result)
     }
 
     @POST
     @Path("/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest): ApiResponse<String> {
+        DTOValidator.validate(filesForm) {
+            requireNotEmpty("embeddingModelId", "embeddingStoreId")
+            throwOnInvalid()
+        }
+
         filesForm.file?.let { file ->
             embeddingService.embeddingDocs(
                 file,
                 filesForm
             ).takeIf { ids -> ids.isNotEmpty() }.let {
+                println(it)
                 embeddingService.saveKnowledge(file, filesForm)
             }
 

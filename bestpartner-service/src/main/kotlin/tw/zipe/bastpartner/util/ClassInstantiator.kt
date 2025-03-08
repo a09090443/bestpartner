@@ -45,26 +45,26 @@ fun instantiate(clazz: KClass<*>, constructorArgs: Map<String, Any?> = emptyMap(
 }
 
 private fun findConstructor(kClass: KClass<*>, constructorArgs: Map<String, Any?>): KFunction<Any>? {
-    return if (constructorArgs.isEmpty()) {
-        kClass.constructors.find { it.parameters.isEmpty() } ?: kClass.primaryConstructor
-    } else {
-        kClass.constructors.find { constructor ->
-            // 檢查參數數量是否符合
-            if (constructor.parameters.size != constructorArgs.size) {
-                return@find false
-            }
-
-            // 檢查是否所有必要的參數都存在
-            val hasAllRequiredArgs = List(constructor.parameters.size) { index ->
-                constructorArgs.containsKey("arg$index")
-            }.all { it }
-
-            hasAllRequiredArgs
-        } ?: kClass.primaryConstructor
+    // 如果無參數，尋找無參數構造函數或主構造函數
+    if (constructorArgs.isEmpty()) {
+        return kClass.constructors.find { it.parameters.isEmpty() } ?: kClass.primaryConstructor
     }
+
+    // 尋找符合參數數量的構造函數
+    return kClass.constructors.find { constructor ->
+        // 檢查參數數量
+        if (constructor.parameters.size != constructorArgs.size) {
+            return@find false
+        }
+
+        // 檢查所有必要參數都存在
+        constructor.parameters.indices.all { index ->
+            constructorArgs.containsKey("arg$index")
+        }
+    } ?: kClass.primaryConstructor
 }
 
-private fun prepareConstructorArgs(constructor: KFunction<Any>, constructorArgs: Map<String, Any?>): Map<KParameter, Any?>? {
+private fun prepareConstructorArgs(constructor: KFunction<Any>, constructorArgs: Map<String, Any?>): Map<KParameter, Any?> {
     return constructor.parameters.mapIndexed { index, param ->
         val argKey = "arg$index"
         val value = constructorArgs[argKey]
@@ -87,12 +87,17 @@ private fun convertValue(param: KParameter, value: Any?): Any? {
         }
         param.type.classifier == String::class -> value.toString().trim('"')
         param.type.classifier == Duration::class -> parseDuration(value.toString().trim('"'))
-        param.type.classifier is KClass<*> && (param.type.classifier as KClass<*>).java.isEnum -> {
+        param.type.classifier is KClass<*> && isEnum(param.type.classifier as KClass<*>) -> {
             try {
-                java.lang.Enum.valueOf(
-                    (param.type.classifier as KClass<*>).java as Class<out Enum<*>>,
-                    value.toString().trim('"')
-                )
+                val enumClass = (param.type.classifier as KClass<*>).java
+                // 使用安全的方式取得 enum 值
+                if (Enum::class.java.isAssignableFrom(enumClass)) {
+                    @Suppress("UNCHECKED_CAST")
+                    val enumType = enumClass as Class<out Enum<*>>
+                    java.lang.Enum.valueOf(enumType, value.toString().trim('"'))
+                } else {
+                    null
+                }
             } catch (e: Exception) {
                 null
             }
@@ -103,6 +108,10 @@ private fun convertValue(param: KParameter, value: Any?): Any? {
             null
         }
     }
+}
+
+private fun isEnum(kClass: KClass<*>): Boolean {
+    return kClass.java.isEnum
 }
 
 /**
@@ -118,6 +127,10 @@ private fun convertValue(param: KParameter, value: Any?): Any? {
  * 例如："1000"、"1000ms"、"1s"、"1m"、"1h"、"1d"
  */
 private fun parseDuration(value: String): Duration? {
+    if (value.isBlank()) {
+        return null
+    }
+
     try {
         // 如果是純數字，視為毫秒
         if (value.matches(Regex("^\\d+$"))) {
@@ -129,16 +142,24 @@ private fun parseDuration(value: String): Duration? {
         val matchResult = pattern.find(value) ?: return null
         val (amount, unit) = matchResult.destructured
 
+        // 安全轉換數字
+        val amountValue = try {
+            amount.toLong()
+        } catch (e: NumberFormatException) {
+            logger().warn("無效的持續時間數值: $amount")
+            return null
+        }
+
         return when (unit) {
-            "ms" -> Duration.ofMillis(amount.toLong())
-            "s" -> Duration.ofSeconds(amount.toLong())
-            "m" -> Duration.ofMinutes(amount.toLong())
-            "h" -> Duration.ofHours(amount.toLong())
-            "d" -> Duration.ofDays(amount.toLong())
+            "ms" -> Duration.ofMillis(amountValue)
+            "s" -> Duration.ofSeconds(amountValue)
+            "m" -> Duration.ofMinutes(amountValue)
+            "h" -> Duration.ofHours(amountValue)
+            "d" -> Duration.ofDays(amountValue)
             else -> null
         }
     } catch (e: Exception) {
-        logger().error("解析 Duration 失敗: $value")
+        logger().error("解析 Duration 失敗: $value", e)
         return null
     }
 }
@@ -175,8 +196,12 @@ fun printConstructorInfo(className: String) {
  * @return 重新排序並重新命名後的鍵值對
  */
 fun reorderAndRenameArguments(inputMap: Map<String, Any>, fields: String): Map<String, Any?> {
+    if (fields.isBlank()) {
+        return emptyMap()
+    }
+
     // 以逗號分割欄位字串並移除多餘空格
-    val fieldOrder = fields.split(",").map { it.trim() }
+    val fieldOrder = fields.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
     // 根據字段順序重新排列並產生新的鍵值對
     return fieldOrder.mapIndexed { index, field ->
@@ -186,12 +211,15 @@ fun reorderAndRenameArguments(inputMap: Map<String, Any>, fields: String): Map<S
 
 // 函數：將資料類別的欄位與型態轉成 JSON 格式
 fun generateFieldJson(clazz: KClass<*>): String {
+    if (clazz.memberProperties.isEmpty()) {
+        return "{}"
+    }
+
     val fields = clazz.memberProperties.map { property ->
         val fieldType = when (property.returnType.toString()) {
-            "kotlin.String?" -> "String"
-            "kotlin.String" -> "String"
-            "kotlin.Long" -> "Long"
-            "kotlin.Boolean" -> "Boolean"
+            "kotlin.String?", "kotlin.String" -> "String"
+            "kotlin.Long", "kotlin.Long?" -> "Long"
+            "kotlin.Boolean", "kotlin.Boolean?" -> "Boolean"
             "kotlin.collections.List<kotlin.String>?" -> "List<String>"
             else -> property.returnType.toString() // 回傳原始型態名稱
         }
