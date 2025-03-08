@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.form
 
+import io.netty.util.internal.StringUtil
 import jakarta.ws.rs.FormParam
 import java.util.UUID
 import org.jboss.resteasy.reactive.multipart.FileUpload
@@ -23,10 +24,10 @@ class FilesFromRequest {
     var file: List<FileUpload>? = null
 
     @FormParam("embeddingModelId")
-    var embeddingModelId: String = ""
+    var embeddingModelId: String = StringUtil.EMPTY_STRING
 
     @FormParam("embeddingStoreId")
-    var embeddingStoreId: String = ""
+    var embeddingStoreId: String = StringUtil.EMPTY_STRING
 
     @FormParam("maxSegmentSize")
     var maxSegmentSize:Int = 300

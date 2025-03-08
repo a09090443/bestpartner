@@ -9,7 +9,7 @@ import tw.zipe.bastpartner.entity.LLMDocEntity
  * @created 2024/10/22
  */
 @ApplicationScoped
-class LLMDocRepository : PanacheRepositoryBase<LLMDocEntity, String> {
+class LLMDocRepository : BaseRepository<LLMDocEntity, String>() {
 
     fun deleteByKnowledgeIdAndFileName(knowledgeId: String, fileName: String?) {
         // 建立基礎查詢和參數 Map
