@@ -39,16 +39,18 @@ CREATE TABLE llm_tool
 DROP TABLE IF EXISTS `llm_doc_slice`;
 CREATE TABLE `llm_doc_slice`
 (
-    `id`              VARCHAR(36) NOT NULL COMMENT '主鍵',
-    `knowledge_id`    VARCHAR(36) NOT NULL COMMENT '知識庫ID',
-    `doc_id`            VARCHAR(36) DEFAULT NULL COMMENT '文件ID',
-    `content`            VARCHAR(36) DEFAULT NULL COMMENT '切片内容',
-    `created_at`      TIMESTAMP   NOT NULL COMMENT '創建時間',
-    `updated_at`      TIMESTAMP    DEFAULT NULL COMMENT '更新時間',
-    `created_by`      VARCHAR(50) COMMENT '創建者',
-    `updated_by`      VARCHAR(50) COMMENT '最後更新者',
+    `id`           VARCHAR(36) NOT NULL COMMENT '主鍵',
+    `knowledge_id` VARCHAR(36) NOT NULL COMMENT '知識庫ID',
+    `doc_id`       VARCHAR(36) DEFAULT NULL COMMENT '文件ID',
+    `content`      TEXT        NULL COMMENT '切片内容',
+    `created_at`   TIMESTAMP   NOT NULL COMMENT '創建時間',
+    `updated_at`   TIMESTAMP   DEFAULT NULL COMMENT '更新時間',
+    `created_by`   VARCHAR(50) COMMENT '創建者',
+    `updated_by`   VARCHAR(50) COMMENT '最後更新者',
     PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件切片表';
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT ='文件切片表';
 
 alter table vector_store_setting
     change account user_id varchar(36) not null comment '使用者';
