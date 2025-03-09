@@ -5,6 +5,7 @@ import io.quarkus.security.UnauthorizedException
 import io.smallrye.jwt.build.JwtException
 import jakarta.annotation.Priority
 import jakarta.inject.Inject
+import jakarta.transaction.RollbackException
 import jakarta.ws.rs.ForbiddenException
 import jakarta.ws.rs.NotFoundException
 import jakarta.ws.rs.core.MediaType
@@ -93,6 +94,11 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 code = 400,
                 message = "Duplicate data"
             )
+            is RollbackException -> ApiResponse<Nothing>(
+                code = 400,
+                message = "Database processing error"
+            )
+
             else -> ApiResponse<Nothing>(
                 code = 500,
                 message = "Internal server error"

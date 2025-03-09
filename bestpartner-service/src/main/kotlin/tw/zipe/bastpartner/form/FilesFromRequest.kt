@@ -21,7 +21,7 @@ class FilesFromRequest {
     var fileUrl: String? = null
 
     @FormParam("file")
-    var file: List<FileUpload>? = null
+    var files: List<FileUpload>? = null
 
     @FormParam("embeddingModelId")
     var embeddingModelId: String = StringUtil.EMPTY_STRING

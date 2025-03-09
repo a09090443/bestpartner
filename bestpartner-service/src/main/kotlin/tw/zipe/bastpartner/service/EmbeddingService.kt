@@ -21,11 +21,13 @@ import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.entity.LLMDocEntity
+import tw.zipe.bastpartner.entity.LLMDocSliceEntity
 import tw.zipe.bastpartner.entity.VectorStoreSettingEntity
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.repository.LLMDocRepository
+import tw.zipe.bastpartner.repository.LLMDocSliceRepository
 import tw.zipe.bastpartner.repository.VectorStoreSettingRepository
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.logger
@@ -39,6 +41,7 @@ class EmbeddingService(
     private val llmService: LLMService,
     private val vectorStoreSettingRepository: VectorStoreSettingRepository,
     private val llmDocRepository: LLMDocRepository,
+    private val llmDocSliceRepository: LLMDocSliceRepository,
     private val securityValidator: SecurityValidator,
 ) {
 
@@ -70,6 +73,7 @@ class EmbeddingService(
             vectorStoreSettingRepository.updateSetting(it)
         }
     }
+
     /**
      * 取得向量資料庫設定
      */
@@ -101,33 +105,45 @@ class EmbeddingService(
     fun embeddingDocs(
         files: List<FileUpload>,
         filesForm: FilesFromRequest
-    ): List<String> {
+    ): Map<String, Map<String, String>> {
         val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
-        val embeddingModel =
-            llmService.buildLLM(filesForm.embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
+        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
+        val filenameToSegmentsMap = mutableMapOf<String, MutableMap<String, String>>()
 
-        val documents = files.map { file ->
+        files.forEach { file ->
             val document = FileSystemDocumentLoader.loadDocument(file.uploadedFile(), ApacheTikaDocumentParser())
-            document.metadata().put("knowledgeId", filesForm.knowledgeId).put("docsName", file.fileName())
-            document
+            document.metadata()
+                .put("knowledgeId", filesForm.knowledgeId)
+                .put("docsName", file.fileName())
+
+            val splitter = DocumentSplitters.recursive(filesForm.maxSegmentSize, filesForm.maxOverlapSize)
+            val fileSegments = splitter.split(document).toList()
+            val embeddings: List<Embedding> = embeddingModel.embedAll(fileSegments).content()
+            val segmentIds: List<String> = embeddingStore.addAll(embeddings, fileSegments).toList()
+
+            val segmentMap = mutableMapOf<String, String>()
+            var currentIndex = 0
+            fileSegments.indices.forEach { i ->
+                val id = segmentIds[currentIndex]
+                val segment = fileSegments[i]
+                segmentMap[id] = segment.text()
+                currentIndex++
+            }
+            filenameToSegmentsMap[file.fileName()] = segmentMap
         }
 
-        val splitter = DocumentSplitters.recursive(filesForm.maxSegmentSize, filesForm.maxOverlapSize)
-        val segments = splitter.splitAll(documents)
-        val embeddings: List<Embedding> = embeddingModel.embedAll(segments)?.content() ?: return emptyList()
-        val ids = embeddingStore.addAll(embeddings, segments)
-
-        ids.map { id ->
-            logger.info("embeddingDocs: id = $id")
-        }
-        logger.info("embeddingDocs: ids = $ids")
-        return ids
+        return filenameToSegmentsMap
     }
 
     /**
      * 將文件資訊存入知識庫中
      */
-    fun saveKnowledge(files: List<FileUpload>, filesForm: FilesFromRequest) {
+    @Transactional
+    fun saveKnowledge(
+        files: List<FileUpload>,
+        filesForm: FilesFromRequest,
+        segmentMap: Map<String, Map<String, String>> = emptyMap()
+    ) {
         val docs = files.map {
             with(LLMDocEntity()) {
                 knowledgeId = filesForm.knowledgeId
@@ -141,7 +157,27 @@ class EmbeddingService(
                 this
             }
         }.toList()
-        llmDocRepository.saveEntities(docs)
+        llmDocRepository.saveEntities(docs).forEach { doc ->
+            segmentMap[doc.name]?.let { map ->
+                saveDocSlice(doc, map)
+            }
+        }
+    }
+
+    /**
+     * 將文件片段存入文件切片表
+     */
+    fun saveDocSlice(llmDoc: LLMDocEntity, segmentMap: Map<String, String>) {
+        val docs = segmentMap.map {(key, value) ->
+            with(LLMDocSliceEntity()) {
+                id = key
+                content = value
+                docId = llmDoc.id?: StringUtil.EMPTY_STRING
+                knowledgeId = llmDoc.knowledgeId
+                this
+            }
+        }.toList()
+        llmDocSliceRepository.saveEntities(docs)
     }
 
     /**
