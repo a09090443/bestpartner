@@ -67,15 +67,13 @@ class LLMVectorResource(
             throwOnInvalid()
         }
 
-        filesForm.file?.let { file ->
+        filesForm.files?.let { files ->
             embeddingService.embeddingDocs(
-                file,
+                files,
                 filesForm
-            ).takeIf { ids -> ids.isNotEmpty() }.let {
-                println(it)
-                embeddingService.saveKnowledge(file, filesForm)
+            ).let { segmentMap ->
+                segmentMap.let { embeddingService.saveKnowledge(files, filesForm, it) }
             }
-
         }
         return ApiResponse.success("成功上傳檔案")
     }
