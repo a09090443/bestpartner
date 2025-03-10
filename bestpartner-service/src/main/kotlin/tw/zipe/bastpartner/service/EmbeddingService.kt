@@ -17,8 +17,10 @@ import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
+import java.util.UUID
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.entity.LLMDocEntity
 import tw.zipe.bastpartner.entity.LLMDocSliceEntity
@@ -107,7 +109,8 @@ class EmbeddingService(
         filesForm: FilesFromRequest
     ): Map<String, Map<String, String>> {
         val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
-        val embeddingModel = llmService.buildLLM(filesForm.embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
+        val embeddingModel =
+            llmService.buildLLM(filesForm.embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
         val filenameToSegmentsMap = mutableMapOf<String, MutableMap<String, String>>()
 
         files.forEach { file ->
@@ -139,14 +142,14 @@ class EmbeddingService(
      * 將文件資訊存入知識庫中
      */
     @Transactional
-    fun saveKnowledge(
+    fun saveOrUpdateKnowledge(
         files: List<FileUpload>,
         filesForm: FilesFromRequest,
         segmentMap: Map<String, Map<String, String>> = emptyMap()
     ) {
         val docs = files.map {
             with(LLMDocEntity()) {
-                knowledgeId = filesForm.knowledgeId
+                knowledgeId = filesForm.knowledgeId ?: UUID.randomUUID().toString()
                 vectorStoreId = filesForm.embeddingStoreId
                 name = it.fileName()
                 description = filesForm.desc ?: StringUtil.EMPTY_STRING
@@ -157,6 +160,15 @@ class EmbeddingService(
                 this
             }
         }.toList()
+        filesForm.knowledgeId?.let { knowledgeId ->
+            docs.forEach {
+                llmDocRepository.findByKnowledgeIdAndName(knowledgeId, it.name)?.let { data ->
+                    llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, data.id)
+                    llmDocRepository.deleteByKnowledgeIdAndName(knowledgeId, data.name)
+                }
+            }
+        }
+
         llmDocRepository.saveEntities(docs).forEach { doc ->
             segmentMap[doc.name]?.let { map ->
                 saveDocSlice(doc, map)
@@ -168,11 +180,11 @@ class EmbeddingService(
      * 將文件片段存入文件切片表
      */
     fun saveDocSlice(llmDoc: LLMDocEntity, segmentMap: Map<String, String>) {
-        val docs = segmentMap.map {(key, value) ->
+        val docs = segmentMap.map { (key, value) ->
             with(LLMDocSliceEntity()) {
                 id = key
                 content = value
-                docId = llmDoc.id?: StringUtil.EMPTY_STRING
+                docId = llmDoc.id ?: StringUtil.EMPTY_STRING
                 knowledgeId = llmDoc.knowledgeId
                 this
             }
@@ -186,8 +198,8 @@ class EmbeddingService(
     @Transactional
     fun deleteKnowledge(knowledgeId: String, files: List<String>?) {
         files?.map { file ->
-            llmDocRepository.deleteByKnowledgeIdAndFileName(knowledgeId, file)
-        } ?: llmDocRepository.deleteByKnowledgeIdAndFileName(knowledgeId, null)
+            llmDocRepository.deleteByKnowledgeIdAndName(knowledgeId, file)
+        } ?: llmDocRepository.deleteByKnowledgeIdAndName(knowledgeId, null)
     }
 
     /**
@@ -236,4 +248,21 @@ class EmbeddingService(
             .contentRetriever(contentRetriever)
             .build()
     }
+
+    /**
+     * 取得知識庫
+     */
+    fun getKnowledgeStore(knowledgeId: String): List<LLMDocDTO>? =
+        llmDocRepository.findByKnowledgeId(knowledgeId)?.map { llmDoc ->
+            with(LLMDocDTO()) {
+                this.knowledgeId = llmDoc.knowledgeId
+                this.docId = llmDoc.id.orEmpty()
+                this.fileName = llmDoc.name
+                this.type = llmDoc.type
+                this.description = llmDoc.description
+                this.size = llmDoc.size
+                this.embeddingStoreId = llmDoc.vectorStoreId
+                this
+            }
+        }
 }

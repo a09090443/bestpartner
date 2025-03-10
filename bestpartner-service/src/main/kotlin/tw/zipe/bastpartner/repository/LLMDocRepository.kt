@@ -1,6 +1,5 @@
 package tw.zipe.bastpartner.repository
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.bastpartner.entity.LLMDocEntity
 
@@ -11,7 +10,14 @@ import tw.zipe.bastpartner.entity.LLMDocEntity
 @ApplicationScoped
 class LLMDocRepository : BaseRepository<LLMDocEntity, String>() {
 
-    fun deleteByKnowledgeIdAndFileName(knowledgeId: String, fileName: String?) {
+    fun findByKnowledgeId(knowledgeId: String): List<LLMDocEntity>? = find("knowledgeId", knowledgeId).list()
+
+    fun findByKnowledgeIdAndName(knowledgeId: String, name: String): LLMDocEntity? {
+        val params = mapOf("knowledgeId" to knowledgeId, "name" to name)
+        return find("knowledgeId = :knowledgeId AND name = :name", params).firstResult()
+    }
+
+    fun deleteByKnowledgeIdAndName(knowledgeId: String, fileName: String?) {
         // 建立基礎查詢和參數 Map
         val conditions = mutableListOf<String>()
         val parameters = mutableMapOf<String, Any>()
