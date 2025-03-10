@@ -9,6 +9,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
+import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.service.EmbeddingService
@@ -59,7 +60,19 @@ class LLMVectorResource(
     }
 
     @POST
-    @Path("/upload")
+    @Path("/getKnowledgeStore")
+    fun getKnowledgeStore(llmDocDTO: LLMDocDTO): ApiResponse<List<LLMDocDTO>> {
+        DTOValidator.validate(llmDocDTO) {
+            requireNotEmpty("knowledgeId")
+            throwOnInvalid()
+        }
+
+        val llmDocs = embeddingService.getKnowledgeStore(llmDocDTO.knowledgeId) ?: emptyList()
+        return ApiResponse.success(llmDocs)
+    }
+
+    @POST
+    @Path("/uploadFiles")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest): ApiResponse<String> {
         DTOValidator.validate(filesForm) {
@@ -72,7 +85,7 @@ class LLMVectorResource(
                 files,
                 filesForm
             ).let { segmentMap ->
-                segmentMap.let { embeddingService.saveKnowledge(files, filesForm, it) }
+                segmentMap.let { embeddingService.saveOrUpdateKnowledge(files, filesForm, it) }
             }
         }
         return ApiResponse.success("成功上傳檔案")

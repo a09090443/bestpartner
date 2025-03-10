@@ -2,7 +2,6 @@ package tw.zipe.bastpartner.form
 
 import io.netty.util.internal.StringUtil
 import jakarta.ws.rs.FormParam
-import java.util.UUID
 import org.jboss.resteasy.reactive.multipart.FileUpload
 
 /**
@@ -12,7 +11,7 @@ import org.jboss.resteasy.reactive.multipart.FileUpload
 class FilesFromRequest {
 
     @FormParam("knowledgeId")
-    var knowledgeId: String = UUID.randomUUID().toString()
+    var knowledgeId: String? = null
 
     @FormParam("desc")
     var desc: String? = null
