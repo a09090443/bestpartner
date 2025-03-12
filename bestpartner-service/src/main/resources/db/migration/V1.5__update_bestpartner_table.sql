@@ -52,13 +52,47 @@ CREATE TABLE `llm_doc_slice`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT ='文件切片表';
 
-alter table vector_store_setting
-    change account user_id varchar(36) not null comment '使用者';
+DROP TABLE IF EXISTS `vector_store_setting`;
+CREATE TABLE vector_store_setting
+(
+    id             varchar(36)                         not null comment '主鍵'
+        primary key,
+    user_id        varchar(36)                         not null comment '使用者',
+    type           varchar(50)                         not null comment '向量資料庫類型',
+    alias          varchar(100)                        null comment '自定義別名',
+    vector_setting json                                null comment '向量資料庫設定',
+    created_at     timestamp default CURRENT_TIMESTAMP null comment '創建時間',
+    updated_at     timestamp default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP comment '更新時間',
+    created_by     varchar(50)                         null comment '創建者',
+    updated_by     varchar(50)                         null comment '最後更新者'
+)ENGINE = InnoDB
+ DEFAULT CHARSET = utf8mb4
+ COLLATE = utf8mb4_unicode_ci COMMENT '向量資料庫設定表';
+
+DROP TABLE IF EXISTS `llm_doc`;
+CREATE TABLE llm_doc
+(
+    id              varchar(36)  not null comment '主鍵'
+        primary key,
+    knowledge_id    varchar(36)  not null comment '知識庫ID',
+    vector_store_id varchar(36)  null comment '向量資料庫ID',
+    name            varchar(255) null comment '名稱',
+    type            varchar(50)  null comment '類型',
+    url             varchar(255) null comment '網址',
+    description     varchar(255) null comment '描述',
+    size            bigint       null comment '文件大小',
+    created_at      timestamp    not null comment '創建時間',
+    updated_at      timestamp    null comment '更新時間',
+    created_by      varchar(50)  null comment '創建者',
+    updated_by      varchar(50)  null comment '最後更新者'
+)ENGINE = InnoDB
+ DEFAULT CHARSET = utf8mb4
+ COLLATE = utf8mb4_unicode_ci COMMENT '文件表';
 
 -- 使用者自訂工具表
-INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('2e8d3421-9ebb-44fa-a468-4fc2d8196d5a', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', '0c743a37-1f98-444f-bba8-b063604e5bfb', '{"csi": "xxxxxx", "apiKey": "AIxxxxx", "timeout": 100000, "maxRetries": 5, "logRequests": true, "logResponses": true, "includeImages": false}', '2025-01-13 10:45:56', '2025-01-14 11:44:45', '670017b4-23d0-4339-a9c0-22b6d9446461', '670017b4-23d0-4339-a9c0-22b6d9446461');
-INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('5eac36a5-e780-4992-a1b6-494829f782a3', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', '528e6798-8e4e-4233-97c0-3c6fce76ba0d', '{"apiKey": "tvly-uxxxxxx", "timeout": 100000, "includeAnswer": true, "excludeDomains": [], "includeDomains": [], "includeRawContent": false}', '2025-01-13 10:45:19', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
-INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('922940ba-4d4c-4755-a271-6a08635f7773', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', 'f95fda5f-4632-4a1a-9a21-2d4facbd4279', '{"apiKey": "tvly-dev-xxxxxxxxxxxx", "timeout": 100000, "includeAnswer": true, "excludeDomains": [], "includeDomains": [], "includeRawContent": false}', '2025-02-21 22:33:25', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('d946c66f-74c2-4b71-a140-7bf8d6eb08d5', 'openai_test', '670017b4-23d0-4339-a9c0-22b6d9446461', 'eaa798ce-e57e-4782-ac13-bc9fbcd826bf', '{"llmUrl": "https://api.openai.com/v1", "platform": "OPENAI", "llmApiKey": "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", "llmModelName": "gpt-4o-mini", "datasourceUrl": "jdbc:mysql://localhost:3306/sale?allowPublicKeyRetrieval=true&useSSL=false", "datasourcePassword": "sale", "datasourceUsername": "sale", "datasourceDatabaseType": "MYSQL"}', '2025-02-22 20:28:44', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('c544a5f9-0d1f-48f2-9d98-afd4b75a22e8', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', 'c14e82ca-511f-424c-b20c-a96d93cae920', '{"csi": "63ac3e98103e24d92", "apiKey": "AIzaSyCQ_qZfXIIGT4LJ8jFa-OrRRCayWP2vFv4", "timeout": 100000, "maxRetries": 10, "logRequests": true, "logResponses": true, "siteRestrict": false, "includeImages": true}', '2025-02-21 16:10:56', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('2d9003be-1526-4eca-83de-7d0c65db6961', 'test', '670017b4-23d0-4339-a9c0-22b6d9446461', 'eaa798ce-e57e-4782-ac13-bc9fbcd82611', '{"llmUrl": "http://localhost:11434", "platform": "OLLAMA", "llmApiKey": null, "llmModelName": "llama3.1:latest", "datasourceUrl": "jdbc:mysql://localhost:3306/sale?allowPublicKeyRetrieval=true&useSSL=false", "datasourcePassword": "sale", "datasourceUsername": "sale", "datasourceDatabaseType": "MYSQL"}', '2025-02-22 15:10:59', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
 
 -- 工具分類表
 INSERT INTO bestpartner.llm_tool_category (id, name, description, created_at, updated_at, created_by, updated_by) VALUES ('d09e84b9-17f2-4c07-bfa6-4dcf9201bd17', 'TEXT2SQL', 'Text2SQL群組', '2025-02-18 17:41:00', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
@@ -72,5 +106,9 @@ INSERT INTO bestpartner.llm_tool (id, name, class_path, category_id, type, confi
 INSERT INTO bestpartner.llm_setting (id, user_id, platform_id, type, alias, model_setting, created_at, updated_at, created_by, updated_by) VALUES ('91a777cf-9b1f-47d5-8690-73542c74d45e', '670017b4-23d0-4339-a9c0-22b6d9446461', '340580a6-74cf-4126-9c95-55741ec3996c', 'STREAMING_CHAT', 'openai_local_chat_test', '{"url": null, "topK": null, "topP": 0.5, "apiKey": "sk-proj-xxxxx", "timeout": 6000, "platform": "OPENAI", "maxTokens": 4096, "modelName": "gpt-4o-mini", "dimensions": null, "logRequests": true, "temperature": 0.7, "logResponses": true}', '2025-02-22 22:43:37', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
 
 -- 新增向量資料庫設定
-INSERT INTO bestpartner.vector_store_setting (id, user_id, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('b6776d0e-406b-454f-85b0-08e18aaf9248', '670017b4-23d0-4339-a9c0-22b6d9446461', 'MILVUS', 'local-test', '{"url": "http://localhost:19530", "password": null, "username": null, "dimension": 1024, "requestLog": false, "responseLog": false, "collectionName": "ollama_local_collection"}', '2025-03-08 14:21:47', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.vector_store_setting (id, user_id, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('b6776d0e-406b-454f-85b0-08e18aaf9248', '670017b4-23d0-4339-a9c0-22b6d9446461', 'MILVUS', 'rag-test', '{"url": "http://127.0.0.1:19530", "password": null, "username": null, "dimension": 1024, "requestLog": false, "responseLog": false, "collectionName": "test"}', '2025-03-08 14:21:47', '2025-03-08 13:52:28', '670017b4-23d0-4339-a9c0-22b6d9446461', '670017b4-23d0-4339-a9c0-22b6d9446461');
 INSERT INTO bestpartner.vector_store_setting (id, user_id, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('d3c6465c-c14e-4968-9a2a-34a05e90189b', '670017b4-23d0-4339-a9c0-22b6d9446461', 'CHROMA', 'chroma-local-test', '{"url": "http://localhost:8000", "password": null, "username": null, "dimension": 1024, "requestLog": false, "responseLog": false, "collectionName": "chroma_local_collection"}', '2025-03-08 14:23:00', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+
+-- 新增文件
+INSERT INTO bestpartner.llm_doc (id, knowledge_id, vector_store_id, name, type, url, description, size, created_at, updated_at, created_by, updated_by) VALUES ('2eb4a676-6c24-47f7-81f9-6f3a2fd27a41', '06a81d58-faea-40b7-a8be-8198a0ccb203', 'b6776d0e-406b-454f-85b0-08e18aaf9248', 'tw-cardrule.pdf', 'pdf', '', '將文件上傳至向量資料庫', 446469, '2025-03-12 15:34:10', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
+INSERT INTO bestpartner.llm_doc_slice (id, knowledge_id, doc_id, content, created_at, updated_at, created_by, updated_by) VALUES ('3321ac34-6e4f-4cf6-a6fc-41a5b1c9ccf1', '06a81d58-faea-40b7-a8be-8198a0ccb203', '4f8a7f20-47d8-49c3-ab5d-4c042492f66d', '我是Gary，出身於台灣，身高為175公分，體重73公斤，熱愛健身及戶外活動，目前為Java工程師。', '2025-03-12 15:34:10', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');
