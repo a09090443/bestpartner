@@ -208,7 +208,9 @@ class EmbeddingService(
                     ?.map { docSlice -> docSlice.id }
                     ?.toList()
                 llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, docId)
-                embeddingStore.removeAll(idList)
+                if (!idList.isNullOrEmpty()) {
+                    embeddingStore.removeAll(idList)
+                }
             }
 
         }
