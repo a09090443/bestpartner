@@ -75,7 +75,6 @@ CREATE TABLE llm_doc
     id              varchar(36)  not null comment '主鍵'
         primary key,
     knowledge_id    varchar(36)  not null comment '知識庫ID',
-    vector_store_id varchar(36)  null comment '向量資料庫ID',
     name            varchar(255) null comment '名稱',
     type            varchar(50)  null comment '類型',
     url             varchar(255) null comment '網址',
@@ -88,6 +87,24 @@ CREATE TABLE llm_doc
 )ENGINE = InnoDB
  DEFAULT CHARSET = utf8mb4
  COLLATE = utf8mb4_unicode_ci COMMENT '文件表';
+
+DROP TABLE IF EXISTS `llm_knowledge`;
+CREATE TABLE llm_knowledge
+(
+    id               varchar(36)  not null comment '主鍵'
+        primary key,
+    vector_store_id  varchar(36)  not null comment '向量資料庫ID',
+    llm_embedding_id varchar(36)  not null comment '向量模型ID',
+    name             varchar(255) not null comment '名稱',
+    description      varchar(255) null comment '描述',
+    user_id          varchar(36)  not null comment '使用者ID',
+    created_at       timestamp    not null comment '創建時間',
+    updated_at       timestamp    null comment '更新時間',
+    created_by       varchar(50)  null comment '創建者',
+    updated_by       varchar(50)  null comment '最後更新者'
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT '知識庫表';
 
 -- 使用者自訂工具表
 INSERT INTO bestpartner.llm_tool_user_setting (id, alias, user_id, tool_id, setting_content, created_at, updated_at, created_by, updated_by) VALUES ('d946c66f-74c2-4b71-a140-7bf8d6eb08d5', 'openai_test', '670017b4-23d0-4339-a9c0-22b6d9446461', 'eaa798ce-e57e-4782-ac13-bc9fbcd826bf', '{"llmUrl": "https://api.openai.com/v1", "platform": "OPENAI", "llmApiKey": "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", "llmModelName": "gpt-4o-mini", "datasourceUrl": "jdbc:mysql://localhost:3306/sale?allowPublicKeyRetrieval=true&useSSL=false", "datasourcePassword": "sale", "datasourceUsername": "sale", "datasourceDatabaseType": "MYSQL"}', '2025-02-22 20:28:44', null, '670017b4-23d0-4339-a9c0-22b6d9446461', '');

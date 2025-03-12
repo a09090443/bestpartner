@@ -16,4 +16,5 @@ class ChatRequestDTO(
     val embeddingStoreId: String? = null,
     val embeddingDocIds: List<String>? = null,
     val embeddingModelId: String? = null,
+    val knowledgeId: String? = null,
 ) : BaseDTO()
