@@ -5,7 +5,7 @@ import tw.zipe.bastpartner.entity.LLMDocSliceEntity
 
 /**
  * @author Gary
- * @created 2024/10/22
+ * @created 2025/3/8
  */
 @ApplicationScoped
 class LLMDocSliceRepository : BaseRepository<LLMDocSliceEntity, String>() {

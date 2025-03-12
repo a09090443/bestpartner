@@ -22,12 +22,14 @@ import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.entity.LLMDocEntity
 import tw.zipe.bastpartner.entity.LLMDocSliceEntity
+import tw.zipe.bastpartner.entity.LLMKnowledgeEntity
 import tw.zipe.bastpartner.entity.VectorStoreSettingEntity
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.repository.LLMDocRepository
 import tw.zipe.bastpartner.repository.LLMDocSliceRepository
+import tw.zipe.bastpartner.repository.LLMKnowledgeRepository
 import tw.zipe.bastpartner.repository.VectorStoreSettingRepository
 
 /**
@@ -40,6 +42,7 @@ class EmbeddingService(
     private val vectorStoreSettingRepository: VectorStoreSettingRepository,
     private val llmDocRepository: LLMDocRepository,
     private val llmDocSliceRepository: LLMDocSliceRepository,
+    private val llmKnowledgeRepository: LLMKnowledgeRepository,
     private val securityValidator: SecurityValidator,
 ) {
 
@@ -150,29 +153,43 @@ class EmbeddingService(
         val docs = files.map {
             with(LLMDocEntity()) {
                 knowledgeId = filesForm.knowledgeId
-                vectorStoreId = filesForm.embeddingStoreId
                 name = it.fileName()
                 description = filesForm.desc ?: StringUtil.EMPTY_STRING
                 type = it.fileName().split(".").last()
                 url = filesForm.fileUrl ?: StringUtil.EMPTY_STRING
                 size = it.size()
-                vectorStoreId = filesForm.embeddingStoreId
                 this
             }
         }.toList()
-        docs.forEach {
-            try {
+
+        try {
+            with(LLMKnowledgeEntity()) {
+                id = filesForm.knowledgeId
+                userId = securityValidator.validateLoggedInUser()
+                name = filesForm.name.orEmpty()
+                description = filesForm.desc.orEmpty()
+                vectorStoreId = filesForm.embeddingStoreId
+                llmEmbeddingId = filesForm.embeddingModelId
+                this
+            }.run {
+                llmKnowledgeRepository.saveOrUpdate(this)
+            }
+
+            docs.forEach {
                 llmDocRepository.saveOrUpdate(it)
                 segmentMap[it.name]?.let { map ->
                     saveDocSliceIds(it, map)
                 }
-            } catch (e: Exception) {
+            }
+        } catch (e: Exception) {
+            docs.forEach {
                 segmentMap[it.name]?.let { map ->
                     this.buildVectorStore(filesForm.embeddingStoreId).removeAll(map.keys.toList())
                 }
-                throw ServiceException("儲存文件資訊失敗: ${it.name}")
             }
+            throw ServiceException("儲存文件資訊失敗")
         }
+
         return filesForm.knowledgeId
 
     }
@@ -198,10 +215,9 @@ class EmbeddingService(
      */
     @Transactional
     fun deleteDocData(knowledgeId: String, docIds: List<String>) {
-        llmDocRepository.findByKnowledgeId(knowledgeId)?.let {
-            val embeddingStore = it.first().vectorStoreId.let { vectorStoreId ->
-                this.buildVectorStore(vectorStoreId)
-            }
+        llmKnowledgeRepository.findById(knowledgeId)?.let {
+            val embeddingStore = this.buildVectorStore(it.vectorStoreId)
+
             docIds.forEach { docId ->
                 llmDocRepository.deleteById(docId)
                 val idList = llmDocSliceRepository.findByKnowledgeIdAndDocId(knowledgeId, docId)
@@ -213,6 +229,22 @@ class EmbeddingService(
                 }
             }
 
+            docIds.isEmpty().let {
+                llmDocRepository.findByKnowledgeId(knowledgeId)?.forEach { llmDoc ->
+                    run {
+                        val idList =
+                            llmDocSliceRepository.findByKnowledgeIdAndDocId(llmDoc.knowledgeId, llmDoc.id.orEmpty())
+                                ?.map { docSlice -> docSlice.id }
+                                ?.toList()
+                        llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, llmDoc.id.orEmpty())
+                        llmDocRepository.delete(llmDoc)
+                        llmKnowledgeRepository.deleteById(knowledgeId)
+                        if (!idList.isNullOrEmpty()) {
+                            embeddingStore.removeAll(idList)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -256,7 +288,6 @@ class EmbeddingService(
                 this.type = llmDoc.type
                 this.description = llmDoc.description
                 this.size = llmDoc.size
-                this.embeddingStoreId = llmDoc.vectorStoreId
                 this
             }
         }

@@ -30,12 +30,6 @@ class LLMDocEntity : BaseEntity() {
     var knowledgeId: String = StringUtil.EMPTY_STRING
 
     /**
-     * 向量資料庫ID
-     */
-    @Column(name = "vector_store_id", nullable = false)
-    var vectorStoreId: String = StringUtil.EMPTY_STRING
-
-    /**
      * 名稱
      */
     @Column(name = "name", nullable = true)

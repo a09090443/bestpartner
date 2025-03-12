@@ -14,6 +14,9 @@ class FilesFromRequest {
     @FormParam("knowledgeId")
     var knowledgeId: String = UUID.randomUUID().toString()
 
+    @FormParam("name")
+    var name: String? = null
+
     @FormParam("desc")
     var desc: String? = null
 

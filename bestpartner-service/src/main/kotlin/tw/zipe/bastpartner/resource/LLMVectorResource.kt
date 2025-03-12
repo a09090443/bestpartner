@@ -95,10 +95,10 @@ class LLMVectorResource(
     @Path("/deleteData")
     fun deleteData(llmDocDTO: LLMDocDTO): ApiResponse<String> {
         DTOValidator.validate(llmDocDTO) {
-            requireNotEmpty("docIds")
+            requireNotEmpty("knowledgeId")
             throwOnInvalid()
         }
         embeddingService.deleteDocData(llmDocDTO.knowledgeId, llmDocDTO.docIds)
-        return ApiResponse.success("成功刪除向量資料庫設定")
+        return ApiResponse.success("成功刪除資料")
     }
 }
