@@ -10,6 +10,11 @@ import tw.zipe.bastpartner.entity.LLMDocSliceEntity
 @ApplicationScoped
 class LLMDocSliceRepository : BaseRepository<LLMDocSliceEntity, String>() {
 
+    fun findByKnowledgeIdAndDocId(knowledgeId: String, docId: String): List<LLMDocSliceEntity>? {
+        val params = mapOf("knowledgeId" to knowledgeId, "docId" to docId)
+        return find("knowledgeId = :knowledgeId AND docId = :docId", params).list()
+    }
+
     fun deleteByKnowledgeIdAndDocId(knowledgeId: String, docId: String?) {
         // 建立基礎查詢和參數 Map
         val conditions = mutableListOf<String>()

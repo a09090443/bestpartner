@@ -80,22 +80,25 @@ class LLMVectorResource(
             throwOnInvalid()
         }
 
-        filesForm.files?.let { files ->
+        val knowledgeId = filesForm.files?.let { files ->
             embeddingService.embeddingDocs(
                 files,
                 filesForm
             ).let { segmentMap ->
-                segmentMap.let { embeddingService.saveOrUpdateKnowledge(files, filesForm, it) }
+                embeddingService.saveKnowledge(files, filesForm, segmentMap)
             }
         }
-        return ApiResponse.success("成功上傳檔案")
+        return ApiResponse.success(knowledgeId.orEmpty())
     }
 
     @DELETE
     @Path("/deleteData")
-    fun deleteVectorStoreData(vectorStoreDTO: VectorStoreDTO): ApiResponse<String> {
-        embeddingService.deleteVectorStore(vectorStoreDTO)
-        embeddingService.deleteKnowledge(vectorStoreDTO.knowledgeId, vectorStoreDTO.files)
+    fun deleteData(llmDocDTO: LLMDocDTO): ApiResponse<String> {
+        DTOValidator.validate(llmDocDTO) {
+            requireNotEmpty("docIds")
+            throwOnInvalid()
+        }
+        embeddingService.deleteDocData(llmDocDTO.knowledgeId, llmDocDTO.docIds)
         return ApiResponse.success("成功刪除向量資料庫設定")
     }
 }
