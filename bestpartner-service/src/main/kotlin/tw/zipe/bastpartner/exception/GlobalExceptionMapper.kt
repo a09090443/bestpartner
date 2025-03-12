@@ -7,6 +7,7 @@ import jakarta.annotation.Priority
 import jakarta.inject.Inject
 import jakarta.transaction.RollbackException
 import jakarta.ws.rs.ForbiddenException
+import jakarta.ws.rs.NotAllowedException
 import jakarta.ws.rs.NotFoundException
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
@@ -98,7 +99,10 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 code = 400,
                 message = "Database processing error"
             )
-
+            is NotAllowedException -> ApiResponse<Nothing>(
+                code = 405,
+                message = "Method not allowed"
+            )
             else -> ApiResponse<Nothing>(
                 code = 500,
                 message = "Internal server error"

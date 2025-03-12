@@ -20,4 +20,5 @@ class LLMDocDTO {
     var embeddingStoreId: String = StringUtil.EMPTY_STRING
     var maxSegmentSize: String = StringUtil.EMPTY_STRING
     var maxOverlapSize: String = StringUtil.EMPTY_STRING
+    var docIds: List<String> = emptyList()
 }

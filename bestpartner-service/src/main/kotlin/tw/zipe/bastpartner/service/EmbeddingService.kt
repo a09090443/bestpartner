@@ -13,11 +13,9 @@ import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
 import dev.langchain4j.rag.query.transformer.CompressingQueryTransformer
 import dev.langchain4j.store.embedding.EmbeddingStore
-import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
-import java.util.UUID
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.LLMDocDTO
@@ -31,8 +29,6 @@ import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.repository.LLMDocRepository
 import tw.zipe.bastpartner.repository.LLMDocSliceRepository
 import tw.zipe.bastpartner.repository.VectorStoreSettingRepository
-import tw.zipe.bastpartner.util.DTOValidator
-import tw.zipe.bastpartner.util.logger
 
 /**
  * @author Gary
@@ -46,8 +42,6 @@ class EmbeddingService(
     private val llmDocSliceRepository: LLMDocSliceRepository,
     private val securityValidator: SecurityValidator,
 ) {
-
-    private val logger = logger()
 
     /**
      * 儲存向量資料庫設定
@@ -108,6 +102,12 @@ class EmbeddingService(
         files: List<FileUpload>,
         filesForm: FilesFromRequest
     ): Map<String, Map<String, String>> {
+        files.forEach {
+            llmDocRepository.findByKnowledgeIdAndName(filesForm.knowledgeId, it.fileName())?.run {
+                throw ServiceException("檔案名稱: ${it.fileName()} 已存在")
+            }
+        }
+
         val embeddingStore = this.buildVectorStore(filesForm.embeddingStoreId)
         val embeddingModel =
             llmService.buildLLM(filesForm.embeddingModelId, ModelType.EMBEDDING).let { it as EmbeddingModel }
@@ -142,14 +142,14 @@ class EmbeddingService(
      * 將文件資訊存入知識庫中
      */
     @Transactional
-    fun saveOrUpdateKnowledge(
+    fun saveKnowledge(
         files: List<FileUpload>,
         filesForm: FilesFromRequest,
         segmentMap: Map<String, Map<String, String>> = emptyMap()
-    ) {
+    ): String {
         val docs = files.map {
             with(LLMDocEntity()) {
-                knowledgeId = filesForm.knowledgeId ?: UUID.randomUUID().toString()
+                knowledgeId = filesForm.knowledgeId
                 vectorStoreId = filesForm.embeddingStoreId
                 name = it.fileName()
                 description = filesForm.desc ?: StringUtil.EMPTY_STRING
@@ -160,26 +160,27 @@ class EmbeddingService(
                 this
             }
         }.toList()
-        filesForm.knowledgeId?.let { knowledgeId ->
-            docs.forEach {
-                llmDocRepository.findByKnowledgeIdAndName(knowledgeId, it.name)?.let { data ->
-                    llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, data.id)
-                    llmDocRepository.deleteByKnowledgeIdAndName(knowledgeId, data.name)
+        docs.forEach {
+            try {
+                llmDocRepository.saveOrUpdate(it)
+                segmentMap[it.name]?.let { map ->
+                    saveDocSliceIds(it, map)
                 }
+            } catch (e: Exception) {
+                segmentMap[it.name]?.let { map ->
+                    this.buildVectorStore(filesForm.embeddingStoreId).removeAll(map.keys.toList())
+                }
+                throw ServiceException("儲存文件資訊失敗: ${it.name}")
             }
         }
+        return filesForm.knowledgeId
 
-        llmDocRepository.saveEntities(docs).forEach { doc ->
-            segmentMap[doc.name]?.let { map ->
-                saveDocSlice(doc, map)
-            }
-        }
     }
 
     /**
      * 將文件片段存入文件切片表
      */
-    fun saveDocSlice(llmDoc: LLMDocEntity, segmentMap: Map<String, String>) {
+    fun saveDocSliceIds(llmDoc: LLMDocEntity, segmentMap: Map<String, String>) {
         val docs = segmentMap.map { (key, value) ->
             with(LLMDocSliceEntity()) {
                 id = key
@@ -196,29 +197,21 @@ class EmbeddingService(
      * 將文件資訊從資料庫中刪除
      */
     @Transactional
-    fun deleteKnowledge(knowledgeId: String, files: List<String>?) {
-        files?.map { file ->
-            llmDocRepository.deleteByKnowledgeIdAndName(knowledgeId, file)
-        } ?: llmDocRepository.deleteByKnowledgeIdAndName(knowledgeId, null)
-    }
-
-    /**
-     * 刪除向量資料
-     */
-    fun deleteVectorStore(vectorStoreDTO: VectorStoreDTO) {
-        DTOValidator.validate(vectorStoreDTO) {
-            requireNotEmpty("id")
-            requireNotEmpty("knowledgeId")
-            throwOnInvalid()
-        }
-        val embeddingStore = this.buildVectorStore(vectorStoreDTO.id!!)
-        val filter =
-            MetadataFilterBuilder.metadataKey("knowledgeId").isEqualTo(vectorStoreDTO.knowledgeId).let { filter ->
-                vectorStoreDTO.files?.let {
-                    filter.and(MetadataFilterBuilder.metadataKey("docsName").isIn(it))
-                }
+    fun deleteDocData(knowledgeId: String, docIds: List<String>) {
+        llmDocRepository.findByKnowledgeId(knowledgeId)?.let {
+            val embeddingStore = it.first().vectorStoreId.let { vectorStoreId ->
+                this.buildVectorStore(vectorStoreId)
             }
-        embeddingStore.removeAll(filter)
+            docIds.forEach { docId ->
+                llmDocRepository.deleteById(docId)
+                val idList = llmDocSliceRepository.findByKnowledgeIdAndDocId(knowledgeId, docId)
+                    ?.map { docSlice -> docSlice.id }
+                    ?.toList()
+                llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, docId)
+                embeddingStore.removeAll(idList)
+            }
+
+        }
     }
 
     /**
