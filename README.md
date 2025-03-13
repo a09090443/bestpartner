@@ -12,6 +12,7 @@ BestPartner project
 2. 新增 TEXT2SQL 工具
 3. 修改LLM工具建立邏輯，當工具需要使用者自定義內容時須帶入toolSettingIds參數，而工具無須自定義內容時帶入參數toolIds，可參考 postman 中 custom_assistant_chat(text2sql) 範例
 4. 修改RAG上傳檔案及刪除檔案時的邏輯
+5. 修改LLM讀取知識庫錯誤問題
 
 ## 1.4 版本變更說明
 1. 設定各API權限管理
@@ -64,6 +65,7 @@ bestpartner
 │  │              │  ├─chatmodel
 │  │              │  ├─embedding
 │  │              │  └─vector
+│  │              ├─constatnt
 │  │              ├─converter
 │  │              ├─dto
 │  │              ├─entity
