@@ -253,7 +253,53 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"llmId\":\"f138c97a-a7fe-4328-9ff5-5f25375739ba\",\r\n    \"isRemember\":true,\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Tom\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"toolSettingIds\":[\"c14e82ca-511f-424c-b20c-a96d93cae920\"]\r\n}",
+							"raw": "{\r\n    \"llmId\":\"42758e05-0c8f-4acd-9f72-3b9f6f38c5df\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Tom\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"toolSettingIds\":[\"c14e82ca-511f-424c-b20c-a96d93cae920\"]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/customAssistantChat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"customAssistantChat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "custom_assistant_chat_rag",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"llmId\":\"42758e05-0c8f-4acd-9f72-3b9f6f38c5df\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問你是Gary嗎?\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"knowledgeId\":\"05a716f8-f92d-4650-8aff-ea4e79c5eb5b\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -420,140 +466,6 @@
 			]
 		},
 		{
-			"name": "doc",
-			"item": [
-				{
-					"name": "MILVUS_rag_doc_upload",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "desc",
-									"value": "將文件上傳至向量資料庫",
-									"type": "text"
-								},
-								{
-									"key": "file",
-									"type": "file",
-									"src": "postman-cloud:///1ef861ff-195a-48c0-861f-4f443fa8b50f"
-								},
-								{
-									"key": "file",
-									"type": "file",
-									"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
-								},
-								{
-									"key": "embeddingModelId",
-									"value": "b613df34-1c03-4657-8d08-2372d5f291ef",
-									"type": "text"
-								},
-								{
-									"key": "embeddingStoreId",
-									"value": "c",
-									"type": "text"
-								}
-							]
-						},
-						"url": {
-							"raw": "http://{{domain}}/llm/vector/upload",
-							"protocol": "http",
-							"host": [
-								"{{domain}}"
-							],
-							"path": [
-								"llm",
-								"vector",
-								"upload"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "CHROMA_rag_doc_upload",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "desc",
-									"value": "將文件上傳至向量資料庫",
-									"type": "text"
-								},
-								{
-									"key": "file",
-									"type": "file",
-									"src": "postman-cloud:///1ef861ff-195a-48c0-861f-4f443fa8b50f"
-								},
-								{
-									"key": "file",
-									"type": "file",
-									"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
-								},
-								{
-									"key": "embeddingModelId",
-									"value": "b613df34-1c03-4657-8d08-2372d5f291ef",
-									"type": "text"
-								},
-								{
-									"key": "embeddingStoreId",
-									"value": "6ce3f1cd-d625-4a16-85a5-7b12f9852405",
-									"type": "text"
-								}
-							]
-						},
-						"url": {
-							"raw": "http://{{domain}}/llm/vector/upload",
-							"protocol": "http",
-							"host": [
-								"{{domain}}"
-							],
-							"path": [
-								"llm",
-								"vector",
-								"upload"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "MILVUS_del_doc",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\r\n    \"id\":\"d351ae41-b143-4a8b-8443-64f806a2602a\",\r\n    \"knowledgeId\":\"8a1440a7-4cb6-412a-b499-9d040bd04cba\",\r\n    \"files\":[\"profile.txt\",\"tw-cardrule.pdf\"]\r\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "http://{{domain}}/llm/vector/deleteData",
-							"protocol": "http",
-							"host": [
-								"{{domain}}"
-							],
-							"path": [
-								"llm",
-								"vector",
-								"deleteData"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
 			"name": "setting",
 			"item": [
 				{
@@ -632,64 +544,6 @@
 							"response": []
 						}
 					]
-				},
-				{
-					"name": "MILVUS_save_vector_store_setting",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\r\n    \"alias\":\"local-test\",\r\n    \"vectorStoreType\":\"MILVUS\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://localhost:19530\",\r\n        \"collectionName\":\"ollama_local_collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "http://{{domain}}/llm/vector/save",
-							"protocol": "http",
-							"host": [
-								"{{domain}}"
-							],
-							"path": [
-								"llm",
-								"vector",
-								"save"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "CHROMA_save_vector_store_setting",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\r\n    \"alias\":\"chroma-local-test\",\r\n    \"vectorStoreType\":\"CHROMA\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://localhost:8000\",\r\n        \"collectionName\":\"chroma_local_collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "http://{{domain}}/llm/vector/save",
-							"protocol": "http",
-							"host": [
-								"{{domain}}"
-							],
-							"path": [
-								"llm",
-								"vector",
-								"save"
-							]
-						}
-					},
-					"response": []
 				},
 				{
 					"name": "OPENAI_save_llm_chat_model_Setting",
@@ -1827,6 +1681,302 @@
 								"llm",
 								"permission",
 								"delete"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "vector",
+			"item": [
+				{
+					"name": "doc",
+					"item": [
+						{
+							"name": "getKnowlegeStore",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"knowledgeId\":\"edc4f659-f976-4c62-8a4c-09e4994fe2a4\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/vector/getKnowledgeStore",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"vector",
+										"getKnowledgeStore"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "MILVUS_rag_doc_upload_new",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "desc",
+											"value": "將文件上傳至向量資料庫",
+											"type": "text"
+										},
+										{
+											"key": "file",
+											"type": "file",
+											"src": "postman-cloud:///1ef861ff-195a-48c0-861f-4f443fa8b50f"
+										},
+										{
+											"key": "file",
+											"type": "file",
+											"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
+										},
+										{
+											"key": "embeddingModelId",
+											"value": "e9b7f145-23a2-43cc-8bc0-3866ea265c50",
+											"type": "text"
+										},
+										{
+											"key": "embeddingStoreId",
+											"value": "b6776d0e-406b-454f-85b0-08e18aaf9248",
+											"type": "text"
+										},
+										{
+											"key": "knowledgeId",
+											"value": "06a81d58-faea-40b7-a8be-8198a0ccb203",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/vector/uploadFiles",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"vector",
+										"uploadFiles"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "CHROMA_rag_doc_upload",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "desc",
+											"value": "將文件上傳至向量資料庫",
+											"type": "text"
+										},
+										{
+											"key": "file",
+											"type": "file",
+											"src": "postman-cloud:///1ef861ff-195a-48c0-861f-4f443fa8b50f"
+										},
+										{
+											"key": "file",
+											"type": "file",
+											"src": "postman-cloud:///1ef861ff-4a86-4700-8c7d-a6ba73e652fa"
+										},
+										{
+											"key": "embeddingModelId",
+											"value": "b613df34-1c03-4657-8d08-2372d5f291ef",
+											"type": "text"
+										},
+										{
+											"key": "embeddingStoreId",
+											"value": "6ce3f1cd-d625-4a16-85a5-7b12f9852405",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/vector/upload",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"vector",
+										"upload"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "MILVUS_del_doc",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"knowledgeId\":\"06a81d58-faea-40b7-a8be-8198a0ccb203\",\r\n    \"docIds\":[\"cadae61a-bbaa-42a6-90aa-6f90875e1e96\"]\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/vector/deleteData",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"vector",
+										"deleteData"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "MILVUS_save_vector_store_setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"alias\":\"local-test\",\r\n    \"vectorStoreType\":\"MILVUS\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://localhost:19530\",\r\n        \"collectionName\":\"ollama_local_collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MILVUS_update_vector_store_setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\":\"b6776d0e-406b-454f-85b0-08e18aaf9248\",\r\n    \"alias\":\"rag-test\",\r\n    \"vectorStoreType\":\"MILVUS\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://127.0.0.1:19530\",\r\n        \"collectionName\":\"openai-collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CHROMA_save_vector_store_setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"alias\":\"chroma-local-test\",\r\n    \"vectorStoreType\":\"CHROMA\",\r\n    \"vectorStore\":\r\n    {\r\n        \"url\":\"http://localhost:8000\",\r\n        \"collectionName\":\"chroma_local_collection\",\r\n        \"dimension\":\"1024\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/vector/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"vector",
+								"save"
 							]
 						}
 					},
