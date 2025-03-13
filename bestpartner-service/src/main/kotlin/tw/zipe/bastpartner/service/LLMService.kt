@@ -21,6 +21,7 @@ import me.kpavlov.langchain4j.kotlin.service.systemMessageProvider
 import tw.zipe.bastpartner.assistant.DynamicAssistant
 import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.constant.KNOWLEDGE
 import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.dto.PlatformDTO
@@ -170,6 +171,18 @@ class LLMService(
                     chatRequestDTO.promptContent.orEmpty()
             })
 
+        buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
+            when (llm){
+                is ChatLanguageModel -> {
+                    aiService.chatLanguageModel(llm)
+                }
+                is StreamingChatLanguageModel -> {
+                    aiService.streamingChatLanguageModel(llm)
+                }
+                else -> throw ServiceException("LLM 類型錯誤")
+            }
+        }
+
         val tools: MutableList<Any?> = mutableListOf()
 
         chatRequestDTO.toolIds?.map {
@@ -193,7 +206,7 @@ class LLMService(
             embeddingStore?.let { embedding ->
 
                 val filter: (Query) -> Filter = { _ ->
-                    MetadataFilterBuilder.metadataKey("knowledge").isIn(listOf(id))
+                    MetadataFilterBuilder.metadataKey(KNOWLEDGE).isIn(listOf(id))
                 }
 
                 val contentRetriever = EmbeddingStoreContentRetriever.builder()
