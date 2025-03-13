@@ -18,6 +18,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.entity.LLMDocEntity
@@ -43,7 +44,7 @@ class EmbeddingService(
     private val llmDocRepository: LLMDocRepository,
     private val llmDocSliceRepository: LLMDocSliceRepository,
     private val llmKnowledgeRepository: LLMKnowledgeRepository,
-    private val securityValidator: SecurityValidator,
+    private val securityValidator: SecurityValidator
 ) {
 
     /**
@@ -277,7 +278,24 @@ class EmbeddingService(
     }
 
     /**
-     * 取得知識庫
+     * 取得知識庫和文件資料
      */
     fun getKnowledgeStore(knowledgeId: String?): List<LLMDocDTO> = llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId)
+
+    /**
+     * 取得知識庫資料
+     */
+    fun getKnowledge(knowledgeId: String): KnowledgeDTO? {
+        return llmKnowledgeRepository.findById(knowledgeId)?.let { knowledgeId ->
+            with(KnowledgeDTO()) {
+                id = knowledgeId.id
+                vectorStoreId = knowledgeId.vectorStoreId
+                llmEmbeddingId = knowledgeId.llmEmbeddingId
+                name = knowledgeId.name
+                description = knowledgeId.description
+                this
+            }
+
+        }
+    }
 }
