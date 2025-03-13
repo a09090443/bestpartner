@@ -170,19 +170,6 @@ class LLMService(
                     chatRequestDTO.promptContent.orEmpty()
             })
 
-        val llm = buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
-            when (llm){
-                is ChatLanguageModel -> {
-                    aiService.chatLanguageModel(llm)
-                }
-                is StreamingChatLanguageModel -> {
-                    aiService.streamingChatLanguageModel(llm)
-                }
-                else -> throw ServiceException("LLM 類型錯誤")
-            }
-            llm
-        }
-
         val tools: MutableList<Any?> = mutableListOf()
 
         chatRequestDTO.toolIds?.map {
