@@ -230,14 +230,14 @@ class EmbeddingService(
             }
 
             docIds.isEmpty().let {
-                llmDocRepository.findByKnowledgeId(knowledgeId)?.forEach { llmDoc ->
+                llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId).forEach { llmDoc ->
                     run {
                         val idList =
-                            llmDocSliceRepository.findByKnowledgeIdAndDocId(llmDoc.knowledgeId, llmDoc.id.orEmpty())
+                            llmDocSliceRepository.findByKnowledgeIdAndDocId(llmDoc.knowledgeId.orEmpty(), llmDoc.docId)
                                 ?.map { docSlice -> docSlice.id }
                                 ?.toList()
-                        llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, llmDoc.id.orEmpty())
-                        llmDocRepository.delete(llmDoc)
+                        llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, llmDoc.docId)
+                        llmDocRepository.deleteById(llmDoc.docId)
                         llmKnowledgeRepository.deleteById(knowledgeId)
                         if (!idList.isNullOrEmpty()) {
                             embeddingStore.removeAll(idList)
@@ -279,16 +279,5 @@ class EmbeddingService(
     /**
      * 取得知識庫
      */
-    fun getKnowledgeStore(knowledgeId: String): List<LLMDocDTO>? =
-        llmDocRepository.findByKnowledgeId(knowledgeId)?.map { llmDoc ->
-            with(LLMDocDTO()) {
-                this.knowledgeId = llmDoc.knowledgeId
-                this.docId = llmDoc.id.orEmpty()
-                this.fileName = llmDoc.name
-                this.type = llmDoc.type
-                this.description = llmDoc.description
-                this.size = llmDoc.size
-                this
-            }
-        }
+    fun getKnowledgeStore(knowledgeId: String?): List<LLMDocDTO> = llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId)
 }

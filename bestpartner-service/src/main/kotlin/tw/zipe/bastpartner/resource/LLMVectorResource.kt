@@ -62,10 +62,6 @@ class LLMVectorResource(
     @POST
     @Path("/getKnowledgeStore")
     fun getKnowledgeStore(llmDocDTO: LLMDocDTO): ApiResponse<List<LLMDocDTO>> {
-        DTOValidator.validate(llmDocDTO) {
-            requireNotEmpty("knowledgeId")
-            throwOnInvalid()
-        }
 
         val llmDocs = embeddingService.getKnowledgeStore(llmDocDTO.knowledgeId) ?: emptyList()
         return ApiResponse.success(llmDocs)
@@ -98,7 +94,7 @@ class LLMVectorResource(
             requireNotEmpty("knowledgeId")
             throwOnInvalid()
         }
-        embeddingService.deleteDocData(llmDocDTO.knowledgeId, llmDocDTO.docIds)
+        embeddingService.deleteDocData(llmDocDTO.knowledgeId.orEmpty(), llmDocDTO.docIds)
         return ApiResponse.success("成功刪除資料")
     }
 }
