@@ -18,6 +18,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.constant.KNOWLEDGE
 import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
@@ -120,7 +121,7 @@ class EmbeddingService(
         files.forEach { file ->
             val document = FileSystemDocumentLoader.loadDocument(file.uploadedFile(), ApacheTikaDocumentParser())
             document.metadata()
-                .put("knowledgeId", filesForm.knowledgeId)
+                .put(KNOWLEDGE, filesForm.knowledgeId)
                 .put("docsName", file.fileName())
 
             val splitter = DocumentSplitters.recursive(filesForm.maxSegmentSize, filesForm.maxOverlapSize)
