@@ -6,8 +6,12 @@ import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
+import dev.langchain4j.rag.query.Query
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolExecutor
+import dev.langchain4j.store.embedding.filter.Filter
+import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
@@ -207,6 +211,21 @@ class LLMService(
                 is Map<*, *> -> aiService.tools(tool as Map<ToolSpecification, ToolExecutor>)
                 else -> aiService.tools(tool)
             }
+        }
+        chatRequestDTO.knowledgeId?.let {
+            val filter: (Query) -> Filter = { _ ->
+                MetadataFilterBuilder.metadataKey("KNOWLEDGE").isIn(listOf(it))
+            }
+            val embeddingStore = embeddingService.getKnowledgeStore(it)
+//            val contentRetriever = EmbeddingStoreContentRetriever.builder()
+//                .embeddingStore(embeddingService.buildVectorStore(embeddingStore))
+//                .embeddingModel(embeddingService.buildLLM(chatRequestDTO.embeddingModelId.orEmpty(),
+//                    ModelType.EMBEDDING) as dev.langchain4j.model.embedding.EmbeddingModel)
+//                .dynamicFilter { filter(it) } // Pass the Kotlin function as a Java Function using SAM conversion
+//                .build()
+
+//            val llmDocDTO = embeddingService.getKnowledgeStore(it)?.first()
+
         }
 
         val chatMemoryProvider = chatRequestDTO.memory.let {

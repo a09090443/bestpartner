@@ -9,7 +9,9 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 class LLMDocDTO {
-    var knowledgeId: String = StringUtil.EMPTY_STRING
+    var knowledgeId: String? = null
+    var knowledgeName: String? = null
+    var knowledgeDescription: String? = null
     var docId: String = StringUtil.EMPTY_STRING
     var fileName: String = StringUtil.EMPTY_STRING
     var type: String = StringUtil.EMPTY_STRING
