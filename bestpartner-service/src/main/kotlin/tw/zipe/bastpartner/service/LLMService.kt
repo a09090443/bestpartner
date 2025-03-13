@@ -6,6 +6,8 @@ import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.embedding.EmbeddingModel
+import dev.langchain4j.rag.DefaultRetrievalAugmentor
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
 import dev.langchain4j.rag.query.Query
 import dev.langchain4j.service.AiServices
@@ -181,20 +183,6 @@ class LLMService(
             llm
         }
 
-        if (llm is ChatLanguageModel) {
-            DTOValidator.validate(chatRequestDTO) {
-                requireNotEmpty("embeddingDocIds", "embeddingStoreId", "embeddingModelId")
-                throwOnInvalid()
-            }
-
-            embeddingService.buildRetrievalAugmentor(
-                chatRequestDTO.embeddingDocIds.orEmpty(),
-                chatRequestDTO.embeddingStoreId.orEmpty(),
-                chatRequestDTO.embeddingModelId.orEmpty(),
-                llm
-            ).let { aiService.retrievalAugmentor(it) }
-        }
-
         val tools: MutableList<Any?> = mutableListOf()
 
         chatRequestDTO.toolIds?.map {
@@ -212,19 +200,24 @@ class LLMService(
                 else -> aiService.tools(tool)
             }
         }
-        chatRequestDTO.knowledgeId?.let {
-            val filter: (Query) -> Filter = { _ ->
-                MetadataFilterBuilder.metadataKey("KNOWLEDGE").isIn(listOf(it))
-            }
-            val embeddingStore = embeddingService.getKnowledgeStore(it)
-//            val contentRetriever = EmbeddingStoreContentRetriever.builder()
-//                .embeddingStore(embeddingService.buildVectorStore(embeddingStore))
-//                .embeddingModel(embeddingService.buildLLM(chatRequestDTO.embeddingModelId.orEmpty(),
-//                    ModelType.EMBEDDING) as dev.langchain4j.model.embedding.EmbeddingModel)
-//                .dynamicFilter { filter(it) } // Pass the Kotlin function as a Java Function using SAM conversion
-//                .build()
+        chatRequestDTO.knowledgeId?.let { id ->
 
-//            val llmDocDTO = embeddingService.getKnowledgeStore(it)?.first()
+            val embeddingStore = embeddingService.getKnowledge(id)
+            embeddingStore?.let { embedding ->
+
+                val filter: (Query) -> Filter = { _ ->
+                    MetadataFilterBuilder.metadataKey("knowledge").isIn(listOf(id))
+                }
+
+                val contentRetriever = EmbeddingStoreContentRetriever.builder()
+                    .embeddingStore(embeddingService.buildVectorStore(embedding.vectorStoreId.orEmpty()))
+                    .embeddingModel(buildLLM(embedding.llmEmbeddingId.orEmpty(), ModelType.EMBEDDING) as EmbeddingModel)
+                    .dynamicFilter { filter(it) } // Pass the Kotlin function as a Java Function using SAM conversion
+                    .build()
+                aiService.retrievalAugmentor(
+                    DefaultRetrievalAugmentor.builder().contentRetriever(contentRetriever).build()
+                )
+            }
 
         }
 
