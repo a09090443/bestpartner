@@ -9,6 +9,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
+import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
 import tw.zipe.bastpartner.form.FilesFromRequest
@@ -62,7 +63,6 @@ class LLMVectorResource(
     @POST
     @Path("/getKnowledgeStore")
     fun getKnowledgeStore(llmDocDTO: LLMDocDTO): ApiResponse<List<LLMDocDTO>> {
-
         val llmDocs = embeddingService.getKnowledgeStore(llmDocDTO.knowledgeId)
         return ApiResponse.success(llmDocs)
     }
@@ -85,6 +85,17 @@ class LLMVectorResource(
             }
         }
         return ApiResponse.success(knowledgeId.orEmpty())
+    }
+
+    @POST
+    @Path("/getDataFromEmbeddingStore")
+    fun getDataFromEmbeddingStore(llmDocDTO: LLMDocDTO): ApiResponse<List<KnowledgeDTO>?> {
+        DTOValidator.validate(llmDocDTO) {
+            requireNotEmpty("knowledgeId", "content")
+            throwOnInvalid()
+        }
+        val list = embeddingService.embeddingStoreSearch(llmDocDTO.knowledgeId.orEmpty(), llmDocDTO.content)
+        return ApiResponse.success(list)
     }
 
     @DELETE

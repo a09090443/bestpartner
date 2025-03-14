@@ -24,4 +24,5 @@ class LLMDocDTO {
     var maxSegmentSize: String = StringUtil.EMPTY_STRING
     var maxOverlapSize: String = StringUtil.EMPTY_STRING
     var docIds: List<String> = emptyList()
+    var content: String = StringUtil.EMPTY_STRING
 }
