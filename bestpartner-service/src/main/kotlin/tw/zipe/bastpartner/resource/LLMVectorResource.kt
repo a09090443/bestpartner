@@ -63,7 +63,7 @@ class LLMVectorResource(
     @Path("/getKnowledgeStore")
     fun getKnowledgeStore(llmDocDTO: LLMDocDTO): ApiResponse<List<LLMDocDTO>> {
 
-        val llmDocs = embeddingService.getKnowledgeStore(llmDocDTO.knowledgeId) ?: emptyList()
+        val llmDocs = embeddingService.getKnowledgeStore(llmDocDTO.knowledgeId)
         return ApiResponse.success(llmDocs)
     }
 

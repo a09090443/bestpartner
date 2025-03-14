@@ -14,6 +14,7 @@ class LLMDocDTO {
     var knowledgeDescription: String? = null
     var docId: String = StringUtil.EMPTY_STRING
     var fileName: String = StringUtil.EMPTY_STRING
+    var url: String = StringUtil.EMPTY_STRING
     var type: String = StringUtil.EMPTY_STRING
     var alias: String = StringUtil.EMPTY_STRING
     var description: String = StringUtil.EMPTY_STRING

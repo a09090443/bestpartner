@@ -25,8 +25,8 @@ class LLMDocRepository : BaseRepository<LLMDocEntity, String>() {
                    lk.name AS knowledgeName,
                    lk.description AS knowledgeDescription,
                    ld.id AS docId,
-                   ld.name AS docName,
-                   ld.url AS fileName,
+                   ld.name AS fileName,
+                   ld.url AS url,
                    ld.description AS description,
                    ld.type AS type,
                    ld.size AS size
