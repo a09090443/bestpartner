@@ -231,7 +231,7 @@ class EmbeddingService(
                 }
             }
 
-            docIds.isEmpty().let {
+            docIds.takeIf { docIds->docIds.isEmpty() }?.let {
                 llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId).forEach { llmDoc ->
                     run {
                         val idList =
