@@ -42,6 +42,7 @@ BestPartner project
 | Google 搜尋引擎 | Web Search |
 | Tavily 搜尋引擎 | Web Search |
 | Date 日期     | Date       |
+| Text2SQL    | Other      |
 
 ## 目錄結構
 ```
@@ -141,6 +142,12 @@ bestpartner
 ![](docs/images/service-start.png)
 
 ## 開發紀錄
+* 2025.03.14 BestPartner 0.1.5 版本完成
+  + 完成 TEXT2SQL 工具
+  + 完成知識庫的功能
+  + 完成 RAG 檔案上傳，刪除和搜尋功能
+  + 修改動態呼叫及建立工具邏輯
+
 * 2025.01.16 BestPartner 0.1.4 版本完成
   + 完成 LLM 可動態調用 Tools 工具測試
   + API 新增權限管理
