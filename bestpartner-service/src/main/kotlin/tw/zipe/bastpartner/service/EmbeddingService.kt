@@ -12,7 +12,10 @@ import dev.langchain4j.rag.RetrievalAugmentor
 import dev.langchain4j.rag.content.retriever.ContentRetriever
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
 import dev.langchain4j.rag.query.transformer.CompressingQueryTransformer
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest
 import dev.langchain4j.store.embedding.EmbeddingStore
+import dev.langchain4j.store.embedding.filter.Filter
+import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
@@ -231,23 +234,53 @@ class EmbeddingService(
                 }
             }
 
-            docIds.takeIf { docIds->docIds.isEmpty() }?.let {
-                llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId).forEach { llmDoc ->
-                    run {
-                        val idList =
-                            llmDocSliceRepository.findByKnowledgeIdAndDocId(llmDoc.knowledgeId.orEmpty(), llmDoc.docId)
-                                ?.map { docSlice -> docSlice.id }
-                                ?.toList()
-                        llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, llmDoc.docId)
-                        llmDocRepository.deleteById(llmDoc.docId)
-                        llmKnowledgeRepository.deleteById(knowledgeId)
-                        if (!idList.isNullOrEmpty()) {
-                            embeddingStore.removeAll(idList)
+            docIds.takeIf { docIds -> docIds.isEmpty() }?.let {
+                llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId)
+                    .forEach { llmDoc ->
+                        run {
+                            val idList =
+                                llmDocSliceRepository.findByKnowledgeIdAndDocId(
+                                    llmDoc.knowledgeId.orEmpty(),
+                                    llmDoc.docId
+                                )
+                                    ?.map { docSlice -> docSlice.id }
+                                    ?.toList()
+                            llmDocSliceRepository.deleteByKnowledgeIdAndDocId(knowledgeId, llmDoc.docId)
+                            llmDocRepository.deleteById(llmDoc.docId)
+                            llmKnowledgeRepository.deleteById(knowledgeId)
+                            if (!idList.isNullOrEmpty()) {
+                                embeddingStore.removeAll(idList)
+                            }
                         }
+                    }
+            }
+        }
+    }
+
+    /**
+     * 從向量資料庫中搜尋
+     */
+    fun embeddingStoreSearch(knowledgeId: String, content: String): List<KnowledgeDTO>? {
+        return llmKnowledgeRepository.findById(knowledgeId)?.let { knowledge ->
+            val embeddingStore = this.buildVectorStore(knowledge.vectorStoreId)
+            val embeddingModel =
+                llmService.buildLLM(knowledge.llmEmbeddingId, ModelType.EMBEDDING).let { it as EmbeddingModel }
+            val embedding = embeddingModel.embed(content).content()
+            val filter: Filter = MetadataFilterBuilder.metadataKey(KNOWLEDGE).isEqualTo(knowledgeId)
+
+            val resultList =
+                embeddingStore.search(EmbeddingSearchRequest.builder().queryEmbedding(embedding).filter(filter).build())
+            resultList.matches().map { segment ->
+                val embedded = segment.embedded()
+                embedded.metadata().toMap().let {
+                    KnowledgeDTO().apply {
+                        this.id = it["knowledgeId"].toString()
+                        this.filename = it["docsName"].toString()
+                        this.content = embedded.text()
                     }
                 }
             }
-        }
+        }?.toList()
     }
 
     /**
@@ -281,7 +314,8 @@ class EmbeddingService(
     /**
      * 取得知識庫和文件資料
      */
-    fun getKnowledgeStore(knowledgeId: String?): List<LLMDocDTO> = llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId)
+    fun getKnowledgeStore(knowledgeId: String?): List<LLMDocDTO> =
+        llmDocRepository.findByKnowledgeId(securityValidator.validateLoggedInUser(), knowledgeId)
 
     /**
      * 取得知識庫資料
