@@ -1707,7 +1707,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\r\n    \"knowledgeId\":\"edc4f659-f976-4c62-8a4c-09e4994fe2a4\"\r\n}",
+									"raw": "{\r\n    \"knowledgeId\":\"8b3f8aec-80e4-4427-8688-c51f1e9c9e69\"\r\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -1724,6 +1724,41 @@
 										"llm",
 										"vector",
 										"getKnowledgeStore"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "getDataFromEmbeddingStore",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"knowledgeId\":\"e695272d-4cab-4b2a-9d30-5aa95fcf25e2\",\r\n    \"content\":\"Gary\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{domain}}/llm/vector/getDataFromEmbeddingStore",
+									"protocol": "http",
+									"host": [
+										"{{domain}}"
+									],
+									"path": [
+										"llm",
+										"vector",
+										"getDataFromEmbeddingStore"
 									]
 								}
 							},
@@ -1771,6 +1806,12 @@
 										{
 											"key": "knowledgeId",
 											"value": "06a81d58-faea-40b7-a8be-8198a0ccb203",
+											"type": "text",
+											"disabled": true
+										},
+										{
+											"key": "name",
+											"value": "測試使用",
 											"type": "text"
 										}
 									]
@@ -1794,7 +1835,13 @@
 							"name": "CHROMA_rag_doc_upload",
 							"request": {
 								"method": "POST",
-								"header": [],
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									}
+								],
 								"body": {
 									"mode": "formdata",
 									"formdata": [
@@ -1815,18 +1862,23 @@
 										},
 										{
 											"key": "embeddingModelId",
-											"value": "b613df34-1c03-4657-8d08-2372d5f291ef",
+											"value": "e9b7f145-23a2-43cc-8bc0-3866ea265c50",
 											"type": "text"
 										},
 										{
 											"key": "embeddingStoreId",
-											"value": "6ce3f1cd-d625-4a16-85a5-7b12f9852405",
+											"value": "d3c6465c-c14e-4968-9a2a-34a05e90189b",
+											"type": "text"
+										},
+										{
+											"key": "name",
+											"value": "chroma 測試",
 											"type": "text"
 										}
 									]
 								},
 								"url": {
-									"raw": "http://{{domain}}/llm/vector/upload",
+									"raw": "http://{{domain}}/llm/vector/uploadFiles",
 									"protocol": "http",
 									"host": [
 										"{{domain}}"
@@ -1834,14 +1886,14 @@
 									"path": [
 										"llm",
 										"vector",
-										"upload"
+										"uploadFiles"
 									]
 								}
 							},
 							"response": []
 						},
 						{
-							"name": "MILVUS_del_doc",
+							"name": "del_doc",
 							"request": {
 								"method": "DELETE",
 								"header": [
@@ -1853,7 +1905,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\r\n    \"knowledgeId\":\"06a81d58-faea-40b7-a8be-8198a0ccb203\",\r\n    \"docIds\":[\"cadae61a-bbaa-42a6-90aa-6f90875e1e96\"]\r\n}",
+									"raw": "{\r\n    \"knowledgeId\":\"e695272d-4cab-4b2a-9d30-5aa95fcf25e2\",\r\n    \"docIds\":[\"90b848f8-a125-4822-b90e-2a34c1353ba7\",\"430e7b91-005e-48ac-979c-6becf9562854\"]\r\n}",
 									"options": {
 										"raw": {
 											"language": "json"
