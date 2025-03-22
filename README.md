@@ -134,7 +134,7 @@ bestpartner
 - 初始化資料庫可使用Flyway，可在application.properties中設定，quarkus.flyway.migrate-at-start = true
 
 ## 程式打包執行
-1. 切換至 bestpartner-service 目錄,執行 gradle clean build -x test -Dquarkus.package.type=uber-jar -Dquarkus.profile=${profile}
+1. 切換至 bestpartner-service 目錄,執行 gradle clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
 - ${profile} 可取代 dev, sit, prod
 2. 打包完成後，jar file產生位置:bestpartner-service/build/bestpartner-service-0.10-SNAPSHOT-runner.jar
 3. 執行 java -jar bestpartner-service-0.10-SNAPSHOT-runner.jar
