@@ -15,7 +15,7 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "1.0.0-beta1"
+val langchain4jVersion = "1.0.0-beta2"
 val bouncycastleVersion = "1.79"
 val okhttp3Version = "4.12.0"
 val kotlinSerializationVersion = "1.7.3"
@@ -40,11 +40,13 @@ dependencies {
     implementation("io.quarkus:quarkus-security-jpa")
     implementation("io.quarkus:quarkus-smallrye-jwt")
     implementation("io.quarkus:quarkus-smallrye-jwt-build")
+    implementation("io.quarkus:quarkus-security")
 
     implementation("dev.langchain4j:langchain4j:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-core:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-ollama:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-open-ai:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-google-ai-gemini:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-chroma:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-milvus:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:$langchain4jVersion")
@@ -52,15 +54,17 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-web-search-engine-tavily:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-mcp:$langchain4jVersion")
 
-    implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.4")
+
+    implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.8")
     implementation("com.github.jsqlparser:jsqlparser:5.1")
 
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
     implementation("org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion")
     implementation("com.squareup.okhttp3:okhttp:$okhttp3Version")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion") // Add this line
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-test-security")
@@ -68,7 +72,7 @@ dependencies {
 }
 
 group = "tw.zipe.basepartner"
-version = "0.1.4-SNAPSHOT"
+version = "0.1.6-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -88,8 +92,8 @@ allOpen {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
-        jvmTarget.set(JvmTarget.fromTarget("21")) // 使用 JvmTarget.fromTarget 轉換字串
-        javaParameters.set(true) // 啟用參數名稱保留
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 // 使用 JvmTarget.fromTarget 轉換字串
+        javaParameters = true // 啟用參數名稱保留
     }
 }
 
