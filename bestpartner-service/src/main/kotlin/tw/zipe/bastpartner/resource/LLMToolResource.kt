@@ -70,7 +70,7 @@ class LLMToolResource(
             requireNotEmpty("id")
             throwOnInvalid()
         }
-        return ApiResponse.success(toolService.deleteTool(toolDTO.id!!))
+        return ApiResponse.success(toolService.deleteTool(toolDTO.id.orEmpty()))
     }
 
     @POST

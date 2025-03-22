@@ -6,6 +6,7 @@ import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import dev.langchain4j.model.output.Response
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.TokenStream
+import io.netty.util.internal.StringUtil
 import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
@@ -71,7 +72,7 @@ abstract class BaseLLMResource {
             }
 
         }.onItem()
-            .transform { item -> item ?: "" }  // 處理空值
+            .transform { item -> item ?: StringUtil.EMPTY_STRING }  // 處理空值
             .onOverflow()
             .buffer(128)  // 設置緩衝區
             .onFailure()

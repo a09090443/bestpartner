@@ -1,14 +1,15 @@
 package tw.zipe.bastpartner.exception
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.quarkus.security.ForbiddenException
 import io.quarkus.security.UnauthorizedException
 import io.smallrye.jwt.build.JwtException
 import jakarta.annotation.Priority
 import jakarta.inject.Inject
 import jakarta.transaction.RollbackException
-import jakarta.ws.rs.ForbiddenException
 import jakarta.ws.rs.NotAllowedException
 import jakarta.ws.rs.NotFoundException
+import jakarta.ws.rs.WebApplicationException
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
@@ -103,6 +104,18 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 code = 405,
                 message = "Method not allowed"
             )
+            is WebApplicationException -> {
+                val status = exception.response.status
+                ApiResponse<Nothing>(
+                    code = 403,
+                    message = when (status) {
+                        403 -> "Forbidden"
+                        401 -> "Unauthorized"
+                        404 -> "Resource not found"
+                        else -> "Web application exception"
+                    }
+                )
+            }
             else -> ApiResponse<Nothing>(
                 code = 500,
                 message = "Internal server error"

@@ -1,5 +1,7 @@
 package tw.zipe.bastpartner.resource
 
+import dev.langchain4j.mcp.McpToolProvider
+import dev.langchain4j.mcp.client.McpClient
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
 import io.quarkus.security.Authenticated
@@ -18,6 +20,7 @@ import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.service.LLMService
+import tw.zipe.bastpartner.service.McpServerService
 import tw.zipe.bastpartner.util.DTOValidator
 
 /**
@@ -30,7 +33,8 @@ import tw.zipe.bastpartner.util.DTOValidator
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
 class LLMResource(
-    private val llmService: LLMService
+    private val llmService: LLMService,
+    private val mcpServerService: McpServerService
 ) : BaseLLMResource() {
 
     @POST
@@ -73,11 +77,21 @@ class LLMResource(
             throwOnInvalid()
         }
         val aiService = llmService.buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
-        return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
-            aiService.build().streamingChat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty())
-                .onPartialResponse { emitter.emit(it) }
-                .onCompleteResponse { emitter.complete() }
-                .onError { emitter.fail(it) }.start()
+
+        val mcpServers = mutableListOf<McpClient>()
+        chatRequestDTO.mcpIds?.let {
+            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpIds))
+            McpToolProvider.builder().mcpClients(mcpServers).build()
+        }
+        return try {
+            Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
+                aiService.build().streamingChat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty())
+                    .onPartialResponse { emitter.emit(it) }
+                    .onCompleteResponse { emitter.complete() }
+                    .onError { emitter.fail(it) }.start()
+            }
+        } finally {
+            mcpServers.forEach { mcpServer -> mcpServer.close() }
         }
     }
 
@@ -85,9 +99,19 @@ class LLMResource(
     @Path("/customAssistantChat")
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         val aiService = llmService.buildAIService(chatRequestDTO, ModelType.CHAT)
-        return ApiResponse.success(
-            aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text()
-        )
+
+        val mcpServers = mutableListOf<McpClient>()
+        chatRequestDTO.mcpIds?.let {
+            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpIds))
+            McpToolProvider.builder().mcpClients(mcpServers).build()
+        }
+        return try {
+            ApiResponse.success(
+                aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text()
+            )
+        } finally {
+            mcpServers.forEach { mcpServer -> mcpServer.close() }
+        }
     }
 
 }
