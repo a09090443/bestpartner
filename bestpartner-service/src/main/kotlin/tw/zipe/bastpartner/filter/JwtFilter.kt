@@ -2,7 +2,6 @@ package tw.zipe.bastpartner.filter
 
 import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.inject.Inject
 import jakarta.ws.rs.Priorities
 import jakarta.ws.rs.container.ContainerRequestContext
 import jakarta.ws.rs.container.ContainerRequestFilter
@@ -29,7 +28,6 @@ class JwtFilter(
 
     private val logger = logger()
 
-    @Inject
     @ConfigProperty(name = "jwt.refresh.switch", defaultValue = "false")
     private lateinit var jwtRefreshSwitch: String
 

@@ -9,7 +9,6 @@ import java.time.temporal.ChronoUnit
 import org.jose4j.json.JsonUtil
 import org.jose4j.jws.JsonWebSignature
 import org.jose4j.jwx.JsonWebStructure
-import tw.zipe.bastpartner.repository.LLMPermissionRepository
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -18,8 +17,7 @@ import tw.zipe.bastpartner.util.logger
  */
 @ApplicationScoped
 class JwtService(
-    private val parser: JWTParser,
-    private val llmPermissionRepository: LLMPermissionRepository
+    private val parser: JWTParser
 ) {
     companion object {
         private const val ISSUER = "bast-partner"
