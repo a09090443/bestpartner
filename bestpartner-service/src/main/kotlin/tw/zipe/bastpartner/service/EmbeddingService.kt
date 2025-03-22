@@ -175,8 +175,6 @@ class EmbeddingService(
                 description = filesForm.desc.orEmpty()
                 vectorStoreId = filesForm.embeddingStoreId
                 llmEmbeddingId = filesForm.embeddingModelId
-                this
-            }.run {
                 llmKnowledgeRepository.saveOrUpdate(this)
             }
 

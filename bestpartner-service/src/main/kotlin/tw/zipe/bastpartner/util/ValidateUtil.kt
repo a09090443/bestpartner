@@ -89,6 +89,27 @@ class JsonFormatRule(private val strictMode: Boolean = true) : ValidationRule {
         get() = this is JsonArray
 }
 
+class EnumValueRule<T : Enum<T>>(private val enumClass: Class<T>) : ValidationRule {
+    override fun validate(value: Any?): Boolean {
+        if (value == null) return true
+
+        return try {
+            when (value) {
+                is String -> enumClass.enumConstants.any { it.name == value }
+                is Enum<*> -> enumClass.isInstance(value)
+                else -> false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override fun getErrorMessage(fieldName: String): String {
+        val validValues = enumClass.enumConstants.joinToString(", ") { it.name }
+        return "欄位 $fieldName 的值必須是有效的 ${enumClass.simpleName} 列舉值（$validValues）"
+    }
+}
+
 class DTOValidator {
     private val fieldRules = mutableMapOf<String, MutableList<ValidationRule>>()
     private val nestedValidators = mutableMapOf<String, (Any) -> ValidationResult>()
@@ -185,6 +206,15 @@ class DTOValidator {
             return this
         }
 
+        fun <E : Enum<E>> validateEnum(vararg fields: String, enumClass: Class<E>): Builder<T> {
+            fields.forEach { field ->
+                if (!validator.fieldRules.containsKey(field)) {
+                    validator.fieldRules[field] = mutableListOf()
+                }
+                validator.fieldRules[field]?.add(EnumValueRule(enumClass))
+            }
+            return this
+        }
         /**
          * 驗證巢狀物件
          * @param fieldPath 欄位路徑，例如 "address" 或 "company.address"

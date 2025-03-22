@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * @created 2024/10/9
  */
 @Serializable
-class VectorStoreModel(){
+class VectorStoreModel {
     var url: String? = null
     val username: String? = null
     val password: String? = null
