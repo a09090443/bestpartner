@@ -18,4 +18,8 @@ class McpDTO {
     var argsDesc: Map<String, String>? = null
     var env: Map<String, String>? = null
     var type: McpType? = null
+    var alias: String? = null
+    var userSettingId: String? = null
+    var settingId: String? = null
+    val settingContent: Map<String, String>? = null
 }

@@ -4,6 +4,7 @@ import io.quarkus.security.Authenticated
 import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
@@ -29,12 +30,12 @@ class LLMMcpServerResource(
 ) {
 
     @GET
-    @Path("list")
+    @Path("/list")
     fun mcpServers() = ApiResponse.success(mcpServerService.getMcpServers())
 
     @POST
-    @Path("get")
-    fun getMcpServer(mcpDTO: McpDTO): ApiResponse<McpDTO> {
+    @Path("/get")
+    fun getMcpServer(mcpDTO: McpDTO): ApiResponse<McpDTO?> {
         DTOValidator.validate(mcpDTO) {
             requireNotEmpty("id")
             throwOnInvalid()
@@ -70,4 +71,24 @@ class LLMMcpServerResource(
         return ApiResponse.success(mcpServerService.deleteMcpServer(mcpDTO.id.orEmpty()))
     }
 
+    @POST
+    @Path("/saveSetting")
+    fun saveSetting(mcpDTO: McpDTO): ApiResponse<McpDTO> {
+        DTOValidator.validate(mcpDTO) {
+            requireNotEmpty("settingId", "settingContent")
+            throwOnInvalid()
+        }
+        mcpServerService.saveUserSetting(mcpDTO)
+        return ApiResponse.success(mcpDTO)
+    }
+
+    @DELETE
+    @Path("/deleteSetting")
+    fun deleteSetting(mcpDTO: McpDTO): ApiResponse<Boolean> {
+        DTOValidator.validate(mcpDTO) {
+            requireNotEmpty("userSettingId")
+            throwOnInvalid()
+        }
+        return ApiResponse.success(mcpServerService.deleteMcpUserSetting(mcpDTO.userSettingId.orEmpty()))
+    }
 }
