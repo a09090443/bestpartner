@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.enumerate
 
+import tw.zipe.bastpartner.builder.llm.GeminiModelBuilder
 import tw.zipe.bastpartner.builder.llm.OllamaModelBuilder
 import tw.zipe.bastpartner.builder.llm.OpenaiModelBuilder
 import tw.zipe.bastpartner.provider.ModelProvider
@@ -10,7 +11,8 @@ import tw.zipe.bastpartner.provider.ModelProvider
  */
 enum class Platform(val builder: ModelProvider) {
     OPENAI(OpenaiModelBuilder()),
-    OLLAMA(OllamaModelBuilder());
+    OLLAMA(OllamaModelBuilder()),
+    GEMINI(GeminiModelBuilder());
 
     fun getLLMBean() = builder
 
