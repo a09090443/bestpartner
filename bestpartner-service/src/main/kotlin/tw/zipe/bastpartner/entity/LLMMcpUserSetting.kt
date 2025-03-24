@@ -16,11 +16,11 @@ import tw.zipe.bastpartner.model.McpCommandSetting
 
 /**
  * @author Gary
- * @created 2025/3/19
+ * @created 2025/3/22
  */
 @Entity
-@Table(name = "llm_mcp_server")
-class LLMMcpServerEntity : BaseEntity() {
+@Table(name = "llm_mcp_user_setting")
+class LLMMcpUserSetting : BaseEntity() {
     /**
      * 主鍵
      */
@@ -30,23 +30,28 @@ class LLMMcpServerEntity : BaseEntity() {
     var id: String? = null
 
     /**
-     * 名稱
+     * 別名
      */
-    @Column(name = "name", nullable = false)
-    var name: String = StringUtil.EMPTY_STRING
+    @Column(name = "alias", nullable = false)
+    var alias: String = StringUtil.EMPTY_STRING
 
     /**
-     * 指令設定
+     * 使用者 ID
+     */
+    @Column(name = "user_id", nullable = false)
+    var userId: String = StringUtil.EMPTY_STRING
+
+    /**
+     * MCP ID
+     */
+    @Column(name = "mcp_id", nullable = false)
+    var mcpId: String = StringUtil.EMPTY_STRING
+
+    /**
+     * 設定內容
      */
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "command_setting", columnDefinition = "json", nullable = false)
-    var commandSetting: McpCommandSetting = McpCommandSetting()
-
-    /**
-     * 類型
-     */
-    @Column(name = "type", nullable = false)
-    @Enumerated(EnumType.STRING)
-    lateinit var type: McpType
+    @Column(name = "setting_content", columnDefinition = "json", nullable = false)
+    var settingContent: Map<String, String> = mapOf()
 
 }
