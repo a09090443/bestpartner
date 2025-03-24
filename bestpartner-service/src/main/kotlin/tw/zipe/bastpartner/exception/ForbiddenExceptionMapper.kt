@@ -11,7 +11,7 @@ import jakarta.ws.rs.ext.Provider
 import tw.zipe.bastpartner.dto.ApiResponse
 
 /**
- * @author zipe1
+ * @author Gary
  * @created 2025/3/22
  */
 @Provider

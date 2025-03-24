@@ -18,6 +18,8 @@ class LLModel : BaseLLM() {
     var dimensions: Int? = null
     var maxTokens: Int? = null
     var timeout: Long = 3000
+    var maxRetries: Int? = null
     var logRequests: Boolean = false
     var logResponses: Boolean = false
+    var logRequestsAndResponses: Boolean = false
 }

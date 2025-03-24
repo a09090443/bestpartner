@@ -24,6 +24,8 @@ class OllamaModelBuilder : ModelProvider {
             .temperature(llModel.temperature)
             .topP(llModel.topP)
             .topK(llModel.topK)
+            .logRequests(llModel.logRequests)
+            .logResponses(llModel.logResponses)
             .build()
 
     override fun chatModelStreaming(llModel: LLModel): StreamingChatLanguageModel =
@@ -35,6 +37,8 @@ class OllamaModelBuilder : ModelProvider {
             .temperature(llModel.temperature)
             .topP(llModel.topP)
             .topK(llModel.topK)
+            .logRequests(llModel.logRequests)
+            .logResponses(llModel.logResponses)
             .build()
 
     override fun embeddingModel(llModel: LLModel): EmbeddingModel =
@@ -42,5 +46,7 @@ class OllamaModelBuilder : ModelProvider {
             .baseUrl(llModel.url)
             .modelName(llModel.modelName)
             .timeout(llModel.timeout.let { Duration.ofSeconds(it) })
+            .logRequests(llModel.logRequests)
+            .logResponses(llModel.logResponses)
             .build()
 }
