@@ -1,8 +1,8 @@
 package tw.zipe.bastpartner.service
 
 import dev.langchain4j.mcp.client.DefaultMcpClient
-import dev.langchain4j.mcp.client.transport.McpTransport
 import dev.langchain4j.mcp.client.transport.http.HttpMcpTransport
+import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.eclipse.microprofile.config.inject.ConfigProperty
@@ -34,7 +34,7 @@ class McpServerService(
     fun getMcpServer(mcpId: String): McpDTO {
         return llmMcpServerRepository.findById(mcpId)?.let {
             with(McpDTO()) {
-                id = it.id
+                this.mcpId = it.id
                 name = it.name
                 args = it.commandSetting.args
                 argsDesc = it.commandSetting.argsDesc
@@ -70,19 +70,19 @@ class McpServerService(
             commandSetting = mcpCommandSetting
             type = mcpDTO.type ?: McpType.STDIO
             llmMcpServerRepository.saveOrUpdate(this)
-        }.let { mcpDTO.id = it.id }
+        }.let { mcpDTO.mcpId = it.id }
     }
 
     fun deleteMcpServer(mcpId: String) = llmMcpServerRepository.deleteById(mcpId)
 
     fun saveUserSetting(mcpDTO: McpDTO) {
-        val mcp = getMcpServer(mcpDTO.settingId.orEmpty())
+        val mcp = getMcpServer(mcpDTO.mcpId.orEmpty())
         validateMcpSettings(mcpDTO, mcp)
 
         with(LLMMcpUserSetting()) {
             this.alias = mcpDTO.alias.orEmpty()
             this.userId = securityValidator.validateLoggedInUser()
-            this.mcpId = mcp.id.orEmpty()
+            this.mcpId = mcp.mcpId.orEmpty()
             this.settingContent = mcpDTO.settingContent.orEmpty()
             llmMcpUserSettingRepository.saveOrUpdate(this)
         }.apply { mcpDTO.userSettingId = this.id }
@@ -93,58 +93,53 @@ class McpServerService(
 
     fun buildMcpServer(mcpIds: List<String>): List<DefaultMcpClient> {
         logger.info("Starting up mcp servers")
-        mcpIds.map { id ->
-            getMcpServer(id).let { mcp ->
-                {
-                    val transport: McpTransport
-                    when (mcp.type) {
-                        McpType.STDIO -> {
-                            if (!mcp.args.isNullOrEmpty() || !mcp.env.isNullOrEmpty()) {
-                                llmMcpUserSettingRepository.findSettingByUserIdAndMcpId(
-                                    securityValidator.validateLoggedInUser(),
-                                    mcp.id.orEmpty()
-                                )?.let {
+        return mcpIds.mapNotNull { id ->
+            try {
+                llmMcpUserSettingRepository.findByCondition(id, securityValidator.validateLoggedInUser())
+                    ?.firstNotNullOfOrNull { data ->
+                        val transport = when (data.type) {
+                            McpType.STDIO -> {
+                                validateArguments(data.settingContent, data.commandSetting?.argsDesc)
+                                validateEnvironmentVariables(data.settingContent, data.commandSetting?.env)
 
-                                } ?: throw ServiceException("找不到使用者設定")
+                                val commandList = replacePlaceholders(
+                                    data.commandSetting?.args.orEmpty(),
+                                    data.settingContent.orEmpty()
+                                ).toMutableList()
+                                commandList.add(0, data.commandSetting?.command.orEmpty())
+
+                                val envVars = extractMatchingSettings(
+                                    data.settingContent.orEmpty(),
+                                    data.commandSetting?.env.orEmpty()
+                                )
+
+                                StdioMcpTransport.Builder()
+                                    .command(commandList)
+                                    .environment(envVars)
+                                    .logEvents(mcpLogEnable.toBoolean())
+                                    .build()
                             }
+
+                            McpType.SSE -> HttpMcpTransport.Builder()
+                                .sseUrl(data.commandSetting?.server.orEmpty())
+                                .build()
+
+                            else -> null
                         }
 
-                        McpType.SSE -> {
-                            transport =
-                                HttpMcpTransport.Builder().sseUrl(mcp.server).logRequests(mcpLogEnable.toBoolean())
-                                    .logResponses(mcpLogEnable.toBoolean()).build()
-                        }
-
-                        null -> TODO()
+                        transport?.let { DefaultMcpClient.Builder().transport(it).build() }
                     }
-//                DefaultMcpClient.Builder().transport(transport).build()
-                }
+            } catch (e: Exception) {
+                logger.error("Failed to create MCP client for ID: $id", e)
+                null
             }
         }
-//        return getMcpServers().list().map { mcp ->
-//            val transport: McpTransport
-//            when (mcp.type) {
-//                McpType.STDIO -> {
-//                    val command = mutableListOf<String>()
-//                    command.addFirst(mcp.commandSetting.command.orEmpty())
-//                    command.addAll(mcp.commandSetting.args.orEmpty())
-//                    transport = StdioMcpTransport.Builder().command(command).environment(mcp.commandSetting.env).logEvents(mcpLogEnable.toBoolean()).build()
-//                }
-//                McpType.SSE -> {
-//                    transport = HttpMcpTransport.Builder().sseUrl(mcp.commandSetting.server).logRequests(mcpLogEnable.toBoolean())
-//                        .logResponses(mcpLogEnable.toBoolean()).build()
-//                }
-//            }
-//            DefaultMcpClient.Builder().transport(transport).build()
-//        }.toList()
-        return TODO()
     }
 
     private fun validateMcpSettings(userSetting: McpDTO, mcpServer: McpDTO) {
         if (mcpServer.type != McpType.STDIO) {
             return
         }
-
         validateArguments(userSetting.settingContent, mcpServer.argsDesc)
         validateEnvironmentVariables(userSetting.settingContent, mcpServer.env)
     }
@@ -165,9 +160,7 @@ class McpServerService(
     ) {
         if (requiredSettings.isNullOrEmpty()) {
             return
-        }
-
-        if (userSettings.isNullOrEmpty()) {
+        } else if (userSettings.isNullOrEmpty()) {
             throw ServiceException(errorMessage)
         }
 
@@ -194,12 +187,24 @@ class McpServerService(
         }
     }
 
-    private fun replacePlaceholders(text: String, settings: Map<String, String>): String {
-        return if (text.contains("\${")) {
-            val placeholder = text.substringAfter("\${").substringBefore("}")
-            settings[placeholder] ?: text
-        } else {
-            text
+    private fun replacePlaceholders(text: List<String>, settings: Map<String, String>): List<String> {
+        return text.map { item ->
+            if (item.contains("\${")) {
+                val placeholder = item.substringAfter("\${").substringBefore("}")
+                settings[placeholder] ?: item
+            } else {
+                item
+            }
         }
+    }
+
+    private fun extractMatchingSettings(
+        userSettings: Map<String, String>,
+        requiredSettings: Map<String, String>
+    ): Map<String, String> {
+        return requiredSettings.keys
+            .filter { userSettings.containsKey(it) }
+            .mapNotNull { key -> userSettings[key]?.let { value -> key to value } }
+            .toMap()
     }
 }

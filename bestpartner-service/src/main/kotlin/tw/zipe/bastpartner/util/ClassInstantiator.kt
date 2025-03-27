@@ -36,7 +36,7 @@ fun instantiate(className: String, constructorArgs: Map<String, Any?> = emptyMap
 fun instantiate(clazz: KClass<*>, constructorArgs: Map<String, Any?> = emptyMap()): Any? {
     return try {
         val constructor = findConstructor(clazz, constructorArgs) ?: return null
-        val args = prepareConstructorArgs(constructor, constructorArgs) ?: return null
+        val args = prepareConstructorArgs(constructor, constructorArgs)
         constructor.callBy(args)
     } catch (e: Exception) {
         logger().error("實例化過程中發生錯誤: ${e.message}", e)

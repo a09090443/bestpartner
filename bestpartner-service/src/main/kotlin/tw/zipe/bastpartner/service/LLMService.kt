@@ -2,10 +2,13 @@ package tw.zipe.bastpartner.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import dev.langchain4j.agent.tool.ToolSpecification
+import dev.langchain4j.data.message.SystemMessage
+import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.DefaultRetrievalAugmentor
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
@@ -16,8 +19,12 @@ import dev.langchain4j.store.embedding.filter.Filter
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
-import me.kpavlov.langchain4j.kotlin.service.systemMessageProvider
+import org.eclipse.microprofile.config.inject.ConfigProperty
+import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.assistant.DynamicAssistant
 import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.config.security.SecurityValidator
@@ -27,6 +34,7 @@ import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.dto.PlatformDTO
 import tw.zipe.bastpartner.entity.LLMPlatformEntity
 import tw.zipe.bastpartner.entity.LLMSettingEntity
+import tw.zipe.bastpartner.enumerate.FileType
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
 import tw.zipe.bastpartner.exception.ServiceException
@@ -35,6 +43,7 @@ import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.LLMBuilder
+import tw.zipe.bastpartner.util.logger
 
 /**
  * @author Gary
@@ -48,7 +57,10 @@ class LLMService(
     private val toolService: ToolService,
     private val embeddingService: EmbeddingService,
     private val objectMapper: ObjectMapper,
+    @ConfigProperty(name = "file.upload.dir") private val fileUploadDir: String
 ) {
+
+    private val logger = logger()
 
     /**
      * 儲存 LLM 設定
@@ -172,13 +184,15 @@ class LLMService(
             })
 
         buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
-            when (llm){
+            when (llm) {
                 is ChatLanguageModel -> {
                     aiService.chatLanguageModel(llm)
                 }
+
                 is StreamingChatLanguageModel -> {
                     aiService.streamingChatLanguageModel(llm)
                 }
+
                 else -> throw ServiceException("LLM 類型錯誤")
             }
         }
@@ -220,7 +234,6 @@ class LLMService(
             }
 
         }
-
         val chatMemoryProvider = chatRequestDTO.memory.let {
             ChatMemoryProvider { _: Any? ->
                 MessageWindowChatMemory.builder()
@@ -232,5 +245,65 @@ class LLMService(
         }
         aiService.chatMemoryProvider(chatMemoryProvider)
         return aiService
+    }
+
+    /**
+     * 上傳檔案
+     */
+    fun uploadFiles(files: List<FileUpload>) {
+        logger.info("Uploading ${files.size} files to $fileUploadDir")
+
+        // 確保目標目錄存在
+        val uploadDir = File(fileUploadDir + File.separator + securityValidator.validateLoggedInUser())
+        if (!uploadDir.exists()) {
+            uploadDir.mkdirs()
+        }
+
+        files.forEach { file ->
+            try {
+                val targetFile = File(uploadDir, file.fileName())
+
+                // Copy file first
+                Files.copy(
+                    file.uploadedFile(),
+                    targetFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+
+                // Detect file type by content
+                val mimeType = Files.probeContentType(targetFile.toPath())
+
+                // Define enum for file categories
+                val fileType = when {
+                    mimeType.startsWith("image/") -> FileType.IMAGE
+                    mimeType.startsWith("video/") -> FileType.VIDEO
+                    mimeType.startsWith("audio/") -> FileType.AUDIO
+                    mimeType.startsWith("application/pdf") -> FileType.PDF
+                    mimeType.startsWith("text/") -> FileType.DOCUMENT
+
+                    else -> {
+                        if (targetFile.exists() && !targetFile.delete()) {
+                            logger.warn("Failed to delete unsupported file: ${targetFile.absolutePath}")
+                        }
+                        throw ServiceException("不支援的檔案類型: $mimeType")
+                    }
+                }
+
+                logger.info("File type detected: $mimeType (${fileType.description}) for ${file.fileName()}")
+                logger.info("Successfully uploaded file: ${file.fileName()} (${targetFile.absolutePath})")
+            } catch (e: Exception) {
+                logger.error("Failed to upload file: ${file.fileName()}", e)
+                throw ServiceException("檔案上傳失敗: ${file.fileName()} - ${e.message}")
+            }
+        }
+    }
+
+    fun buildChatRequest(chatRequestDTO: ChatRequestDTO):ChatRequest {
+        val chatRequest = ChatRequest.builder().messages(
+            SystemMessage.systemMessage(chatRequestDTO.promptContent),
+            UserMessage.userMessage(chatRequestDTO.message)
+        ).build()
+
+        return chatRequest
     }
 }
