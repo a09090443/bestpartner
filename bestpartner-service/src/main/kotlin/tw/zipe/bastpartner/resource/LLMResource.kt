@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Blocking
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.enumerate.ModelType
+import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.service.McpServerService
 import tw.zipe.bastpartner.util.DTOValidator
@@ -79,9 +80,10 @@ class LLMResource(
         val aiService = llmService.buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
 
         val mcpServers = mutableListOf<McpClient>()
-        chatRequestDTO.mcpIds?.let {
-            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpIds))
-            McpToolProvider.builder().mcpClients(mcpServers).build()
+        chatRequestDTO.mcpSettingIds?.let {
+            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpSettingIds))
+            val toolProvider = McpToolProvider.builder().mcpClients(mcpServers).build()
+            aiService.toolProvider(toolProvider)
         }
         return try {
             Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
@@ -101,17 +103,29 @@ class LLMResource(
         val aiService = llmService.buildAIService(chatRequestDTO, ModelType.CHAT)
 
         val mcpServers = mutableListOf<McpClient>()
-        chatRequestDTO.mcpIds?.let {
-            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpIds))
-            McpToolProvider.builder().mcpClients(mcpServers).build()
+        chatRequestDTO.mcpSettingIds?.let {
+            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpSettingIds))
+            val toolProvider = McpToolProvider.builder().mcpClients(mcpServers).build()
+            aiService.toolProvider(toolProvider)
         }
+
         return try {
-            ApiResponse.success(
-                aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text()
-            )
+            ApiResponse.success(aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text())
         } finally {
             mcpServers.forEach { mcpServer -> mcpServer.close() }
         }
     }
 
+    @POST
+    @Path("/uploadFile")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    fun uploadFile(filesForm: FilesFromRequest): ApiResponse<List<String>> {
+        DTOValidator.validate(filesForm) {
+            requireNotEmpty("files")
+            throwOnInvalid()
+        }
+        val fileNames = filesForm.files.orEmpty().map { it.fileName() }
+        llmService.uploadFiles(filesForm.files.orEmpty())
+        return ApiResponse.success(fileNames)
+    }
 }

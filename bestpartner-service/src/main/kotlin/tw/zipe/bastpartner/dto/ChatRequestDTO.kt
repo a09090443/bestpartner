@@ -17,5 +17,7 @@ class ChatRequestDTO(
     val embeddingDocIds: List<String>? = null,
     val embeddingModelId: String? = null,
     val knowledgeId: String? = null,
-    val mcpIds: List<String>? = null
+    val mcpIds: List<String>? = null,
+    val mcpSettingIds: List<String>? = null,
+    val files: List<String>? = null,
 ) : BaseDTO()

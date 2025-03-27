@@ -3,6 +3,7 @@ package tw.zipe.bastpartner.dto
 import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
 import tw.zipe.bastpartner.enumerate.McpType
+import tw.zipe.bastpartner.model.McpCommandSetting
 
 /**
  * @author Gary
@@ -10,7 +11,6 @@ import tw.zipe.bastpartner.enumerate.McpType
  */
 @Serializable
 class McpDTO {
-    var id: String? = StringUtil.EMPTY_STRING
     var name: String? = StringUtil.EMPTY_STRING
     var server: String? = StringUtil.EMPTY_STRING
     var command: String? = StringUtil.EMPTY_STRING
@@ -22,4 +22,8 @@ class McpDTO {
     var userSettingId: String? = null
     var settingId: String? = null
     val settingContent: Map<String, String>? = null
+    val commandSetting: McpCommandSetting? = null
+    val description: String? = null
+    val userId: String? = null
+    var mcpId: String? = null
 }

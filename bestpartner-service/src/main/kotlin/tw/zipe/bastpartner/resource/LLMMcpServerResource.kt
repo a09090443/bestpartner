@@ -37,10 +37,10 @@ class LLMMcpServerResource(
     @Path("/get")
     fun getMcpServer(mcpDTO: McpDTO): ApiResponse<McpDTO?> {
         DTOValidator.validate(mcpDTO) {
-            requireNotEmpty("id")
+            requireNotEmpty("mcpId")
             throwOnInvalid()
         }
-        return ApiResponse.success(mcpServerService.getMcpServer(mcpDTO.id.orEmpty()))
+        return ApiResponse.success(mcpServerService.getMcpServer(mcpDTO.mcpId.orEmpty()))
     }
 
     @POST
@@ -65,17 +65,17 @@ class LLMMcpServerResource(
     @RolesAllowed("admin")
     fun delete(mcpDTO: McpDTO): ApiResponse<Boolean> {
         DTOValidator.validate(mcpDTO) {
-            requireNotEmpty("id")
+            requireNotEmpty("mcpId")
             throwOnInvalid()
         }
-        return ApiResponse.success(mcpServerService.deleteMcpServer(mcpDTO.id.orEmpty()))
+        return ApiResponse.success(mcpServerService.deleteMcpServer(mcpDTO.mcpId.orEmpty()))
     }
 
     @POST
     @Path("/saveSetting")
     fun saveSetting(mcpDTO: McpDTO): ApiResponse<McpDTO> {
         DTOValidator.validate(mcpDTO) {
-            requireNotEmpty("settingId", "settingContent")
+            requireNotEmpty("mcpId", "settingContent")
             throwOnInvalid()
         }
         mcpServerService.saveUserSetting(mcpDTO)
