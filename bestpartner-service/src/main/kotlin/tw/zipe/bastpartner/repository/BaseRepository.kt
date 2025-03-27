@@ -1,5 +1,6 @@
 package tw.zipe.bastpartner.repository
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.netty.util.internal.StringUtil
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import io.quarkus.security.identity.SecurityIdentity
@@ -13,6 +14,7 @@ import java.lang.reflect.ParameterizedType
 import java.time.LocalDateTime
 import tw.zipe.bastpartner.entity.BaseEntity
 import tw.zipe.bastpartner.exception.ServiceException
+import tw.zipe.bastpartner.util.logger
 
 /**
  * 基/礎資料庫操作的抽象類別，提供通用的 CRUD 操作和進階查詢功能
@@ -28,11 +30,16 @@ import tw.zipe.bastpartner.exception.ServiceException
  */
 abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> {
 
+    private val logger = logger()
+
     @Inject
     protected var em: EntityManager? = null
 
     @Inject
     protected var identity: SecurityIdentity? = null
+
+    @Inject
+    protected val objectMapper: ObjectMapper = ObjectMapper()
 
     private val entityClass: Class<T> = initEntityClass()
 
@@ -162,6 +169,7 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
                         "VALUES ("
                     ) + ", '$now', '$now', '$username', '$username'"
                 }
+
                 isUpdate -> {
                     if (!sql.lowercase().contains("updated_at")) {
                         sql = sql.replace(
@@ -171,6 +179,7 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
                     }
                     sql
                 }
+
                 else -> sql
             }
         }
@@ -206,8 +215,11 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
                     mapTupleToClass(tuple, resultClass)
                 } ?: emptyList()
             } catch (e: ClassCastException) {
-                println("Error casting query result: ${e.message}")
+                logger.error("查詢結果轉換錯誤 - ${resultClass.simpleName}: ${e.message}")
                 emptyList()
+            } catch (e: Exception) {
+                logger.error("執行SQL查詢失敗: ${e.message}")
+                throw ServiceException("數據查詢失敗: ${e.javaClass.simpleName}")
             }
         }
 
@@ -296,35 +308,149 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             field.isAccessible = true
             try {
                 val fieldType = field.type
-
                 when {
-                    fieldType == String::class.java -> field[instance] = value.toString()
-                    fieldType == Int::class.java || fieldType == Integer::class.java -> field[instance] = value.toString().toIntOrNull() ?: 0
-                    fieldType == Long::class.java -> field[instance] = value.toString().toLongOrNull() ?: 0L
-                    fieldType == Double::class.java -> field[instance] = value.toString().toDoubleOrNull() ?: 0.0
-                    fieldType == Float::class.java -> field[instance] = value.toString().toFloatOrNull() ?: 0.0f
-                    fieldType == Boolean::class.java -> field[instance] = value.toString().toBoolean()
-                    fieldType == LocalDateTime::class.java -> when (value) {
-                        is LocalDateTime -> field[instance] = value
-                        is java.sql.Timestamp -> field[instance] = value.toLocalDateTime()
-                        else -> println("Unsupported datetime type: ${value::class.java}")
-                    }
-                    fieldType.isEnum -> { // 處理枚舉類型
-                        @Suppress("UNCHECKED_CAST")
-                        val enumClass = fieldType as Class<Enum<*>>
-                        field[instance] = when (value) {
-                            is String -> enumClass.enumConstants?.firstOrNull { it.name == value }
-                                ?: throw IllegalArgumentException("No enum constant ${enumClass.name}.$value")
-                            is Number -> enumClass.enumConstants?.get(value.toInt())
-                                ?: throw IllegalArgumentException("No enum constant at index $value for ${enumClass.name}")
-                            else -> throw IllegalArgumentException("Unsupported value type for enum: ${value::class.java}")
-                        }
-                    }
-                    else -> field[instance] = value // 默認直接設置值
+                    isPrimitiveOrWrapper(fieldType) -> setPrimitiveValue(field, instance, value, fieldType)
+                    fieldType == LocalDateTime::class.java -> setDateTimeValue(field, instance, value)
+                    Map::class.java.isAssignableFrom(fieldType) -> setMapValue(field, instance, value)
+                    List::class.java.isAssignableFrom(fieldType) -> setListValue(field, instance, value)
+                    fieldType.isEnum -> setEnumValue(field, instance, value, fieldType)
+                    isCustomPojo(fieldType) -> setPojoValue(field, instance, value, fieldType)
+                    else -> field[instance] = value // 預設直接設置值
                 }
             } catch (e: Exception) {
-                println("Error setting field ${field.name}: ${e.message}")
+                logger.error("設置欄位 ${field.name} 時發生錯誤: ${e.message}")
             }
+        }
+
+        /**
+         * 判斷欄位是否為基本型別或包裝類型
+         */
+        private fun isPrimitiveOrWrapper(type: Class<*>): Boolean {
+            return type == String::class.java ||
+                   type == Int::class.java ||
+                   type == Integer::class.java ||
+                   type == Long::class.java ||
+                   type == Double::class.java ||
+                   type == Float::class.java ||
+                   type == Boolean::class.java
+        }
+
+        /**
+         * 設置基本型別或包裝類型的值
+         */
+        private fun setPrimitiveValue(field: Field, instance: Any, value: Any, fieldType: Class<*>) {
+            when (fieldType) {
+                String::class.java -> field[instance] = value.toString()
+                Int::class.java, Integer::class.java -> field[instance] = value.toString().toIntOrNull() ?: 0
+                Long::class.java -> field[instance] = value.toString().toLongOrNull() ?: 0L
+                Double::class.java -> field[instance] = value.toString().toDoubleOrNull() ?: 0.0
+                Float::class.java -> field[instance] = value.toString().toFloatOrNull() ?: 0.0f
+                Boolean::class.java -> field[instance] = value.toString().toBoolean()
+            }
+        }
+
+        /**
+         * 設置日期時間型別的值
+         */
+        private fun setDateTimeValue(field: Field, instance: Any, value: Any) {
+            when (value) {
+                is LocalDateTime -> field[instance] = value
+                is java.sql.Timestamp -> field[instance] = value.toLocalDateTime()
+                else -> logger.error("不支援的日期時間型別: ${value::class.java}")
+            }
+        }
+
+        /**
+         * 設置Map型別的值
+         */
+        private fun setMapValue(field: Field, instance: Any, value: Any) {
+            if (value is String && isJsonObject(value)) {
+                try {
+                    val mapType = objectMapper.typeFactory.constructMapType(
+                        Map::class.java,
+                        String::class.java,
+                        String::class.java
+                    )
+                    field[instance] = objectMapper.readValue(value, mapType)
+                } catch (e: Exception) {
+                    logger.error("JSON解析為Map失敗: ${e.message}")
+                }
+            } else if (value is Map<*, *>) {
+                field[instance] = value
+            }
+        }
+
+        /**
+         * 設置List型別的值
+         */
+        private fun setListValue(field: Field, instance: Any, value: Any) {
+            if (value is String && isJsonArray(value)) {
+                try {
+                    val listType = objectMapper.typeFactory.constructCollectionType(
+                        List::class.java,
+                        String::class.java
+                    )
+                    field[instance] = objectMapper.readValue(value, listType)
+                } catch (e: Exception) {
+                    logger.error("JSON解析為List失敗: ${e.message}")
+                }
+            } else if (value is List<*>) {
+                field[instance] = value
+            }
+        }
+
+        /**
+         * 設置枚舉型別的值
+         */
+        private fun setEnumValue(field: Field, instance: Any, value: Any, fieldType: Class<*>) {
+            @Suppress("UNCHECKED_CAST")
+            val enumClass = fieldType as Class<Enum<*>>
+            field[instance] = when (value) {
+                is String -> enumClass.enumConstants?.firstOrNull { it.name == value }
+                    ?: throw IllegalArgumentException("找不到枚舉常數 ${enumClass.name}.$value")
+                is Number -> enumClass.enumConstants?.get(value.toInt())
+                    ?: throw IllegalArgumentException("找不到索引 $value 的枚舉常數: ${enumClass.name}")
+                else -> throw IllegalArgumentException("不支援的枚舉值型別: ${value::class.java}")
+            }
+        }
+
+        /**
+         * 判斷是否為自訂POJO物件型別
+         */
+        private fun isCustomPojo(type: Class<*>): Boolean {
+            return !type.isPrimitive && !type.isArray && !Collection::class.java.isAssignableFrom(type)
+        }
+
+        /**
+         * 設置自訂POJO物件型別的值
+         */
+        private fun setPojoValue(field: Field, instance: Any, value: Any, fieldType: Class<*>) {
+            if (value is String && isJsonObject(value)) {
+                try {
+                    val javaType = objectMapper.typeFactory.constructType(fieldType)
+                    field[instance] = objectMapper.readValue(value, javaType)
+                } catch (e: Exception) {
+                    logger.error("JSON解析為${fieldType.simpleName}失敗: ${e.message}")
+                }
+            } else if (fieldType.isInstance(value)) {
+                field[instance] = value
+            }
+        }
+
+        /**
+         * 判斷是否為JSON对象字串
+         */
+        private fun isJsonObject(value: String): Boolean {
+            val trimmed = value.trim()
+            return trimmed.startsWith("{") && trimmed.endsWith("}")
+        }
+
+        /**
+         * 判斷是否為JSON數組字串
+         */
+        private fun isJsonArray(value: String): Boolean {
+            val trimmed = value.trim()
+            return trimmed.startsWith("[") && trimmed.endsWith("]")
         }
 
         /**
@@ -341,7 +467,7 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             return try {
                 (query.resultList as? List<Array<Any>>)?.map(mapper) ?: emptyList()
             } catch (e: ClassCastException) {
-                println("Error casting result list: ${e.message}")
+                logger.error("Error casting result list: ${e.message}")
                 emptyList()
             }
         }
