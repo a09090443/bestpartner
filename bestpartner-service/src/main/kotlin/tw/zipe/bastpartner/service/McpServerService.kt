@@ -261,6 +261,7 @@ class McpServerService(
             args = entity.commandSetting.args
             argsDesc = entity.commandSetting.argsDesc
             env = entity.commandSetting.env
+            envDesc = entity.commandSetting.envDesc
             type = entity.type
             this
         }
@@ -274,6 +275,7 @@ class McpServerService(
                     args = mcpDTO.args
                     argsDesc = mcpDTO.argsDesc
                     env = mcpDTO.env
+                    envDesc = mcpDTO.envDesc
                 }
             }
 
