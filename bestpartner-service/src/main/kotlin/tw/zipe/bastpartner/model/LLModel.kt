@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 class LLModel : BaseLLM() {
+    var baseUrl: String? = null
     var apiKey: String? = null
     var url: String? = null
     var modelName: String = StringUtil.EMPTY_STRING

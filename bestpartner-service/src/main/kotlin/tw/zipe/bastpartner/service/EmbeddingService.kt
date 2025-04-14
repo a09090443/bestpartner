@@ -319,13 +319,13 @@ class EmbeddingService(
      * 取得知識庫資料
      */
     fun getKnowledge(knowledgeId: String): KnowledgeDTO? {
-        return llmKnowledgeRepository.findById(knowledgeId)?.let { knowledgeId ->
+        return llmKnowledgeRepository.findById(knowledgeId)?.let { knowledge ->
             with(KnowledgeDTO()) {
-                id = knowledgeId.id
-                vectorStoreId = knowledgeId.vectorStoreId
-                llmEmbeddingId = knowledgeId.llmEmbeddingId
-                name = knowledgeId.name
-                description = knowledgeId.description
+                id = knowledge.id
+                vectorStoreId = knowledge.vectorStoreId
+                llmEmbeddingId = knowledge.llmEmbeddingId
+                name = knowledge.name
+                description = knowledge.description
                 this
             }
 
