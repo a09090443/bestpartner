@@ -9,11 +9,16 @@ import tw.zipe.bastpartner.entity.LLMMcpUserSetting
  * @created 2025/3/22
  */
 @ApplicationScoped
-class LLMMcpUserSettingRepository: BaseRepository<LLMMcpUserSetting, String>() {
+class LLMMcpUserSettingRepository : BaseRepository<LLMMcpUserSetting, String>() {
 
     fun findSettingByUserIdAndMcpId(userId: String, mcpId: String): LLMMcpUserSetting? {
         val params = mapOf("userId" to userId, "mcpId" to mcpId)
         return find("userId = :userId AND mcpId = :mcpId", params).firstResult()
+    }
+
+    fun findSettingByUserIdAndSettingId(settingId: String, userId: String = getCurrentUsername()): LLMMcpUserSetting? {
+        val params = mapOf("id" to settingId, "userId" to userId)
+        return find("id = :id AND userId = :userId", params).firstResult()
     }
 
     fun findByCondition(settingId: String?, userId: String?): List<McpDTO>? {
@@ -41,5 +46,18 @@ class LLMMcpUserSettingRepository: BaseRepository<LLMMcpUserSetting, String>() {
             parameters["userId"] = it
         }
         return this.executeSelect(sql, parameters, McpDTO::class.java)
+    }
+
+    fun updateSettingsByNative(id: String, settingContent: Map<String, Any>): Int {
+        val paramMap = initParamsMap("id" to id, "settingContent" to settingContent)
+        val sql = """
+            UPDATE llm_mcp_user_setting lmus
+            SET lmus.setting_content = :settingContent, lmus.updated_at = :updatedAt, lmus.updated_by = :updatedBy
+            WHERE lmus.id = :id
+        """.trimIndent()
+        val executor = createSqlExecutor()
+            .withSql(sql)
+            .withParamMap(paramMap)
+        return executeUpdateWithTransaction(executor)
     }
 }

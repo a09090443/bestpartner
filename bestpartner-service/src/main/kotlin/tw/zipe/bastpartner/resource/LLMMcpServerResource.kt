@@ -44,6 +44,25 @@ class LLMMcpServerResource(
     }
 
     @POST
+    @Path("/update")
+    @RolesAllowed("admin")
+    fun updateMcpServer(mcpDTO: McpDTO): ApiResponse<McpDTO> {
+        DTOValidator.validate(mcpDTO) {
+            DTOValidator.validate(mcpDTO) {
+                requireNotEmpty("mcpId", "name", "type")
+                if (mcpDTO.type == McpType.STDIO) {
+                    requireNotEmpty("command", "args")
+                } else if (mcpDTO.type == McpType.SSE) {
+                    requireNotEmpty("server")
+                }
+                throwOnInvalid()
+            }
+        }
+        mcpServerService.updateMcpServer(mcpDTO)
+        return ApiResponse.success(mcpDTO)
+    }
+
+    @POST
     @Path("/register")
     @RolesAllowed("admin")
     fun register(mcpDTO: McpDTO): ApiResponse<McpDTO> {
@@ -79,6 +98,28 @@ class LLMMcpServerResource(
             throwOnInvalid()
         }
         mcpServerService.saveUserSetting(mcpDTO)
+        return ApiResponse.success(mcpDTO)
+    }
+
+    @POST
+    @Path("/getSetting")
+    fun getSetting(mcpDTO: McpDTO): ApiResponse<McpDTO> {
+        DTOValidator.validate(mcpDTO) {
+            requireNotEmpty("userSettingId")
+            throwOnInvalid()
+        }
+        val data = mcpServerService.getUserSetting(mcpDTO)
+        return ApiResponse.success(data)
+    }
+
+    @POST
+    @Path("/updateSetting")
+    fun updateSetting(mcpDTO: McpDTO): ApiResponse<McpDTO> {
+        DTOValidator.validate(mcpDTO) {
+            requireNotEmpty("userSettingId", "settingContent")
+            throwOnInvalid()
+        }
+        mcpServerService.updateSetting(mcpDTO)
         return ApiResponse.success(mcpDTO)
     }
 

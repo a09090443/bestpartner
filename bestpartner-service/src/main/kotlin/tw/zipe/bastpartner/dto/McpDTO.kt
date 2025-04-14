@@ -21,8 +21,8 @@ class McpDTO {
     var alias: String? = null
     var userSettingId: String? = null
     var settingId: String? = null
-    val settingContent: Map<String, String>? = null
-    val commandSetting: McpCommandSetting? = null
+    var settingContent: Map<String, String>? = null
+    var commandSetting: McpCommandSetting? = null
     val description: String? = null
     val userId: String? = null
     var mcpId: String? = null
