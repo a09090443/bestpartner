@@ -15,7 +15,7 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "1.0.0-beta2"
+val langchain4jVersion = "1.0.0-beta3"
 val bouncycastleVersion = "1.79"
 val okhttp3Version = "4.12.0"
 val kotlinSerializationVersion = "1.7.3"
@@ -47,6 +47,7 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-ollama:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-open-ai:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-google-ai-gemini:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j-anthropic:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-chroma:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-milvus:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:$langchain4jVersion")
@@ -55,7 +56,6 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-web-search-engine-tavily:$langchain4jVersion")
     implementation("dev.langchain4j:langchain4j-mcp:$langchain4jVersion")
-
 
     implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.8")
     implementation("com.github.jsqlparser:jsqlparser:5.1")
