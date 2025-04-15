@@ -12,7 +12,6 @@ import tw.zipe.bastpartner.entity.LLMMcpServerEntity
 class LLMMcpServerRepository : BaseRepository<LLMMcpServerEntity, String>() {
 
     fun update(mcpDto: McpDTO): Int {
-
         val paramMap = initParamsMap(
             "id" to mcpDto.mcpId.orEmpty(),
             "name" to mcpDto.name.orEmpty(),
