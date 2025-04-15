@@ -1,15 +1,9 @@
 package tw.zipe.bastpartner.resource
 
 import dev.langchain4j.mcp.McpToolProvider
-import dev.langchain4j.mcp.client.DefaultMcpClient
 import dev.langchain4j.mcp.client.McpClient
-import dev.langchain4j.mcp.client.transport.McpTransport
-import dev.langchain4j.mcp.client.transport.http.HttpMcpTransport
-import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport
 import dev.langchain4j.model.chat.ChatLanguageModel
 import dev.langchain4j.model.chat.StreamingChatLanguageModel
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
-import dev.langchain4j.service.tool.ToolProvider
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
@@ -20,7 +14,6 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
-import java.time.Duration
 import org.jboss.resteasy.reactive.RestStreamElementType
 import org.jetbrains.annotations.Blocking
 import tw.zipe.bastpartner.dto.ApiResponse
@@ -91,77 +84,48 @@ class LLMResource(
         val aiService = llmService.buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
 
         val mcpServers = mutableListOf<McpClient>()
-//        chatRequestDTO.mcpSettingIds?.let {
-//            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpSettingIds))
-//            val toolProvider = McpToolProvider.builder().mcpClients(mcpServers).build()
-//        aiService.toolProvider(toolProvider)
-//        }
-//        val dataTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/date-1.0-SNAPSHOT-runner.jar"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val excelTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/excel-1.0-SNAPSHOT-runner.jar"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val googleTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/google-drive-1.0-SNAPSHOT-runner.jar"))
-//            .environment(mapOf("CREDENTIALS_FILE_PATH" to "D:/MCP/credentials.json"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val gmailTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/gmail-1.0-SNAPSHOT-runner.jar"))
-//            .environment(mapOf("GMAIL_CREDENTIALS_FILE_PATH" to "D:/MCP/credentials.json"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val dataMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(dataTransport)
-//            .build()
-//        val excelMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(excelTransport)
-//            .build()
-//        val googleMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(googleTransport)
-//            .build()
-//        val gmailMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(gmailTransport)
-//            .build()
-//        val toolProvider: ToolProvider = McpToolProvider.builder()
-//            .mcpClients(listOf(dataMcpClient, excelMcpClient, googleMcpClient, gmailMcpClient))
-//            .build()
+        chatRequestDTO.mcpIds.let {
+            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpIds.orEmpty()))
+        }
+        chatRequestDTO.mcpSettingIds?.let {
+            mcpServers.addAll(mcpServerService.buildMcpServer(chatRequestDTO.mcpSettingIds, identity.principal.name))
+        }
 
-        val dateTransport: McpTransport = HttpMcpTransport.Builder()
-            .sseUrl("http://localhost:8080/sse")
-            .logRequests(true) // if you want to see the traffic in the log
-            .logResponses(true)
-            .build()
-        val dataMcpClient: McpClient = DefaultMcpClient.Builder()
-            .transport(dateTransport)
-            .build()
-        val toolProvider: ToolProvider = McpToolProvider.builder()
-            .mcpClients(listOf(dataMcpClient))
-            .build()
-        aiService.toolProvider(toolProvider)
+        mcpServers.let {
+            val toolProvider = McpToolProvider.builder().mcpClients(mcpServers).build()
+            aiService.toolProvider(toolProvider)
+        }
 
-        return try {
-            Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
+        return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
+            try {
                 aiService.build().streamingChat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty())
                     .onPartialResponse { emitter.emit(it) }
-                    .onCompleteResponse { emitter.complete() }
+                    .onCompleteResponse {
+                        emitter.complete()
+                        // 完成後關閉 MCP 服務器客戶端
+                        mcpServers.forEach { mcpServer -> mcpServer.close() }
+                    }
                     .onError { error ->
-                        // 记录错误
-                        logger.error("LLM请求失败", error)
+                        // 記錄錯誤
+                        logger.error("LLM請求失敗", error)
 
-                        // 检查是否是空消息错误
+                        // 檢查是否是空訊息錯誤
                         if (error.message?.contains("at least one message is required") == true) {
-                            emitter.fail(IllegalArgumentException("请确保至少有一条用户消息", error))
+                            emitter.fail(IllegalArgumentException("請確保至少有一條用戶訊息", error))
                         } else {
                             emitter.fail(error)
                         }
+
+                        // 錯誤時也關閉 MCP 服務器客戶端
+                        mcpServers.forEach { mcpServer -> mcpServer.close() }
                     }.start()
+            } catch (e: Exception) {
+                // 捕獲任何其他異常
+                logger.error("處理 LLM 請求時發生異常", e)
+                emitter.fail(e)
+                // 確保在異常情況下也關閉 MCP 服務器客戶端
+                mcpServers.forEach { mcpServer -> mcpServer.close() }
             }
-        } finally {
-//            mcpServers.forEach { mcpServer -> mcpServer.close() }
         }
     }
 
@@ -182,45 +146,10 @@ class LLMResource(
             val toolProvider = McpToolProvider.builder().mcpClients(mcpServers).build()
             aiService.toolProvider(toolProvider)
         }
-
-
-//        val dataTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/date-1.0-SNAPSHOT-runner.jar"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val excelTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/excel-1.0-SNAPSHOT-runner.jar"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val googleTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/google-drive-1.0-SNAPSHOT-runner.jar"))
-//            .environment(mapOf("CREDENTIALS_FILE_PATH" to "D:/MCP/credentials.json"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val gmailTransport: McpTransport = StdioMcpTransport.Builder()
-//            .command(listOf("java", "-jar", "D:/MCP/gmail-1.0-SNAPSHOT-runner.jar"))
-//            .environment(mapOf("GMAIL_CREDENTIALS_FILE_PATH" to "D:/MCP/credentials.json"))
-//            .logEvents(true) // only if you want to see the traffic in the log
-//            .build()
-//        val dataMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(dataTransport)
-//            .build()
-//        val excelMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(excelTransport)
-//            .build()
-//        val googleMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(googleTransport)
-//            .build()
-//        val gmailMcpClient: McpClient = DefaultMcpClient.Builder()
-//            .transport(gmailTransport)
-//            .build()
-//        val toolProvider: ToolProvider = McpToolProvider.builder()
-//            .mcpClients(listOf(dataMcpClient, excelMcpClient, googleMcpClient, gmailMcpClient))
-//            .build()
-//        aiService.toolProvider(toolProvider)
-
         return try {
-            ApiResponse.success(aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text())
+            ApiResponse.success(
+                aiService.build().chat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty()).content().text()
+            )
         } finally {
             mcpServers.forEach { mcpServer -> mcpServer.close() }
         }
