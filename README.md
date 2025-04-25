@@ -7,6 +7,14 @@ BestPartner project
 2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
 3. 未來目標為類似 Dify 或 Coze 平台，可自行建立 AI agent 並支援多種 AI 模型
 
+## 1.6 版本變更說明
+1. 新增 MCP server 支援
+2. 新增 Anthropic 支援
+3. 新增 Gemini 支援
+4. 新增 Grok 支援
+5. langchain4j 升級至 1.0.0-beta3 版本
+6. 移除 flyway 套件
+
 ## 1.5 版本變更說明
 1. 修改工具建立邏輯
 2. 新增 TEXT2SQL 工具
@@ -46,55 +54,55 @@ BestPartner project
 
 ## 目錄結構
 ```
-bestpartner
-├─bestpartner-service
-├─src
-├─main
-│  ├─docker
-│  ├─java
-│  │  └─tw
-│  │      └─zipe
-│  │          └─basepartner
-│  ├─kotlin
-│  │  └─tw
-│  │      └─zipe
-│  │          └─basepartner
-│  │              ├─assistant
-│  │              ├─builder
-│  │              │  ├─aigcmodel
-│  │              │  └─vector
-│  │              ├─config
-│  │              │  ├─chatmodel
-│  │              │  ├─embedding
-│  │              │  └─vector
-│  │              ├─constatnt
-│  │              ├─converter
-│  │              ├─dto
-│  │              ├─entity
-│  │              ├─enumerate
-│  │              ├─exception
-│  │              ├─filter
-│  │              ├─form
-│  │              ├─model
-│  │              ├─properties
-│  │              ├─provider
-│  │              ├─repository
-│  │              ├─resource
-│  │              ├─service
-│  │              ├─tool
-│  │              └─util
-│  └─resources
-│      ├─cert
-│      └─db
-│          └─migration
-├─docs
-├─ .gitignore
-├─ build.gradle.kts
-├─ gradle.properties
-├─ gradlew
-├─ gradlew.bat
-├─ README.md
-└─ settings.gradle.kts
+bestpartner/
+├── bestpartner-service/
+├── src/
+│   └── main/
+│       ├── docker/
+│       ├── java/
+│       │   └── tw/
+│       │       └── zipe/
+│       │           └── basepartner/
+│       ├── kotlin/
+│       │   └── tw/
+│       │       └── zipe/
+│       │           └── basepartner/
+│       │               ├── assistant/
+│       │               ├── builder/
+│       │               │   ├── aigcmodel/
+│       │               │   └── vector/
+│       │               ├── config/
+│       │               │   ├── chatmodel/
+│       │               │   ├── embedding/
+│       │               │   └── vector/
+│       │               ├── constatnt/  (Note: Potential typo, maybe 'constant'?)
+│       │               ├── converter/
+│       │               ├── dto/
+│       │               ├── entity/
+│       │               ├── enumerate/
+│       │               ├── exception/
+│       │               ├── filter/
+│       │               ├── form/
+│       │               ├── model/
+│       │               ├── properties/
+│       │               ├── provider/
+│       │               ├── repository/
+│       │               ├── resource/
+│       │               ├── service/
+│       │               ├── tool/
+│       │               └── util/
+│       └── resources/
+│           ├── cert/
+│           └── db/
+│               └── migration/
+├── docs/
+├── .gitignore
+├── build.gradle.kts
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+├── README.md
+└── settings.gradle.kts
 ```
 
 ## 事前準備
@@ -116,6 +124,10 @@ bestpartner
 安裝 Milvus
 - Milvus 安裝: [連結](https://www.milvus-io.com/getstarted/standalone/install_standalone-docker)
 
+安裝 Mysql
+- Mysql 安裝: [連結](https://dev.mysql.com/doc/mysql-installation-excerpt/8.0/en/)
+- 安裝完成後，請先建立資料庫 bestpartner，並執行docs/sql/bestpartner.sql
+
 ## 開發環境
 * OpenJDK 21
 * Ollama latest
@@ -124,7 +136,7 @@ bestpartner
 * Milvus latest
 * Kotlin 2.1.0
 * Quarkus 3.18.4
-* Langchain4j 1.0.0-beta1
+* Langchain4j 1.0.0-beta3
 * Gradle latest
 * Postman latest
 * Mysql Database latest
@@ -142,6 +154,13 @@ bestpartner
 ![](docs/images/service-start.png)
 
 ## 開發紀錄
+* 2025.04.25 BestPartner 0.1.6 版本完成
+  + 完成 MCP server 支援
+  + 完成 Anthropic 支援
+  + 完成 Gemini 支援
+  + 完成 Grok 支援
+  + 移除 flyway 資料庫版控功能，只提供完整的 SQL 檔案
+
 * 2025.03.14 BestPartner 0.1.5 版本完成
   + 完成 TEXT2SQL 工具
   + 完成知識庫的功能
@@ -170,8 +189,8 @@ bestpartner
   + 新增 RAG 功能
   + 新增 H2 Database 支援
 
----
 * 2024.10.15 BestPartner 0.1.0 初版完成
+---
 
 ## 版權聲明
 可以免費學習使用，個人可以免費是接取使用，商業應用請聯絡作者授權，測試文件皆為自行建立或者網路公開資料。
