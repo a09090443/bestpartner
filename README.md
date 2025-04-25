@@ -14,6 +14,7 @@ BestPartner project
 4. 新增 Grok 支援
 5. langchain4j 升級至 1.0.0-beta3 版本
 6. 移除 flyway 套件
+7. bestpartner-mcp-servers 增加 MCP server 範例
 
 ## 1.5 版本變更說明
 1. 修改工具建立邏輯
@@ -160,6 +161,7 @@ bestpartner/
   + 完成 Gemini 支援
   + 完成 Grok 支援
   + 移除 flyway 資料庫版控功能，只提供完整的 SQL 檔案
+  + 提供 Quarkus 和 Spring MCP server 範例
 
 * 2025.03.14 BestPartner 0.1.5 版本完成
   + 完成 TEXT2SQL 工具
