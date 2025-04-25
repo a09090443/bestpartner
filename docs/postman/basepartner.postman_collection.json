@@ -275,6 +275,98 @@
 					"response": []
 				},
 				{
+					"name": "custom_assistant_chat_mcp",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"llmId\":\"98ee56bd-da8d-48d2-8305-46545045d66b\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問今天的日期，格式:yyyy-MM-dd\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回應使用者需求\",\r\n    \"mcpIds\":[\"4b9ba306-2fc5-4aa6-9e54-22bce834e021\"],\r\n    \"mcpSettingIds\":[\"0dbe3e67-9b58-4e0b-adc3-d546ae44c6c1\"]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/customAssistantChat",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"customAssistantChat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "custom_assistant_chat_streaming_mcp",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"llmId\":\"297c803e-9829-4a48-8f92-83acccf523ab\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請在google 建立名稱 product excel 檔，並新增兩筆測試資料\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回應使用者需求\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/customAssistantChatStreaming",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"customAssistantChatStreaming"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "custom_assistant_chat_rag",
 					"event": [
 						{
@@ -399,6 +491,47 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "upload_file",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/C:/Users/zipe1/Downloads/PXL_20250322_084534745.jpg"
+								},
+								{
+									"key": "fileInfo",
+									"value": "{\"fileName\":\"test.jpg\",\"fileSize\":1024}",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/uploadFile",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"uploadFile"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
@@ -484,7 +617,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\r\n    \"platform\": \"OPENAI\"\r\n}",
+									"raw": "{\r\n    \"platform\": \"GROK\"\r\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -558,7 +691,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-xxxxx\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"raw": "{\r\n  \"alias\": \"openai_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"340580a6-74cf-4126-9c95-55741ec3996c\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-xxx\",\r\n    \"modelName\": \"gpt-4o-mini\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -734,6 +867,216 @@
 						"body": {
 							"mode": "raw",
 							"raw": "{\r\n  \"alias\": \"ollama_local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platformId\": \"166a5745-b89c-410e-ada4-7ae3da426af5\",\r\n  \"llmModel\": {\r\n    \"url\": \"http://localhost:11434\",\r\n    \"modelName\": \"bge-m3:latest\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"topK\": 40,\r\n    \"dimensions\": 1024,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 60000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GEMINI_save_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"alias\": \"gemini_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"e4f6e785-155a-42fd-ac77-965957fa0b2f\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"xxx\",\r\n    \"modelName\": \"gemini-2.5-pro-exp-03-25\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequestsAndResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GEMINI_update_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"98ee56bd-da8d-48d2-8305-46545045d66b\",\r\n    \"alias\": \"gemini_local_chat_test\",\r\n    \"modelType\": \"CHAT\",\r\n    \"platformId\": \"e4f6e785-155a-42fd-ac77-965957fa0b2f\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"xxxx\",\r\n        \"modelName\": \"gemini-2.0-flash\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequestsAndResponses\": true\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ANTHROPIC_save_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"alias\": \"anthropic_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"472c66d0-24f6-4d65-8df4-638ae6f77199\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-ant-xxxxx\",\r\n    \"modelName\": \"claude-3-7-sonnet-20250219\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ANTHROPIC_save_llm_chat_model_Setting Copy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"alias\": \"anthropic_local_streaming_chat_test\",\r\n  \"modelType\": \"STREAMING_CHAT\",\r\n  \"platformId\": \"472c66d0-24f6-4d65-8df4-638ae6f77199\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-ant-xxx\",\r\n    \"modelName\": \"claude-3-7-sonnet-20250219\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GEMINI_save_llm_embedding_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"alias\": \"gemini_local_embedding_test\",\r\n  \"modelType\": \"EMBEDDING\",\r\n  \"platformId\": \"e4f6e785-155a-42fd-ac77-965957fa0b2f\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"AIxxxxxxx\",\r\n    \"modelName\": \"gemini-embedding-exp-03-07\",\r\n    \"dimensions\": 1536,\r\n    \"maxRetries\": 3,\r\n    \"timeout\": 6000,\r\n    \"logRequestsAndResponses\": true\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/setting/save",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"setting",
+								"save"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GROK_save_llm_chat_model_Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"alias\": \"grok_local_chat_test\",\r\n  \"modelType\": \"CHAT\",\r\n  \"platformId\": \"f48291d0-a498-42b4-a9a3-5fbef45811f4\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"xai-xxx\",\r\n    \"modelName\": \"grok-3-fast-beta\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 32768,\r\n    \"timeout\": 6000,\r\n    \"logRequests\": true,\r\n    \"logResponses\": true\r\n  }\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -2029,6 +2372,399 @@
 								"llm",
 								"vector",
 								"save"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "mcp",
+			"item": [
+				{
+					"name": "mcp_getAll",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/list",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"list"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_get",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"mcpId\": \"06a7fb6d-1aef-41d8-af11-978a1e73a65e\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/get",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"get"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_register_stdio_date",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"date\",\r\n    \"command\": \"D:/tools/openlogic-openjdk-21.0.6+7-windows-x64/bin/java\",\r\n    \"args\": [\"-jar\", \"D:/MCP/date-1.0-SNAPSHOT-runner.jar\"],\r\n    \"type\": \"STDIO\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_update_stdio_date",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"mcpId\": \"4b9ba306-2fc5-4aa6-9e54-22bce834e021\",\r\n    \"name\": \"date\",\r\n    \"command\": \"D:/tools/jbang/bin/jbang.cmd\",\r\n    \"args\": [\"D:/MCP/date-1.0-SNAPSHOT-runner.jar\"],\r\n    \"type\": \"STDIO\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_register_stdio_filesystem",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"filesystem\",\r\n    \"command\": \"D:/tools/openlogic-openjdk-21.0.6+7-windows-x64/bin/java\",\r\n    \"args\": [\"-jar\", \"D:/MCP/mcp-server-filesystem-999-SNAPSHOT.jar\", \"${path0}\", \"${path1}\"],\r\n    \"argsDesc\": {\"path0\": \"請帶入目錄位置\", \"path1\": \"請帶入目錄位置\"},\r\n    \"type\": \"STDIO\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_register_stdio_googledrive",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"google_drive\",\r\n    \"command\": \"D:/tools/openlogic-openjdk-21.0.6+7-windows-x64/bin/java\",\r\n    \"args\": [\"-jar\", \"D:/MCP/google-drive-1.0-SNAPSHOT-runner.jar\"],\r\n    \"env\":{\r\n        \"CREDENTIALS_FILE_PATH\": \"${file_path}\"\r\n    },\r\n    \"argsDesc\": {\"file_path\": \"請輸入認證檔案位置\"},\r\n    \"type\": \"STDIO\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_update_stdio_googledrive",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"mcpId\": \"06a7fb6d-1aef-41d8-af11-978a1e73a65e\",\r\n    \"name\": \"google_drive\",\r\n    \"command\": \"D:/tools/openlogic-openjdk-21.0.6+7-windows-x64/bin/java\",\r\n    \"args\": [\"-jar\", \"D:/MCP/google-drive-1.0-SNAPSHOT-runner.jar\"],\r\n    \"env\":{\r\n        \"CREDENTIALS_FILE_PATH\": \"${file_path}\"\r\n    },\r\n    \"envDesc\": {\"file_path\": \"請輸入認證檔案位置\"},\r\n    \"type\": \"STDIO\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/update",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_register_sse",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"test\",\r\n    \"server\": \"http://localhost/sse\",\r\n    \"type\": \"SSE\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/register",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_register_user_setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"alias\": \"google_drive\",\r\n    \"mcpId\": \"06a7fb6d-1aef-41d8-af11-978a1e73a65e\",\r\n    \"settingContent\": {\r\n        \"CREDENTIALS_FILE_PATH\": \"D:/MCP/credentials.json\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/saveSetting",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"saveSetting"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_get_user_setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"userSettingId\": \"22294230-5111-4296-8ac2-ca4a47eabc74\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/getSetting",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"getSetting"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "mcp_delete_user_setting",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"userSettingId\": \"8b1ce8c7-cd86-4e65-8eb9-f5f4c221fca0\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{domain}}/llm/mcpServer/deleteSetting",
+							"protocol": "http",
+							"host": [
+								"{{domain}}"
+							],
+							"path": [
+								"llm",
+								"mcpServer",
+								"deleteSetting"
 							]
 						}
 					},
