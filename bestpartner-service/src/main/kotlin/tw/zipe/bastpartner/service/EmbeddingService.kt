@@ -5,7 +5,7 @@ import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser
 import dev.langchain4j.data.document.splitter.DocumentSplitters
 import dev.langchain4j.data.embedding.Embedding
 import dev.langchain4j.data.segment.TextSegment
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.DefaultRetrievalAugmentor
 import dev.langchain4j.rag.RetrievalAugmentor
@@ -288,7 +288,7 @@ class EmbeddingService(
         embeddingDocIds: List<String>,
         embeddingStoreId: String,
         embeddingModelId: String,
-        chatModel: ChatLanguageModel
+        chatModel: ChatModel
     ): RetrievalAugmentor {
 
         val embeddingStore = this.buildVectorStore(embeddingStoreId)

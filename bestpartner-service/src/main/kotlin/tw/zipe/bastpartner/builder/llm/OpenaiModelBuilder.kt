@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.builder.llm
 
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel
@@ -15,7 +15,7 @@ import tw.zipe.bastpartner.provider.ModelProvider
  * @created 2024/10/8
  */
 class OpenaiModelBuilder : ModelProvider {
-    override fun chatModel(llModel: LLModel): ChatLanguageModel =
+    override fun chatModel(llModel: LLModel): ChatModel =
         OpenAiChatModel.builder()
             .apiKey(llModel.apiKey)
             .modelName(llModel.modelName)
@@ -27,7 +27,7 @@ class OpenaiModelBuilder : ModelProvider {
             .logResponses(llModel.logResponses)
             .build()
 
-    override fun chatModelStreaming(llModel: LLModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(llModel: LLModel): StreamingChatModel =
         OpenAiStreamingChatModel.builder()
             .apiKey(llModel.apiKey)
             .modelName(llModel.modelName)

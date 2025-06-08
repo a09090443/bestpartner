@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.assistant
 
 import com.mysql.cj.jdbc.MysqlDataSource
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.rag.query.Query
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
@@ -51,7 +51,7 @@ class Text2SqlTest {
 //    @TestSecurity(user = "670017b4-23d0-4339-a9c0-22b6d9446461", roles = ["admin", "user"])
     fun `test datasource`() {
         val llm = llmService.buildLLM("f138c97a-a7fe-4328-9ff5-5f25375739ba", ModelType.CHAT).let {
-            it as ChatLanguageModel
+            it as ChatModel
         }
         val mysqlDataSource = MysqlDataSource()
         mysqlDataSource.setURL("jdbc:mysql://localhost:3306/sale?allowPublicKeyRetrieval=true&useSSL=false")
@@ -62,7 +62,7 @@ class Text2SqlTest {
             .dataSource(mysqlDataSource)
             .sqlDialect("MYSQL")
 //            .databaseStructure("")
-            .chatLanguageModel(llm)
+            .chatModel(llm)
             .build()
 
         val retrieved = content.retrieve(Query.from("How many customers do we have?"))

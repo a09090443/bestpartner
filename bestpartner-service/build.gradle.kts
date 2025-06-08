@@ -15,13 +15,14 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "1.0.0-beta3"
+val langchain4jVersion = "1.0.1"
 val bouncycastleVersion = "1.79"
 val okhttp3Version = "4.12.0"
 val kotlinSerializationVersion = "1.7.3"
 
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
+    implementation(enforcedPlatform("dev.langchain4j:langchain4j-bom:${langchain4jVersion}"))
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("io.quarkus:quarkus-rest")
@@ -41,20 +42,20 @@ dependencies {
     implementation("io.quarkus:quarkus-smallrye-jwt-build")
     implementation("io.quarkus:quarkus-security")
 
-    implementation("dev.langchain4j:langchain4j:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-core:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-ollama:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-open-ai:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-google-ai-gemini:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-anthropic:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-chroma:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-milvus:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-web-search-engine-tavily:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-mcp:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j")
+    implementation("dev.langchain4j:langchain4j-core")
+    implementation("dev.langchain4j:langchain4j-ollama")
+    implementation("dev.langchain4j:langchain4j-open-ai")
+    implementation("dev.langchain4j:langchain4j-google-ai-gemini")
+    implementation("dev.langchain4j:langchain4j-anthropic")
+    implementation("dev.langchain4j:langchain4j-chroma")
+    implementation("dev.langchain4j:langchain4j-milvus")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika")
+    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q")
+    implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom")
+    implementation("dev.langchain4j:langchain4j-web-search-engine-tavily")
+    implementation("dev.langchain4j:langchain4j-mcp")
 
     implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.8")
     implementation("com.github.jsqlparser:jsqlparser:5.1")

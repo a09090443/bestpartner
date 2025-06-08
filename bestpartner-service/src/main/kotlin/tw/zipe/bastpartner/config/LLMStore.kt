@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.config
 
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15QuantizedEmbeddingModel
 import jakarta.annotation.PostConstruct
@@ -41,9 +41,9 @@ class LLMStore(
         const val SYSTEM_DEFAULT_PLATFORM = "default_llm_platform"
     }
 
-    val chatModelMap = mutableMapOf<String, ChatLanguageModel>()
+    val chatModelMap = mutableMapOf<String, ChatModel>()
 
-    val streamingChatModelMap = mutableMapOf<String, StreamingChatLanguageModel>()
+    val streamingChatModelMap = mutableMapOf<String, StreamingChatModel>()
 
     @PostConstruct
     fun initChatModelMap() {

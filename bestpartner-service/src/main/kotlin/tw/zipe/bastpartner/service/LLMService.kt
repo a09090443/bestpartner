@@ -6,8 +6,8 @@ import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.DefaultRetrievalAugmentor
@@ -185,12 +185,12 @@ class LLMService(
 
         buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
             when (llm) {
-                is ChatLanguageModel -> {
-                    aiService.chatLanguageModel(llm)
+                is ChatModel -> {
+                    aiService.chatModel(llm)
                 }
 
-                is StreamingChatLanguageModel -> {
-                    aiService.streamingChatLanguageModel(llm)
+                is StreamingChatModel -> {
+                    aiService.streamingChatModel(llm)
                 }
 
                 else -> throw ServiceException("LLM 類型錯誤")

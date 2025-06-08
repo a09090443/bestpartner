@@ -2,8 +2,8 @@ package tw.zipe.bastpartner.resource
 
 import dev.langchain4j.mcp.McpToolProvider
 import dev.langchain4j.mcp.client.McpClient
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
@@ -54,7 +54,7 @@ class LLMResource(
 
         try {
             validateChatRequest(chatRequestDTO)
-            val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatLanguageModel
+            val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatModel
             val result = baseChat(llm, chatRequestDTO.message.orEmpty())
             logger.info("[REQ:$requestId] 聊天請求完成")
 
@@ -79,7 +79,7 @@ class LLMResource(
             val llm = llmService.buildLLM(
                 chatRequestDTO.llmId.orEmpty(),
                 ModelType.STREAMING_CHAT
-            ) as StreamingChatLanguageModel
+            ) as StreamingChatModel
 
             logger.debug("[REQ:$requestId] 開始串流聊天")
             return baseStreamingChat(llm, chatRequestDTO.message!!)

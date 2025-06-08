@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.tw.zipe.bastpartner.builder.llm.tw.zipe.bastpartner.builder.llm
 
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel
@@ -18,7 +18,7 @@ const val URL = "https://api.x.ai/v1"
  */
 class GrokModelBuilder : ModelProvider {
 
-    override fun chatModel(llModel: LLModel): ChatLanguageModel =
+    override fun chatModel(llModel: LLModel): ChatModel =
         OpenAiChatModel.builder()
             .baseUrl(URL)
             .apiKey(llModel.apiKey)
@@ -31,7 +31,7 @@ class GrokModelBuilder : ModelProvider {
             .logResponses(llModel.logResponses)
             .build()
 
-    override fun chatModelStreaming(llModel: LLModel): StreamingChatLanguageModel =
+    override fun chatModelStreaming(llModel: LLModel): StreamingChatModel =
         OpenAiStreamingChatModel.builder()
             .baseUrl(URL)
             .apiKey(llModel.apiKey)

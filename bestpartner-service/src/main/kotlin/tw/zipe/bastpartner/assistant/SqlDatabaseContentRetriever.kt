@@ -3,7 +3,7 @@ package tw.zipe.bastpartner.assistant
 import dev.langchain4j.data.message.AiMessage
 import dev.langchain4j.data.message.ChatMessage
 import dev.langchain4j.data.message.UserMessage
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.input.Prompt
 import dev.langchain4j.model.input.PromptTemplate
 import dev.langchain4j.rag.content.Content
@@ -27,7 +27,7 @@ class SqlDatabaseContentRetriever private constructor(
     sqlDialect: String?,
     databaseStructure: String?,
     private val promptTemplate: PromptTemplate,
-    private val chatLanguageModel: ChatLanguageModel,
+    private val chatModel: ChatModel,
     private val maxRetries: Int
 ) : ContentRetriever {
 
@@ -42,26 +42,26 @@ class SqlDatabaseContentRetriever private constructor(
         private var sqlDialect: String? = null
         private var databaseStructure: String? = null
         private var promptTemplate: PromptTemplate = DEFAULT_PROMPT_TEMPLATE
-        private var chatLanguageModel: ChatLanguageModel? = null
+        private var chatModel: ChatModel? = null
         private var maxRetries: Int = 1
 
         fun dataSource(dataSource: DataSource) = apply { this.dataSource = dataSource }
         fun sqlDialect(sqlDialect: String) = apply { this.sqlDialect = sqlDialect }
         fun databaseStructure(databaseStructure: String) = apply { this.databaseStructure = databaseStructure }
         fun promptTemplate(promptTemplate: PromptTemplate) = apply { this.promptTemplate = promptTemplate }
-        fun chatLanguageModel(chatLanguageModel: ChatLanguageModel) = apply { this.chatLanguageModel = chatLanguageModel }
+        fun chatModel(chatModel: ChatModel) = apply { this.chatModel = chatModel }
         fun maxRetries(maxRetries: Int) = apply { this.maxRetries = maxRetries }
 
         fun build(): SqlDatabaseContentRetriever {
             requireNotNull(dataSource) { "dataSource must not be null" }
-            requireNotNull(chatLanguageModel) { "chatLanguageModel must not be null" }
+            requireNotNull(chatModel) { "chatLanguageModel must not be null" }
 
             return SqlDatabaseContentRetriever(
                 dataSource = dataSource!!,
                 sqlDialect = sqlDialect,
                 databaseStructure = databaseStructure,
                 promptTemplate = promptTemplate,
-                chatLanguageModel = chatLanguageModel!!,
+                chatModel = chatModel!!,
                 maxRetries = maxRetries
             )
         }
@@ -241,7 +241,7 @@ class SqlDatabaseContentRetriever private constructor(
             messages.add(AiMessage.from(previousSqlQuery))
             messages.add(UserMessage.from(previousErrorMessage))
         }
-        return chatLanguageModel.chat(messages).aiMessage().text();
+        return chatModel.chat(messages).aiMessage().text();
     }
 
     private fun createSystemPrompt(): Prompt {
