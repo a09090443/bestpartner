@@ -2,12 +2,11 @@ package tw.zipe.bastpartner.service
 
 import dev.langchain4j.mcp.client.DefaultMcpClient
 import dev.langchain4j.mcp.client.transport.McpTransport
-import dev.langchain4j.mcp.client.transport.http.HttpMcpTransport
+import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport
 import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport
 import io.netty.util.internal.StringUtil
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
-import org.apache.commons.lang3.StringUtils
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.McpDTO
@@ -97,11 +96,9 @@ class McpServerService(
         logger.info("Starting up mcp servers")
         return mcpIds.mapNotNull { id ->
             try {
-                if (StringUtils.isNotBlank(userId)) {
-                    buildUserSpecificMcpClient(id, userId)
-                } else {
-                    buildDefaultMcpClient(id)
-                }
+                userId.takeIf { it.isNotBlank() }
+                    ?.let { buildUserSpecificMcpClient(id, it) }
+                    ?: buildDefaultMcpClient(id)
             } catch (e: Exception) {
                 logger.error("Failed to create MCP client for ID: $id", e)
                 null
@@ -172,13 +169,12 @@ class McpServerService(
                 }
             }
 
-            McpType.SSE -> HttpMcpTransport.Builder()
-                .sseUrl(commandSetting?.server.orEmpty())
+            McpType.SSE -> StreamableHttpMcpTransport.Builder()
+                .url(commandSetting?.server.orEmpty())
                 .logRequests(mcpLogEnable.toBoolean())
                 .logResponses(mcpLogEnable.toBoolean())
                 .build()
 
-            else -> null
         }
     }
 
