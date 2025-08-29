@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "2.1.0"
@@ -15,7 +13,7 @@ repositories {
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "1.0.1"
+val langchain4jVersion = "1.4.0"
 val bouncycastleVersion = "1.79"
 val okhttp3Version = "4.12.0"
 val kotlinSerializationVersion = "1.7.3"
