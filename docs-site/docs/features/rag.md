@@ -10,85 +10,78 @@ RAG（Retrieval-Augmented Generation）讓 AI 可以根據你上傳的文件內�
 
 ```
 上傳文件
-   └─→ 文件切割成段落
+   └─→ 文件切割成段落（embeddingDocs）
          └─→ 嵌入模型將段落轉為向量
-               └─→ 儲存至向量資料庫
+               └─→ 儲存至 EmbeddingStore
 
 使用者提問
-   └─→ 問題轉為向量
+   └─→ 問題轉為向量（embeddingStoreSearch）
          └─→ 向量資料庫搜尋相似段落
-               └─→ 相關段落 + 問題組合成 Prompt
+               └─→ buildRetrievalAugmentor 組合 Prompt
                      └─→ AI 模型生成回答
 ```
 
-## 建立知識庫
+## API 端點
 
-### 1. 建立知識庫設定
+所有知識庫相關 API 路徑前綴為 `/llm/vector`。
 
-```bash
-POST /api/knowledge-base
+### 儲存向量資料庫設定
+
+```http
+POST /llm/vector/save
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
-
-{
-  "name": "產品手冊",
-  "embeddingModelId": 1,
-  "vectorStoreType": "IN_MEMORY"
-}
 ```
 
-`vectorStoreType` 可選值：`IN_MEMORY`、`CHROMA`、`MILVUS`
+### 取得知識庫文件列表
 
-### 2. 上傳文件
+```http
+POST /llm/vector/getKnowledgeStore
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+```
 
-支援 PDF、TXT 等格式：
+### 上傳文件並嵌入
 
-```bash
-POST /api/knowledge-base/{id}/upload
+```http
+POST /llm/vector/uploadFiles
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: multipart/form-data
-
-file: [你的文件]
 ```
 
-### 3. 搜尋知識庫（驗證用）
+**表單參數：**
+- `file`：要上傳的文件（支援 PDF、TXT 等）
 
-可以直接測試向量搜尋效果：
+**curl 範例：**
 
 ```bash
-POST /api/knowledge-base/{id}/search
+curl -X POST http://localhost/llm/vector/uploadFiles \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@product-manual.pdf"
+```
+
+### 搜尋向量資料庫
+
+```http
+POST /llm/vector/getDataFromEmbeddingStore
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
-
-{
-  "query": "產品保固期限是多久？",
-  "maxResults": 5
-}
 ```
 
-## 在對話中使用知識庫
+### 刪除文件資料
 
-在對話 API 中帶入 `knowledgeBaseId`：
-
-```bash
-POST /api/assistant/chat
+```http
+DELETE /llm/vector/deleteData
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
-
-{
-  "message": "產品保固期限是多久？",
-  "modelId": 1,
-  "knowledgeBaseId": 1
-}
 ```
 
-AI 將基於上傳的文件內容回答，而非依賴訓練資料。
+### 更新向量資料庫設定
 
-## 刪除文件
-
-```bash
-DELETE /api/knowledge-base/{knowledgeBaseId}/document/{documentId}
+```http
+POST /llm/vector/update
 Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
 ```
 
 ## 向量資料庫選擇建議
@@ -101,4 +94,8 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 :::caution InMemory 限制
 使用 InMemory 向量儲存時，重啟服務後向量資料會消失，需要重新上傳文件。生產環境請使用 Chroma 或 Milvus。
+:::
+
+:::info 嵌入模型
+RAG 功能需要嵌入模型（Embedding Model）。請先在資料庫設定好 `EMBEDDING` 類型的模型（支援 OpenAI、Gemini、Ollama），詳見 [AI 模型設定](./ai-models)。
 :::
