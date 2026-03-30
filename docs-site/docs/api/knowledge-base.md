@@ -4,80 +4,127 @@ sidebar_position: 3
 
 # 知識庫 API
 
-知識庫 API 提供 RAG 相關的管理功能，包含建立知識庫、上傳文件、搜尋等操作。
+知識庫 API 提供 RAG 相關的管理功能。所有端點路徑前綴為 `/llm/vector`。
 
-## 建立知識庫
+## 通用回應格式
+
+```json
+{
+  "code": 200,
+  "message": "",
+  "data": { ... }
+}
+```
+
+## 儲存向量資料庫設定
 
 ```http
-POST /api/knowledge-base
+POST /llm/vector/save
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
 ```
 
-### 請求參數
+### 請求參數（VectorStoreDTO）
 
 | 參數 | 類型 | 必填 | 說明 |
 |------|------|------|------|
-| `name` | string | ✓ | 知識庫名稱 |
-| `embeddingModelId` | long | ✓ | 嵌入模型 ID |
-| `vectorStoreType` | string | ✓ | 向量儲存類型：`IN_MEMORY`、`CHROMA`、`MILVUS` |
-| `description` | string | | 知識庫描述 |
+| `alias` | string | ✓ | 向量資料庫別名 |
+| `vectorStoreType` | string | ✓ | 類型：`IN_MEMORY`、`CHROMA`、`MILVUS` |
+| `knowledgeId` | string | | 知識庫 ID |
+| `vectorStore.collectionName` | string | ✓ | 向量集合名稱 |
+| `vectorStore.dimension` | int | ✓ | 向量維度 |
+| `vectorStore.url` | string | | 向量資料庫 URL（Chroma/Milvus 需填）|
+| `vectorStore.username` | string | | 資料庫帳號（如有）|
+| `vectorStore.password` | string | | 資料庫密碼（如有）|
+| `vectorStore.requestLog` | boolean | | 是否記錄請求 log（預設 false）|
+| `vectorStore.responseLog` | boolean | | 是否記錄回應 log（預設 false）|
 
 ### 請求範例
 
 ```json
 {
-  "name": "產品手冊",
-  "embeddingModelId": 1,
+  "alias": "產品手冊知識庫",
   "vectorStoreType": "CHROMA",
-  "description": "包含所有產品規格與使用說明"
+  "vectorStore": {
+    "collectionName": "product-manual",
+    "dimension": 1536,
+    "url": "http://localhost:8000"
+  }
 }
 ```
 
-### 回應範例
-
-```json
-{
-  "id": 1,
-  "name": "產品手冊",
-  "embeddingModelId": 1,
-  "vectorStoreType": "CHROMA",
-  "createdAt": "2025-04-25T10:00:00"
-}
-```
-
-## 上傳文件
+## 更新向量資料庫設定
 
 ```http
-POST /api/knowledge-base/{id}/upload
+POST /llm/vector/update
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+```
+
+請求參數與 `save` 相同，需加上 `id` 欄位。
+
+## 取得知識庫文件列表
+
+```http
+POST /llm/vector/getKnowledgeStore
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+```
+
+## 上傳文件並嵌入
+
+```http
+POST /llm/vector/uploadFiles
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: multipart/form-data
 ```
 
-### 路徑參數
-
-| 參數 | 說明 |
-|------|------|
-| `id` | 知識庫 ID |
-
 ### 表單參數
 
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| `file` | file | 要上傳的文件（支援 PDF、TXT）|
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| `file` | file | | 上傳的文件（支援 PDF、TXT 等）|
+| `embeddingModelId` | string | ✓ | 嵌入模型 ID |
+| `embeddingStoreId` | string | ✓ | 向量儲存 ID |
 
-### 請求範例（curl）
+### curl 範例
 
 ```bash
-curl -X POST http://localhost/api/knowledge-base/1/upload \
+curl -X POST http://localhost/llm/vector/uploadFiles \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -F "file=@product-manual.pdf"
+  -F "file=@product-manual.pdf" \
+  -F "embeddingModelId=your-embedding-model-uuid" \
+  -F "embeddingStoreId=your-vector-store-uuid"
 ```
 
-## 搜尋知識庫
+## 搜尋向量資料庫
 
 ```http
-POST /api/knowledge-base/{id}/search
+POST /llm/vector/getDataFromEmbeddingStore
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+```
+
+### 請求參數（LLMDocDTO）
+
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| `knowledgeId` | string | ✓ | 知識庫 ID |
+| `content` | string | ✓ | 搜尋查詢文字 |
+
+### 請求範例
+
+```json
+{
+  "knowledgeId": "your-knowledge-uuid",
+  "content": "產品保固條款"
+}
+```
+
+## 刪除文件資料
+
+```http
+DELETE /llm/vector/deleteData
 Authorization: Bearer YOUR_JWT_TOKEN
 Content-Type: application/json
 ```
@@ -86,82 +133,25 @@ Content-Type: application/json
 
 | 參數 | 類型 | 必填 | 說明 |
 |------|------|------|------|
-| `query` | string | ✓ | 搜尋查詢文字 |
-| `maxResults` | int | | 最大回傳結果數（預設 5）|
-| `minScore` | double | | 最低相似度分數（0~1，預設 0.5）|
+| `knowledgeId` | string | ✓ | 知識庫 ID |
+| `docIds` | array | | 要刪除的文件 ID 列表（未提供則刪除整個知識庫）|
 
 ### 請求範例
 
 ```json
 {
-  "query": "產品保固條款",
-  "maxResults": 3,
-  "minScore": 0.7
+  "knowledgeId": "your-knowledge-uuid",
+  "docIds": ["doc-id-1", "doc-id-2"]
 }
 ```
 
-### 回應範例
+## 端點一覽
 
-```json
-{
-  "results": [
-    {
-      "content": "本產品自購買日起提供一年保固服務...",
-      "score": 0.92,
-      "documentId": "doc-001",
-      "source": "product-manual.pdf"
-    }
-  ]
-}
-```
-
-## 刪除文件
-
-```http
-DELETE /api/knowledge-base/{knowledgeBaseId}/document/{documentId}
-Authorization: Bearer YOUR_JWT_TOKEN
-```
-
-### 路徑參數
-
-| 參數 | 說明 |
+| 端點 | 說明 |
 |------|------|
-| `knowledgeBaseId` | 知識庫 ID |
-| `documentId` | 文件 ID |
-
-## 取得知識庫列表
-
-```http
-GET /api/knowledge-base
-Authorization: Bearer YOUR_JWT_TOKEN
-```
-
-### 回應範例
-
-```json
-[
-  {
-    "id": 1,
-    "name": "產品手冊",
-    "vectorStoreType": "CHROMA",
-    "documentCount": 5
-  },
-  {
-    "id": 2,
-    "name": "常見問題",
-    "vectorStoreType": "IN_MEMORY",
-    "documentCount": 12
-  }
-]
-```
-
-## 刪除知識庫
-
-```http
-DELETE /api/knowledge-base/{id}
-Authorization: Bearer YOUR_JWT_TOKEN
-```
-
-:::caution
-刪除知識庫會同時刪除所有已上傳的文件與向量資料，此操作不可復原。
-:::
+| `POST /llm/vector/save` | 儲存向量資料庫設定 |
+| `POST /llm/vector/update` | 更新向量資料庫設定 |
+| `POST /llm/vector/getKnowledgeStore` | 取得知識庫文件列表 |
+| `POST /llm/vector/uploadFiles` | 上傳文件並嵌入 |
+| `POST /llm/vector/getDataFromEmbeddingStore` | 搜尋向量資料庫 |
+| `DELETE /llm/vector/deleteData` | 刪除文件資料 |
