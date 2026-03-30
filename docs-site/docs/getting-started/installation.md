@@ -31,14 +31,16 @@ mysql -u root -p bestpartner < docs/sql/bestpartner.sql
 cd bestpartner-service/src/main/resources
 ```
 
-編輯 `application.properties`（或依環境編輯 `application-dev.properties` / `application-prod.properties`）：
+編輯 `application.properties`（或依環境編輯 `application-sit.properties` / `application-prod.properties`）：
 
 ### 資料庫設定
 
 ```properties
-quarkus.datasource.username=root
-quarkus.datasource.password=your_password
+quarkus.datasource.db-kind=mysql
+quarkus.datasource.username=llm
+quarkus.datasource.password=bestpartner
 quarkus.datasource.jdbc.url=jdbc:mysql://localhost:3306/bestpartner
+quarkus.datasource.jdbc.driver=com.mysql.cj.jdbc.Driver
 ```
 
 ### AI 模型設定
@@ -79,8 +81,9 @@ milvus.port=19530
 
 ```properties
 # JWT 相關設定（建議在 prod 環境更換密鑰）
-mp.jwt.verify.publickey.location=cert/public.pem
-smallrye.jwt.sign.key.location=cert/private.pem
+mp.jwt.verify.issuer=bast-partner
+mp.jwt.verify.publickey.location=publicKey.pem
+smallrye.jwt.sign.key.location=privateKey.pem
 ```
 
 ## 4. 建置專案
@@ -103,7 +106,7 @@ cd bestpartner-service
 建置完成後，JAR 檔案位置：
 
 ```
-bestpartner-service/build/bestpartner-service-0.10-SNAPSHOT-runner.jar
+bestpartner-service/build/bestpartner-service-0.1.6-SNAPSHOT-runner.jar
 ```
 
 ## 5. 使用 Flyway 初始化資料庫（選用）
@@ -114,6 +117,6 @@ bestpartner-service/build/bestpartner-service-0.10-SNAPSHOT-runner.jar
 quarkus.flyway.migrate-at-start=true
 ```
 
-:::caution 注意
-目前版本（0.1.6 以後）已移除 Flyway，請使用 `docs/sql/bestpartner.sql` 手動初始化資料庫。
+:::info Flyway 現況
+Flyway 設定預設為關閉（`quarkus.flyway.migrate-at-start=false`），但設定仍保留在 `application-sit.properties` 和 `application-prod.properties` 中。建議使用 `docs/sql/bestpartner.sql` 手動初始化資料庫。
 :::
