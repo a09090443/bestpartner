@@ -12,7 +12,7 @@ java -jar bestpartner-service/build/bestpartner-service-0.1.6-SNAPSHOT-runner.ja
 
 服務啟動後，可在瀏覽器開啟 [http://localhost](http://localhost) 確認服務狀態。
 
-![服務啟動畫面](/img/service-start.png)
+![服務啟動畫面](pathname:///img/service-start.png)
 
 ## 取得 JWT Token
 
