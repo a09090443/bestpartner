@@ -2,101 +2,125 @@
 
 BestPartner project
 ======================
+
 ## 說明
-1. 該專案為一個AI應用大平台，可動態建立 AI agent 並支援多種 AI 模型
-2. 各API範例可參考Postman Collection: [連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
+1. 該專案為一個 AI 應用大平台，可動態建立 AI agent 並支援多種 AI 模型
+2. 各 API 範例可參考 Postman Collection：[連結](https://github.com/a09090443/bestpartner/blob/master/docs/postman/basepartner.postman_collection.json)
 3. 未來目標為類似 Dify 或 Coze 平台，可自行建立 AI agent 並支援多種 AI 模型
 
+---
+
+## 版本變更說明
+
+## 1.7 版本變更說明
+1. 升級 Quarkus 至 3.21.0 版本
+2. 升級 Langchain4j 至 1.4.0 版本
+
 ## 1.6 版本變更說明
-1. 新增 MCP server 支援
+1. 新增 MCP Server 支援
 2. 新增 Anthropic 支援
 3. 新增 Gemini 支援
 4. 新增 Grok 支援
-5. langchain4j 升級至 1.0.0-beta3 版本
-6. 移除 flyway 套件
-7. bestpartner-mcp-servers 增加 MCP server 範例
+5. Langchain4j 升級至 1.0.0-beta3 版本
+6. 移除 Flyway 套件
+7. bestpartner-mcp-servers 增加 MCP Server 範例
 
 ## 1.5 版本變更說明
 1. 修改工具建立邏輯
 2. 新增 TEXT2SQL 工具
-3. 修改LLM工具建立邏輯，當工具需要使用者自定義內容時須帶入toolSettingIds參數，而工具無須自定義內容時帶入參數toolIds，可參考 postman 中 custom_assistant_chat(text2sql) 範例
-4. 修改RAG上傳檔案及刪除檔案時的邏輯
-5. 修改LLM讀取知識庫錯誤問題
-6. 新增對於向量資料庫搜尋功能
+3. 修改 LLM 工具建立邏輯，當工具需要使用者自定義內容時須帶入 `toolSettingIds` 參數，工具無須自定義內容時帶入 `toolIds` 參數，可參考 Postman 中 `custom_assistant_chat(text2sql)` 範例
+4. 修改 RAG 上傳檔案及刪除檔案時的邏輯
+5. 修正 LLM 讀取知識庫錯誤問題
+6. 新增向量資料庫搜尋功能
 
 ## 1.4 版本變更說明
-1. 設定各API權限管理
-2. 修正動態建立LLM模型錯誤問題
-3. 修正Tools工具錯誤問題
-4. 新增 tavily 網路搜尋引擎工具
+1. 設定各 API 權限管理
+2. 修正動態建立 LLM 模型錯誤問題
+3. 修正 Tools 工具錯誤問題
+4. 新增 Tavily 網路搜尋引擎工具
 
 ## 1.3 版本變更說明
-1. 廢除 H2 db 改為使用 Mysql db
-2. 增加 llm tools 可註冊自製工具
-3. 增加 llm tools 使用者自訂一個工具設定值
+1. 廢除 H2 DB，改為使用 MySQL DB
+2. 增加 LLM Tools 可註冊自製工具
+3. 增加 LLM Tools 使用者自訂工具設定值
 
 ## 1.2 版本變更說明
-1. 支援 RBAC 功能，請先使用 http://localhost/login/ 取得 jwt 令牌，可參考 postman 中 auth -> login 範例，管理員(admin/admin)
-2. 所有 API 還未有權限管理，之後版本會加入權限管理
-3. 增加系統設定表，關於系統部分設定未來皆會規劃到該表中
+1. 支援 RBAC 功能，請先使用 `POST /login` 取得 JWT 令牌，可參考 Postman 中 auth → login 範例，管理員帳號：`admin/admin`
+2. 增加系統設定表，關於系統部分設定未來皆會規劃到該表中
+
+---
 
 ## 功能
-1. 支援 OpenAI 及 Ollama 平台
-2. 支援 Chroma 及 Milvus 向量資料庫
-3. 可由資料庫設定 LLM 模型並可動態切換
+
+### 支援的 AI 平台
+- OpenAI
+- Ollama
+- Anthropic
+- Gemini
+- Grok
+
+### 支援的向量資料庫
+- InMemoryEmbeddingStore（預設）
+- Chroma
+- Milvus
+
+### 其他功能
+- 可由資料庫設定 LLM 模型並動態切換
+- 支援 MCP Server 整合
+- 支援 RAG（檢索增強生成）
+- RBAC 權限管理
 
 ## 內建 Tools 工具
-| 工具名稱        | 工具類型       |
-|:------------|:-----------|
+
+| 工具名稱 | 工具類型 |
+|:---------|:---------|
 | Google 搜尋引擎 | Web Search |
 | Tavily 搜尋引擎 | Web Search |
-| Date 日期     | Date       |
-| Text2SQL    | Other      |
+| Date 日期 | Date |
+| Text2SQL | Other |
+
+---
 
 ## 目錄結構
+
 ```
 bestpartner/
-├── bestpartner-service/
-├── src/
-│   └── main/
-│       ├── docker/
-│       ├── java/
-│       │   └── tw/
-│       │       └── zipe/
-│       │           └── basepartner/
-│       ├── kotlin/
-│       │   └── tw/
-│       │       └── zipe/
-│       │           └── basepartner/
-│       │               ├── assistant/
-│       │               ├── builder/
-│       │               │   ├── aigcmodel/
-│       │               │   └── vector/
-│       │               ├── config/
-│       │               │   ├── chatmodel/
-│       │               │   ├── embedding/
-│       │               │   └── vector/
-│       │               ├── constatnt/  (Note: Potential typo, maybe 'constant'?)
-│       │               ├── converter/
-│       │               ├── dto/
-│       │               ├── entity/
-│       │               ├── enumerate/
-│       │               ├── exception/
-│       │               ├── filter/
-│       │               ├── form/
-│       │               ├── model/
-│       │               ├── properties/
-│       │               ├── provider/
-│       │               ├── repository/
-│       │               ├── resource/
-│       │               ├── service/
-│       │               ├── tool/
-│       │               └── util/
-│       └── resources/
-│           ├── cert/
-│           └── db/
-│               └── migration/
+├── bestpartner-service/                    # 主服務模組 (Quarkus)
+│   └── src/main/kotlin/tw/zipe/bastpartner/
+│       ├── assistant/                      # AI Assistant 介面
+│       ├── builder/
+│       │   ├── llm/                        # LLM 動態建構器
+│       │   └── vector/                     # 向量資料庫建構器
+│       ├── config/
+│       │   ├── chatmodel/
+│       │   ├── embedding/
+│       │   ├── security/
+│       │   └── vector/
+│       ├── constant/
+│       ├── converter/
+│       ├── dto/
+│       ├── entity/
+│       ├── enumerate/
+│       ├── exception/
+│       ├── filter/
+│       ├── form/
+│       ├── model/
+│       ├── properties/
+│       ├── provider/
+│       ├── repository/
+│       ├── resource/
+│       ├── service/
+│       ├── tool/
+│       └── util/
+├── bestpartner-mcp-servers/                # MCP Server 範例
+│   ├── quarkus-example/                    # Quarkus MCP Server 範例
+│   └── spring-example/                     # Spring Boot MCP Server 範例
 ├── docs/
+│   ├── docker/                             # Docker Compose 設定
+│   ├── postman/                            # Postman Collection
+│   ├── rag/                                # RAG 測試文件
+│   ├── sample/                             # Text2SQL 範例
+│   └── sql/                                # 資料庫 Schema
 ├── .gitignore
 ├── build.gradle.kts
 ├── gradle.properties
@@ -106,97 +130,168 @@ bestpartner/
 └── settings.gradle.kts
 ```
 
+---
+
 ## 事前準備
-模組平台:
 
-選擇1. 安裝 Ollama 並下載 LLM models
-- Ollama 安裝: [連結](https://blog.darkthread.net/blog/ollam-open-webui/)
-- Docker compose 運行: [連結](https://blog.darkthread.net/blog/ollam-open-webui/)
+### AI 平台（擇一）
 
-選擇2. OpenAI 申請 api key [官網](https://openai.com/)
+**選項 1：Ollama（本地模型）**
+- 安裝 Ollama：[參考教學](https://blog.darkthread.net/blog/ollam-open-webui/)
+- 下載所需 LLM 模型
 
-向量資料庫(建議使用 docker 並可擇一使用):
+**選項 2：雲端 AI 平台**
+- OpenAI：申請 API Key，[官網](https://openai.com/)
+- Anthropic：申請 API Key，[官網](https://www.anthropic.com/)
+- Gemini：申請 API Key，[官網](https://ai.google.dev/)
+- Grok：申請 API Key，[官網](https://x.ai/)
 
-預設使用InMemoryEmbeddingStore
+### 向量資料庫（擇一，建議使用 Docker）
 
-安裝 Chroma
-- Chroma 安裝: [連結](https://cookbook.chromadb.dev/core/install/#chroma-jsts-client)
+預設使用 **InMemoryEmbeddingStore**，無需額外安裝。
 
-安裝 Milvus
-- Milvus 安裝: [連結](https://www.milvus-io.com/getstarted/standalone/install_standalone-docker)
+- **Chroma**：[安裝說明](https://cookbook.chromadb.dev/core/install/#chroma-jsts-client)
+- **Milvus**：[安裝說明](https://www.milvus-io.com/getstarted/standalone/install_standalone-docker)
 
-安裝 Mysql
-- Mysql 安裝: [連結](https://dev.mysql.com/doc/mysql-installation-excerpt/8.0/en/)
-- 安裝完成後，請先建立資料庫 bestpartner，並執行docs/sql/bestpartner.sql
+### PostgreSQL 資料庫
+
+- 安裝 PostgreSQL：[官方文件](https://www.postgresql.org/download/)
+- 安裝完成後，建立資料庫 `pgdb`，並執行 `docs/sql/bestpartner.sql`
+
+---
 
 ## 開發環境
-* OpenJDK 21
-* Ollama latest
-* LLM models
-* Chroma latest
-* Milvus latest
-* Kotlin 2.1.0
-* Quarkus 3.18.4
-* Langchain4j 1.0.0-beta3
-* Gradle latest
-* Postman latest
-* Mysql Database latest
+
+| 類別 | 版本 |
+|------|------|
+| 語言 | Kotlin 2.1.0 |
+| 框架 | Quarkus 3.21.0 |
+| AI 函式庫 | Langchain4j 1.4.0 |
+| JDK | OpenJDK 21 |
+| 資料庫 | PostgreSQL latest |
+| 建置工具 | Gradle latest |
+
+---
 
 ## 程式執行注意事項
-- 目前使用Mysql Database，可在application.properties中設定
-- 初始化資料庫可使用Flyway，可在application.properties中設定，quarkus.flyway.migrate-at-start = true
+
+- 目前使用 PostgreSQL Database，可在 `application.properties` 中設定連線資訊
+- 無自動 Flyway 遷移（`migrate-at-start=false`），需手動執行 `docs/sql/bestpartner.sql`
+
+---
+
+## 文件服務系統（docs-site）
+
+BestPartner 提供基於 [Docusaurus](https://docusaurus.io/) 的線上文件網站，位於 `docs-site/` 目錄。
+
+### 環境需求
+
+| 類別 | 版本 |
+|------|------|
+| Node.js | >= 20.0 |
+| npm / yarn | 最新版 |
+
+### 啟動開發伺服器
+
+```bash
+cd docs-site
+npm install
+npm start
+```
+
+文件網站預設埠：**port 3000**，啟動後瀏覽器會自動開啟 `http://localhost:3000`
+
+### 建置靜態網站
+
+```bash
+cd docs-site
+npm run build
+```
+
+建置產物輸出至 `docs-site/build/` 目錄。
+
+### 預覽靜態建置結果
+
+```bash
+cd docs-site
+npm run serve
+```
+
+---
 
 ## 程式打包執行
-1. 切換至 bestpartner-service 目錄,執行 gradle clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
-- ${profile} 可取代 dev, sit, prod
-2. 打包完成後，jar file產生位置:bestpartner-service/build/bestpartner-service-0.10-SNAPSHOT-runner.jar
-3. 執行 java -jar bestpartner-service-0.10-SNAPSHOT-runner.jar
-4. 運行畫面:(http://localhost)
-![](docs/images/service-start.png)
+
+1. 切換至 `bestpartner-service` 目錄，執行：
+   ```bash
+   ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
+   ```
+   `${profile}` 可替換為 `dev`、`sit`、`prod`
+
+2. 打包完成後，JAR 位於：
+   ```
+   bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+   ```
+
+3. 執行：
+   ```bash
+   java -jar bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+   ```
+
+服務預設埠：**port 80**
+
+---
 
 ## 開發紀錄
-* 2025.04.25 BestPartner 0.1.6 版本完成
-  + 完成 MCP server 支援
+
+* **2025.xx.xx BestPartner 0.1.7 版本完成**
+  + 升級 Quarkus 至 3.21.0 版本
+  + 升級 Langchain4j 至 1.4.0 版本
+
+* **2025.04.25 BestPartner 0.1.6 版本完成**
+  + 完成 MCP Server 支援
   + 完成 Anthropic 支援
   + 完成 Gemini 支援
   + 完成 Grok 支援
-  + 移除 flyway 資料庫版控功能，只提供完整的 SQL 檔案
-  + 提供 Quarkus 和 Spring MCP server 範例
+  + 移除 Flyway 資料庫版控功能，只提供完整的 SQL 檔案
+  + 提供 Quarkus 和 Spring MCP Server 範例
 
-* 2025.03.14 BestPartner 0.1.5 版本完成
+* **2025.03.14 BestPartner 0.1.5 版本完成**
   + 完成 TEXT2SQL 工具
   + 完成知識庫的功能
-  + 完成 RAG 檔案上傳，刪除和搜尋功能
+  + 完成 RAG 檔案上傳、刪除和搜尋功能
   + 修改動態呼叫及建立工具邏輯
 
-* 2025.01.16 BestPartner 0.1.4 版本完成
+* **2025.01.16 BestPartner 0.1.4 版本完成**
   + 完成 LLM 可動態調用 Tools 工具測試
   + API 新增權限管理
-  + 修正 LLM streaming 錯誤問題
-  + 新增 tavily 網路搜尋引擎工具
+  + 修正 LLM Streaming 錯誤問題
+  + 新增 Tavily 網路搜尋引擎工具
   + 修改 log 輸出設定
-  + 修正 jwt 錯誤問題
+  + 修正 JWT 錯誤問題
 
-* 2024.12.11 BestPartner 0.1.3 版本完成
-  + 支援自製LLM工具註冊
-  + 支援動態呼叫自製LLM工具
-  + Database 由 H2 改為 Mysql
+* **2024.12.11 BestPartner 0.1.3 版本完成**
+  + 支援自製 LLM 工具註冊
+  + 支援動態呼叫自製 LLM 工具
+  + Database 由 H2 改為 MySQL
 
-* 2024.11.3 BestPartner 0.1.2 版本完成
+* **2024.11.03 BestPartner 0.1.2 版本完成**
   + 支援 RBAC 功能
   + 增加系統設定表
 
-* 2024.10.23 BestPartner 0.1.1 版本完成
+* **2024.10.23 BestPartner 0.1.1 版本完成**
   + 新增 Chroma、Milvus 向量資料庫支援
   + 新增 RAG 功能
   + 新增 H2 Database 支援
 
-* 2024.10.15 BestPartner 0.1.0 初版完成
+* **2024.10.15 BestPartner 0.1.0 初版完成**
+
 ---
 
 ## 版權聲明
-可以免費學習使用，個人可以免費是接取使用，商業應用請聯絡作者授權，測試文件皆為自行建立或者網路公開資料。
+
+可以免費學習使用，個人可以免費直接取用，商業應用請聯絡作者授權，測試文件皆為自行建立或網路公開資料。
 
 ## 備註
-* Langchain4j 官網說明:[連結](https://docs.langchain4j.dev/)
-* 如有有興趣想討論，或有任何想法想加入開發，可跟我聯絡，信箱:zipe.daden@gmail.com
+
+* Langchain4j 官方文件：[連結](https://docs.langchain4j.dev/)
+* 如有興趣想討論，或有任何想法想加入開發，可聯絡作者，信箱：zipe.daden@gmail.com

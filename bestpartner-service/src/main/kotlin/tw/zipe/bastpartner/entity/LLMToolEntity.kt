@@ -72,7 +72,7 @@ class LLMToolEntity : BaseEntity() {
     /**
      * 功能描述
      */
-    @Column(name = "function_params", nullable = true)
+    @Column(name = "function_params", nullable = true, columnDefinition = "json")
     var functionParams: String? = null
 
     /**

@@ -13,7 +13,7 @@ import tw.zipe.bastpartner.enumerate.UserStatus
 class LLMPermissionRepository : BaseRepository<LLMPermissionEntity, String>() {
 
     fun findUserPermissionByStatus(id: String, status: UserStatus): List<PermissionDTO> {
-        val paramMap = mapOf("id" to id, "status" to status.ordinal)
+        val paramMap = mapOf("id" to id, "status" to status.ordinal.toString())
 
         val sql = """
             SELECT lp.num, lp.name

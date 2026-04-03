@@ -46,7 +46,7 @@ class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
     fun updateSetting(parasMap: Map<String, Any>): Int {
         val params = parasMap.plus(initParamsMap())
         val sql = """
-            UPDATE llm_setting ls 
+            UPDATE llm_setting ls
             SET ls.alias = :alias,
                 ls.platform_id = :platformId,
                 ls.type = :type,

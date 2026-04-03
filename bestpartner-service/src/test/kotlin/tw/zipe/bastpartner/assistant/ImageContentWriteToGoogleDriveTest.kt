@@ -125,7 +125,7 @@ class ImageContentWriteToGoogleDriveTest {
                     你是一個AI助手，會遵循使用者指令完成任務。
                     """.trimIndent()
             })
-            .chatLanguageModel(grokChatModel)
+            .chatModel(grokChatModel)
             .toolProvider(mcpToolProvider)
             .build()
         try {

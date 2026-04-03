@@ -1,69 +1,116 @@
-# quarkus-example
+# quarkus-example — Quarkus MCP Server 範例
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+本專案示範如何使用 [Quarkus](https://quarkus.io/) 搭配 [quarkus-mcp-server](https://github.com/quarkiverse/quarkus-mcp-server) 擴充套件，快速建立一個符合 MCP（Model Context Protocol）規範的 Server，供 AI 模型動態呼叫自訂工具。
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+---
 
-## Running the application in dev mode
+## 功能說明
 
-You can run your application in dev mode that enables live coding using:
+本範例提供兩個 MCP Tool，示範如何以 `@Tool` 標註定義可被 AI 呼叫的工具函式：
 
-```shell script
+### `chineseName`
+
+根據英文用戶名，回傳對應的中文名稱。
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| `username` | String | 英文用戶名 |
+
+**支援對應**：
+
+| 輸入 | 回傳 |
+|------|------|
+| Gary | 蓋瑞 |
+| Bob | 鮑勃 |
+| Charlie | 查理 |
+| 其他 | Unknown |
+
+---
+
+### `favoriteColor`
+
+根據用戶名，回傳該使用者最喜歡的顏色。
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| `username` | String | 英文用戶名 |
+
+**支援對應**：
+
+| 輸入 | 回傳 |
+|------|------|
+| Gary | Blue |
+| Bob | Green |
+| Charlie | Red |
+| 其他 | Unknown |
+
+---
+
+## 技術堆疊
+
+| 類別 | 版本 |
+|------|------|
+| 語言 | Kotlin 2.1.0 |
+| 框架 | Quarkus 3.21.0 |
+| MCP 擴充 | quarkus-mcp-server-stdio 1.1.1 |
+| JDK | OpenJDK 21 |
+
+MCP 傳輸協定使用 **Stdio**，適合整合至 Claude Desktop、BestPartner 等 MCP 主機環境。
+
+---
+
+## 快速開始
+
+### 開發模式（支援熱重載）
+
+```bash
 ./gradlew quarkusDev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+### 建置 Uber JAR
 
-## Packaging and running the application
-
-The application can be packaged using:
-
-```shell script
+```bash
 ./gradlew build
 ```
 
-It produces the `quarkus-run.jar` file in the `build/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `build/quarkus-app/lib/` directory.
+產生的 jar 位於 `build/` 目錄，可直接執行：
 
-The application is now runnable using `java -jar build/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./gradlew build -Dquarkus.package.jar.type=uber-jar
+```bash
+java -jar build/quarkus-example-1.0-SNAPSHOT-runner.jar
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
+### 建置 Native Executable（需 GraalVM）
 
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
+```bash
 ./gradlew build -Dquarkus.native.enabled=true
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+---
 
-```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
-```
+## 設定說明
 
-You can then execute your native executable with: `./build/quarkus-example-1.0-SNAPSHOT-runner`
+設定檔位於 `src/main/resources/application.properties`：
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
+| 設定項 | 預設值 | 說明 |
+|--------|--------|------|
+| `quarkus.package.type` | `uber-jar` | 打包成單一 jar |
+| `quarkus.log.file.enable` | `true` | 啟用檔案日誌 |
+| `quarkus.log.file.path` | `D:/tmp/quarkus-mcp-server-example.log` | 日誌輸出路徑 |
 
-## Related Guides
+---
 
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and
-  Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on
-  it.
-- Kotlin ([guide](https://quarkus.io/guides/kotlin)): Write your services in Kotlin
+## 演進歷史
 
-## Provided Code
+| 版本 / Commit | 說明 |
+|---------------|------|
+| 初始版本 | 建立 Quarkus MCP Server 基礎範例（`b0ce769`） |
+| 升級依賴 | 升級 Quarkus 及相關套件版本（`4eb2156`） |
+| 重構與擴充 | 新增 `ChineseName` Tool，重構名稱處理邏輯，更新依賴（`e6db628`） |
 
-### REST
+---
 
-Easily start your REST Web Services
+## 相關資源
 
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+- [Quarkus MCP Server 擴充文件](https://docs.quarkiverse.io/quarkus-mcp-server/dev/)
+- [Model Context Protocol 規範](https://modelcontextprotocol.io/)
+- [BestPartner 主專案](../../README.md)

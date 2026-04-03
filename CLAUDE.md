@@ -4,7 +4,7 @@
 
 BestPartner 是一個 AI 應用大平台，可動態建立 AI agent 並支援多種 AI 模型，目標類似 Dify 或 Coze 平台。
 
-**當前版本**: 0.1.6-SNAPSHOT
+**當前版本**: 0.1.7-SNAPSHOT
 
 ## 模組結構
 
@@ -30,7 +30,7 @@ bestpartner/
 | 框架 | Quarkus 3.18.4 |
 | AI 函式庫 | Langchain4j 1.0.0-beta3 |
 | JDK | OpenJDK 21 |
-| 資料庫 | MySQL |
+| 資料庫 | PostgreSQL |
 | 建置工具 | Gradle |
 
 ## 套件命名
@@ -72,24 +72,61 @@ cd bestpartner-service
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
 ```
 
-產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.6-SNAPSHOT-runner.jar`
+產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar`
 
 ### 執行
 
 ```bash
-java -jar bestpartner-service-0.1.6-SNAPSHOT-runner.jar
+java -jar bestpartner-service-0.1.7-SNAPSHOT-runner.jar
 ```
 
 服務預設埠：**port 80**
 
+## 專案設定檔
+
+設定檔位於 `bestpartner-service/src/main/resources/application.properties`，根據編譯環境（profile）調整設定項目：
+
+| Profile | 說明 | 主要差異 |
+|---------|------|----------|
+| dev（預設） | 本地開發環境 | log level = DEBUG，包含 MCP server log 與上傳檔案配置 |
+| sit | 測試環境 | log level = DEBUG，含 Flyway 設定 |
+| prod | 生產環境 | log level = INFO，含 Flyway 設定 |
+
+編譯時透過 `-Dquarkus.profile=${profile}` 指定對應環境的設定。
+
+### 主要設定項目
+
+| 設定項 | 預設值 | 說明 |
+|--------|--------|------|
+| `quarkus.http.port` | `80` | HTTP 服務埠 |
+| `quarkus.datasource.jdbc.url` | `jdbc:postgresql://localhost:5432/pgdb` | 資料庫連線 |
+| `quarkus.datasource.username` | `pguser` | 資料庫帳號 |
+| `quarkus.datasource.password` | `pgpass` | 資料庫密碼 |
+| `quarkus.datasource.jdbc.min-size` | `5` | 連線池最小連線數 |
+| `quarkus.datasource.jdbc.max-size` | `15` | 連線池最大連線數 |
+| `quarkus.log.file.path` | `D:/tmp/bestpartner/bestpartner.log` | 一般日誌路徑 |
+| `quarkus.log.handler.file."ERROR_LOG".path` | `D:/tmp/bestpartner/bestpartner_error.log` | 錯誤日誌路徑（獨立檔案） |
+| `mp.jwt.verify.issuer` | `bast-partner` | JWT 簽發者 |
+| `mp.jwt.verify.publickey.location` | `publicKey.pem` | JWT 公鑰位置 |
+| `smallrye.jwt.sign.key.location` | `privateKey.pem` | JWT 私鑰位置 |
+| `jwt.refresh.switch` | `true` | JWT 自動刷新開關 |
+| `mcp.server.log.enable` | `true` | MCP server 日誌開關（僅 dev） |
+| `file.upload.dir` | `D:/tmp/bestpartner/upload` | 上傳檔案目錄（僅 dev） |
+
+### Profile 差異說明
+
+編譯時根據 profile 調整 `application.properties` 中的設定：
+
+- **dev**：無 Flyway 設定，包含 `mcp.server.log.enable` 與 `file.upload.dir` 配置，log level = DEBUG
+- **sit**：包含 Flyway 設定（`migrate-at-start=false`，手動執行），log level = DEBUG
+- **prod**：包含 Flyway 設定（`migrate-at-start=false`，手動執行），log level = INFO
+
 ## 資料庫設定
 
-- DB: MySQL，預設連線 `localhost:3306/bestpartner`
-- 帳號：`llm` / 密碼：`bestpartner`
+- DB: PostgreSQL，預設連線 `localhost:5432/pgdb`
+- 帳號：`pguser` / 密碼：`pgpass`
 - 初始化：執行 `docs/sql/bestpartner.sql`
-- 無 Flyway 自動遷移（已移除），須手動執行 SQL
-
-設定檔：`bestpartner-service/src/main/resources/application.properties`
+- 無 Flyway 自動遷移（`migrate-at-start=false`），須手動執行 SQL
 
 ## 認證
 
