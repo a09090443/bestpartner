@@ -5,7 +5,7 @@ import tw.zipe.bastpartner.builder.llm.GeminiModelBuilder
 import tw.zipe.bastpartner.builder.llm.OllamaModelBuilder
 import tw.zipe.bastpartner.builder.llm.OpenaiModelBuilder
 import tw.zipe.bastpartner.provider.ModelProvider
-import tw.zipe.bastpartner.tw.zipe.bastpartner.builder.llm.tw.zipe.bastpartner.builder.llm.GrokModelBuilder
+import tw.zipe.bastpartner.builder.llm.GrokModelBuilder
 
 /**
  * @author Gary

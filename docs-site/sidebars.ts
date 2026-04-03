@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
         'api/authentication',
         'api/assistant',
         'api/knowledge-base',
+        'api/swagger',
       ],
     },
   ],

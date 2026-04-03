@@ -69,6 +69,7 @@ BestPartner project
 - 支援 MCP Server 整合
 - 支援 RAG（檢索增強生成）
 - RBAC 權限管理
+- Swagger UI（dev / sit 環境）
 
 ## 內建 Tools 工具
 
@@ -216,6 +217,24 @@ npm run build
 cd docs-site
 npm run serve
 ```
+
+---
+
+## Swagger UI
+
+在 **dev** 與 **sit** 環境，服務啟動後可透過以下位址存取 API 文件：
+
+| 路徑 | 說明 |
+|------|------|
+| `http://localhost:80/swagger-ui` | Swagger UI 互動介面 |
+| `http://localhost:80/q/openapi` | OpenAPI 規格（YAML） |
+
+### 使用 JWT 認證
+
+1. 呼叫 `POST /login/`（帳號：`admin/admin`）取得 JWT Token
+2. 開啟 Swagger UI，點擊右上角 **Authorize** 按鈕
+3. 在 `bearerAuth` 欄位貼入 Token（不需加 `Bearer` 前綴）
+4. 即可直接測試所有受保護的 API
 
 ---
 

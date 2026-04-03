@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.util.time
 
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -246,7 +247,7 @@ object DateTimeUtils {
     ): Double = Duration.between(date1, date2)
         .seconds
         .toBigDecimal()
-        .divide(BigDecimal(3600), 2, BigDecimal.ROUND_HALF_UP)
+        .divide(BigDecimal(3600), 2, RoundingMode.HALF_UP)
         .toDouble()
 
     /**

@@ -1,4 +1,4 @@
-package tw.zipe.bastpartner.tw.zipe.bastpartner.builder.llm.tw.zipe.bastpartner.builder.llm
+package tw.zipe.bastpartner.builder.llm
 
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel

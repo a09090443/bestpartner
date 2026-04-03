@@ -39,6 +39,7 @@ dependencies {
     implementation("io.quarkus:quarkus-smallrye-jwt")
     implementation("io.quarkus:quarkus-smallrye-jwt-build")
     implementation("io.quarkus:quarkus-security")
+    implementation("io.quarkus:quarkus-smallrye-openapi")
 
     implementation("dev.langchain4j:langchain4j")
     implementation("dev.langchain4j:langchain4j-core")
