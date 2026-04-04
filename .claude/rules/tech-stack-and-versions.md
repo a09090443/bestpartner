@@ -20,6 +20,7 @@
 - Anthropic
 - Gemini
 - Grok
+- OpenRouter
 
 ## 向量資料庫
 

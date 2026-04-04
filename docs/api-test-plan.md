@@ -19,9 +19,22 @@
 ## 測試前置條件
 
 - 測試環境 API Base URL 已設定（預設 port 80）
-- 備妥以下測試帳號：`admin` 角色帳號、一般 `user` 角色帳號
 - 所有需要認證的測試，需先執行 `POST /login/` 取得有效 JWT
 - 測試資料需在每個 suite 執行前/後進行清理
+
+### 預設測試帳號
+
+以下帳號由 `docs/sql/bestpartner-init-data.sql` 初始化，可直接使用：
+
+| 帳號 | Email | 密碼 | 角色 | JWT groups（permissions） | 適用場景 |
+|-----|-------|------|------|--------------------------|---------|
+| `admin` | `admin@bestpartner.com.tw` | `admin` | ADMIN | `admin`, `user-read`, `user-write` | 所有端點（含 `@RolesAllowed("admin")`） |
+| `user` | `user@bestpartner.com.tw` | `user` | USER | `user-read`, `user-write` | `@Authenticated` 及 `@RolesAllowed("user-read")` 端點；admin 端點預期 403 |
+| `test_user` | `test@partmer.com.tw` | `user` | （無角色） | （空） | 僅用於「無角色帳號存取受保護端點」的負向測試 |
+
+> **已知缺陷 — @RolesAllowed("all")**：permission `"all"` (num=2) 在 `llm_role_permission` 中無任何角色映射，所有預設帳號（含 admin）均不具備此 permission。涉及 `@RolesAllowed("all")` 的端點（`/llm/user/switchStatus`、`/llm/user/delete`）以預設帳號呼叫均預期回傳 403，相關測試案例已標記。
+
+> **已知缺陷 — test_user 無角色**：`test_user` 帳號在資料庫中沒有任何角色，所有需要認證的端點（`@Authenticated`）均預期失敗，僅可用於驗證「無權限帳號被拒絕」的場景。
 
 ---
 
@@ -29,7 +42,7 @@
 
 | 測試編號 | 測試場景 | 方法 | 端點 | 輸入資料 | 預期結果 | 優先順序 |
 |----------|----------|------|------|----------|----------|----------|
-| AUTH-001 | 正常登入 — 有效帳密 | POST | /login/ | email: 有效信箱、password: 正確密碼 | HTTP 200，回傳有效 JWT token | P0 |
+| AUTH-001 | 正常登入 — 有效帳密 | POST | /login/ | email: `admin@bestpartner.com.tw`、password: `admin` | HTTP 200，回傳有效 JWT token | P0 |
 | AUTH-002 | 驗證 JWT 有效 | POST | /login/check | AUTH-001 取得的 token | HTTP 200，token 驗證通過 | P0 |
 | AUTH-003 | 錯誤登入 — 密碼錯誤 | POST | /login/ | email: 有效、password: 錯誤 | HTTP 401 | P1 |
 | AUTH-004 | 錯誤登入 — 信箱不存在 | POST | /login/ | email: 不存在 | HTTP 401 或 404 | P1 |
@@ -92,12 +105,14 @@
 | USER-009 | 更新用戶 — 正常 | POST | /llm/user/update | 有效 JWT、id, email, status | HTTP 200 | P1 |
 | USER-010 | 更新用戶 — 缺少 id | POST | /llm/user/update | 有效 JWT、缺少 id | HTTP 400 | P1 |
 | USER-011 | 更新用戶 — 不存在的 id | POST | /llm/user/update | 有效 JWT、不存在的 id | HTTP 404 | P1 |
-| USER-012 | 切換狀態 — 正常 | POST | /llm/user/switchStatus | 有效 JWT、id, status | HTTP 200 | P1 |
-| USER-013 | 切換狀態 — 缺少 status | POST | /llm/user/switchStatus | 有效 JWT、僅傳 id | HTTP 400 | P1 |
-| USER-014 | 刪除用戶 — 正常 | DELETE | /llm/user/delete | 有效 JWT、id 有效 | HTTP 200 | P1 |
+| USER-012 | 切換狀態 — 正常 | POST | /llm/user/switchStatus | 有效 JWT、id, status ⚠️ 見備註 | HTTP 200（需先修復 "all" 權限映射，目前預設帳號預期 403） | P1 |
+| USER-013 | 切換狀態 — 缺少 status | POST | /llm/user/switchStatus | 有效 JWT、僅傳 id ⚠️ 見備註 | HTTP 400（需先修復 "all" 權限映射） | P1 |
+| USER-014 | 刪除用戶 — 正常 | DELETE | /llm/user/delete | 有效 JWT、id 有效 ⚠️ 見備註 | HTTP 200（需先修復 "all" 權限映射，目前預設帳號預期 403） | P1 |
 | USER-015 | 刪除用戶 — 缺少 id | DELETE | /llm/user/delete | 有效 JWT、無 id | HTTP 400 | P1 |
 | USER-016 | 刪除用戶 — 不存在的 id | DELETE | /llm/user/delete | 有效 JWT、不存在的 id | HTTP 404 | P2 |
 | USER-017 | 業務邏輯 — 刪除後無法取得 | POST → DELETE → POST | /llm/user/get | 建立用戶，刪除後再查詢 | 回傳 404 或空結果 | P1 |
+
+> **USER-012 / USER-013 / USER-014 備註**：`/llm/user/switchStatus` 與 `/llm/user/delete` 的安全註解為 `@RolesAllowed("all")`。`llm_role_permission` 中無任何角色擁有 permission `"all"` (num=2)，因此所有預設帳號（含 admin）呼叫均預期 HTTP 403。須在資料庫中為 ADMIN 角色補充 `(0, 2)` 的 role_permission 映射後，才能執行正向測試。
 
 ---
 
@@ -153,21 +168,23 @@
 | TOOL-002 | 取得工具 — 正常 | POST | /llm/tool/get | id 有效 | HTTP 200 | P1 |
 | TOOL-003 | 取得工具 — 缺少 id | POST | /llm/tool/get | 無 id | HTTP 400 | P1 |
 | TOOL-004 | 取得工具 — 不存在的 id | POST | /llm/tool/get | 不存在的 id | HTTP 404 | P2 |
-| TOOL-005 | 註冊工具 — 正常 | POST | /llm/tool/register | name, classPath, groupId, type | HTTP 200 | P1 |
-| TOOL-006 | 註冊工具 — 缺少 name | POST | /llm/tool/register | 缺少 name | HTTP 400 | P1 |
-| TOOL-007 | 註冊工具 — 缺少 classPath | POST | /llm/tool/register | 缺少 classPath | HTTP 400 | P1 |
-| TOOL-008 | 註冊工具 — 缺少 type | POST | /llm/tool/register | 缺少 type | HTTP 400 | P1 |
-| TOOL-009 | 刪除工具 — 正常 | POST | /llm/tool/delete | 有效 id | HTTP 200 | P1 |
-| TOOL-010 | 刪除工具 — 缺少 id | POST | /llm/tool/delete | 無 id | HTTP 400 | P1 |
+| TOOL-005 | 註冊工具 — 正常 | POST | /llm/tool/register | admin JWT、name, classPath, groupId, type | HTTP 200 | P1 |
+| TOOL-006 | 註冊工具 — 缺少 name | POST | /llm/tool/register | admin JWT、缺少 name | HTTP 400 | P1 |
+| TOOL-007 | 註冊工具 — 缺少 classPath | POST | /llm/tool/register | admin JWT、缺少 classPath | HTTP 400 | P1 |
+| TOOL-008 | 註冊工具 — 缺少 type | POST | /llm/tool/register | admin JWT、缺少 type | HTTP 400 | P1 |
+| TOOL-009 | 刪除工具 — 正常 | POST | /llm/tool/delete | admin JWT、有效 id | HTTP 200 | P1 |
+| TOOL-010 | 刪除工具 — 缺少 id | POST | /llm/tool/delete | admin JWT、無 id | HTTP 400 | P1 |
 | TOOL-011 | 儲存工具設定 — 正常 | POST | /llm/tool/saveSetting | id, alias 有效 | HTTP 200 | P1 |
 | TOOL-012 | 儲存工具設定 — 缺少 alias | POST | /llm/tool/saveSetting | 僅傳 id | HTTP 400 | P2 |
 | TOOL-013 | 更新工具設定 — 正常 | POST | /llm/tool/updateSetting | settingId, settingContent | HTTP 200 | P1 |
 | TOOL-014 | 更新工具設定 — 缺少 settingContent | POST | /llm/tool/updateSetting | 僅傳 settingId | HTTP 400 | P2 |
-| TOOL-015 | 新增分類 — 正常 | POST | /llm/tool/category/save | group 有效 | HTTP 200 | P1 |
-| TOOL-016 | 新增分類 — 缺少 group | POST | /llm/tool/category/save | 無 group | HTTP 400 | P2 |
-| TOOL-017 | 更新分類 — 正常 | POST | /llm/tool/category/update | groupId, group | HTTP 200 | P1 |
-| TOOL-018 | 刪除分類 — 正常 | POST | /llm/tool/category/delete | groupId 有效 | HTTP 200 | P1 |
+| TOOL-015 | 新增分類 — 正常 | POST | /llm/tool/category/save | admin JWT、group 有效 | HTTP 200 | P1 |
+| TOOL-016 | 新增分類 — 缺少 group | POST | /llm/tool/category/save | admin JWT、無 group | HTTP 400 | P2 |
+| TOOL-017 | 更新分類 — 正常 | POST | /llm/tool/category/update | admin JWT、groupId, group | HTTP 200 | P1 |
+| TOOL-018 | 刪除分類 — 正常 | POST | /llm/tool/category/delete | admin JWT、groupId 有效 | HTTP 200 | P1 |
 | TOOL-019 | 業務邏輯 — 刪除後不出現於清單 | register → delete → list | 確認 id 不再出現 | P1 |
+
+> **TOOL 模組權限備註**：`/llm/tool/register`、`/llm/tool/delete`、`/llm/tool/category/save`、`/llm/tool/category/update`、`/llm/tool/category/delete` 均使用 `@RolesAllowed("admin")` 保護，必須使用 `admin@bestpartner.com.tw` 帳號的 JWT。以 `user` JWT 呼叫此類端點，預期 HTTP 403。
 
 ---
 
@@ -201,15 +218,16 @@
 
 | 測試編號 | 測試場景 | 方法 | 端點 | 輸入資料 | 預期結果 | 優先順序 |
 |----------|----------|------|------|----------|----------|----------|
-| PERM-001 | 新增權限 — 已認證正常 | POST | /llm/permission/add | 有效 JWT、name, num | HTTP 200 | P1 |
+| PERM-001 | 新增權限 — admin 角色正常 | POST | /llm/permission/add | admin JWT（`admin@bestpartner.com.tw`）、name, num | HTTP 200 | P1 |
+| PERM-001b | 新增權限 — 一般用戶拒絕 | POST | /llm/permission/add | user JWT（`user@bestpartner.com.tw`） | HTTP 403 | P1 |
 | PERM-002 | 新增權限 — 未認證 | POST | /llm/permission/add | 無 JWT | HTTP 401 | P1 |
 | PERM-003 | 新增權限 — 缺少 name | POST | /llm/permission/add | 有效 JWT、僅傳 num | HTTP 400 | P1 |
 | PERM-004 | 新增權限 — 缺少 num | POST | /llm/permission/add | 有效 JWT、僅傳 name | HTTP 400 | P1 |
 | PERM-005 | 新增權限 — num 為非數字 | POST | /llm/permission/add | 有效 JWT、num: "abc" | HTTP 400 | P2 |
-| PERM-006 | 更新權限 — 正常 | POST | /llm/permission/update | 有效 JWT、id, name, num | HTTP 200 | P1 |
+| PERM-006 | 更新權限 — 正常 | POST | /llm/permission/update | admin JWT、id, name, num | HTTP 200 | P1 |
 | PERM-007 | 更新權限 — 缺少 id | POST | /llm/permission/update | 有效 JWT、缺少 id | HTTP 400 | P1 |
 | PERM-008 | 更新權限 — 不存在的 id | POST | /llm/permission/update | 有效 JWT、不存在的 id | HTTP 404 | P2 |
-| PERM-009 | 刪除權限 — 正常 | DELETE | /llm/permission/delete | 有效 JWT、id | HTTP 200 | P1 |
+| PERM-009 | 刪除權限 — 正常 | DELETE | /llm/permission/delete | admin JWT、id | HTTP 200 | P1 |
 | PERM-010 | 刪除權限 — 缺少 id | DELETE | /llm/permission/delete | 有效 JWT、無 id | HTTP 400 | P1 |
 | PERM-011 | 刪除權限 — 未認證 | DELETE | /llm/permission/delete | 無 JWT | HTTP 401 | P1 |
 

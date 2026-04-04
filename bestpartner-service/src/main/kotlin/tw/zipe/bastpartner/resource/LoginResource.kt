@@ -54,7 +54,7 @@ class LoginResource(
 
     @POST
     @Path("/check")
-    @RolesAllowed("user-write")
+    @RolesAllowed("user-read")
 //    @Authenticated
     fun check(@Context ctx: SecurityContext): String {
         println(identity.principal.name)
