@@ -24,6 +24,8 @@ description: Use when user wants to start a test cycle, record API test results,
 - 測試日期（預設：今天）
 - 測試環境（dev / sit）
 - 測試人員姓名
+- LLM 平台（OpenAI / Ollama / Anthropic / Gemini / Grok / OpenRouter，可多選）
+  ※ 若找不到對應的 LLM 設定資料，請同時提供 llm_setting id
 ```
 
 ### Step 2：建立帶日期的新檔案
@@ -42,6 +44,8 @@ description: Use when user wants to start a test cycle, record API test results,
 | 測試日期 | YYYY-MM-DD |
 | 測試環境 | dev 或 sit |
 | 測試人員 | [名字] |
+| LLM 平台 | [平台名稱] |
+| LLM Setting ID | [id，若找不到平台資料時填入，否則留空] |
 ```
 
 其餘所有模組表格的「狀態」與「備註」欄位保持空白，供測試人員現場填寫。
@@ -53,6 +57,22 @@ description: Use when user wants to start a test cycle, record API test results,
 2. 狀態填寫符號說明（✅ / ❌ / ⏭️ / —）
 3. 提醒測試完成後更新「測試結果摘要」統計表
 4. 提醒 ❌ 項目需在「問題追蹤區」記錄
+
+## 測試中斷處理
+
+### 遇到無效 API Key 時
+
+若測試過程中任何端點回傳 API Key 無效（如 HTTP 401、403，或錯誤訊息含 `invalid api key`、`unauthorized`、`authentication failed` 等），**立即暫停測試**並向使用者詢問：
+
+```
+測試發現 API Key 無效，無法繼續呼叫 LLM。
+請問 LLM SETTING 中，目前哪個 llmId 的設定是有效可測試的？
+請提供可用的 llmId，後續測試將改用該設定。
+```
+
+取得使用者提供的 `llmId` 後：
+1. 將該 `llmId` 填入已建立的確認表「測試週期資訊」中的 `LLM Setting ID` 欄位
+2. 後續所有需要 LLM 的測試案例改用此 `llmId` 指定的設定繼續執行
 
 ## 狀態符號（不可更改）
 

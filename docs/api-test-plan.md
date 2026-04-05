@@ -57,14 +57,17 @@
 
 ## 模組二：CHAT（/llm）
 
+> **⚠️ 前置條件**：執行本模組 P0 測試（CHAT-001、CHAT-006）前，須先至**模組五：LLM SETTING** 執行 LLMSET-001（新增 LLM 設定）並取得有效的 `llmId`。
+> 若尚未建立任何 LLM 設定，可先執行 LLMSET-007（取得設定）確認是否已有可用的 `llmId`。
+
 | 測試編號 | 測試場景 | 方法 | 端點 | 輸入資料 | 預期結果 | 優先順序 |
 |----------|----------|------|------|----------|----------|----------|
-| CHAT-001 | 同步聊天 — 正常請求 | POST | /llm/chat | 有效 JWT、llmId、message | HTTP 200，回傳 AI 回覆 | P0 |
+| CHAT-001 | 同步聊天 — 正常請求 | POST | /llm/chat | 有效 JWT、llmId（見模組五 LLMSET-001）、message | HTTP 200，回傳 AI 回覆 | P0 |
 | CHAT-002 | 同步聊天 — 未認證 | POST | /llm/chat | 無 JWT | HTTP 401 | P0 |
 | CHAT-003 | 同步聊天 — 缺少 llmId | POST | /llm/chat | 有效 JWT、僅傳 message | HTTP 400 | P1 |
 | CHAT-004 | 同步聊天 — 缺少 message | POST | /llm/chat | 有效 JWT、僅傳 llmId | HTTP 400 | P1 |
 | CHAT-005 | 同步聊天 — llmId 不存在 | POST | /llm/chat | 有效 JWT、不存在的 llmId | HTTP 404 或業務錯誤碼 | P1 |
-| CHAT-006 | 串流聊天 — 正常請求 | POST | /llm/chatStreaming | 有效 JWT、必填欄位 | HTTP 200，stream 格式回應 | P0 |
+| CHAT-006 | 串流聊天 — 正常請求 | POST | /llm/chatStreaming | 有效 JWT、llmId（見模組五 LLMSET-001）等必填欄位 | HTTP 200，stream 格式回應 | P0 |
 | CHAT-007 | 串流聊天 — 未認證 | POST | /llm/chatStreaming | 無 JWT | HTTP 401 | P0 |
 | CHAT-008 | 自定義助手聊天 — 不帶 mcpIds | POST | /llm/customAssistantChat | 有效 JWT、必填欄位 | HTTP 200 | P1 |
 | CHAT-009 | 自定義助手聊天 — 帶有效 mcpIds | POST | /llm/customAssistantChat | 有效 JWT、有效 mcpIds | HTTP 200 | P1 |
