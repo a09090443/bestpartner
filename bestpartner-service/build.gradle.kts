@@ -6,23 +6,39 @@ plugins {
 }
 
 repositories {
+    maven {
+        url = uri("https://repo1.maven.org/maven2/")
+    }
     mavenCentral()
     mavenLocal()
+    gradlePluginPortal()
 }
 
+val kotlinVersion: String by project
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "1.4.0"
-val bouncycastleVersion = "1.79"
-val okhttp3Version = "4.12.0"
-val kotlinSerializationVersion = "1.7.3"
+val langchain4jVersion: String by project
+val bouncycastleVersion: String by project
+val okhttp3Version: String by project
+val kotlinSerializationVersion: String by project
+val kotlinxCoroutinesVersion: String by project
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    }
+}
 
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
     implementation(enforcedPlatform("dev.langchain4j:langchain4j-bom:${langchain4jVersion}"))
 
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinxCoroutinesVersion")
     implementation("io.quarkus:quarkus-rest")
     implementation("io.quarkus:quarkus-rest-jackson")
     implementation("io.quarkus:quarkus-rest-kotlin")
@@ -56,7 +72,6 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-web-search-engine-tavily")
     implementation("dev.langchain4j:langchain4j-mcp")
 
-    implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.8")
     implementation("com.github.jsqlparser:jsqlparser:5.1")
 
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
@@ -91,8 +106,8 @@ allOpen {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 // 使用 JvmTarget.fromTarget 轉換字串
-        javaParameters = true // 啟用參數名稱保留
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+        javaParameters = true
     }
 }
 

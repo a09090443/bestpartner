@@ -15,6 +15,7 @@ BestPartner project
 ## 1.7 版本變更說明
 1. 升級 Quarkus 至 3.21.0 版本
 2. 升級 Langchain4j 至 1.4.0 版本
+3. 升級 Langchain4j 至 1.12.2 版本
 
 ## 1.6 版本變更說明
 1. 新增 MCP Server 支援
@@ -167,7 +168,7 @@ bestpartner/
 |------|------|
 | 語言 | Kotlin 2.1.0 |
 | 框架 | Quarkus 3.21.0 |
-| AI 函式庫 | Langchain4j 1.4.0 |
+| AI 函式庫 | Langchain4j 1.12.2 |
 | JDK | OpenJDK 21 |
 | 資料庫 | PostgreSQL latest |
 | 建置工具 | Gradle latest |
@@ -265,6 +266,7 @@ npm run serve
 * **2025.xx.xx BestPartner 0.1.7 版本完成**
   + 升級 Quarkus 至 3.21.0 版本
   + 升級 Langchain4j 至 1.4.0 版本
+  + 升級 Langchain4j 至 1.12.2 版本
 
 * **2025.04.25 BestPartner 0.1.6 版本完成**
   + 完成 MCP Server 支援

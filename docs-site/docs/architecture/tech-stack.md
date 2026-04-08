@@ -8,9 +8,9 @@ sidebar_position: 3
 
 | 技術 | 版本 | 用途 |
 |------|------|------|
-| **Quarkus** | 3.18.4 | 雲原生 Java/Kotlin 框架，支援 GraalVM 原生編譯 |
+| **Quarkus** | 3.21.0 | 雲原生 Java/Kotlin 框架，支援 GraalVM 原生編譯 |
 | **Kotlin** | 2.1.0 | 主要開發語言 |
-| **LangChain4J** | 1.0.0-beta3 | AI 模型整合框架 |
+| **LangChain4J** | 1.12.2 | AI 模型整合框架 |
 | **Hibernate Panache** | — | ORM 資料庫存取 |
 | **SmallRye JWT** | — | JWT 認證與授權 |
 

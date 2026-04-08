@@ -5,8 +5,8 @@
 | 類別 | 技術 | 版本 |
 |------|------|------|
 | 語言 | Kotlin | 2.1.0 |
-| 框架 | Quarkus | 3.18.4 |
-| AI 函式庫 | Langchain4j | 1.0.0-beta3 |
+| 框架 | Quarkus | 3.21.0 |
+| AI 函式庫 | Langchain4j | 1.12.2 |
 | JDK | OpenJDK | 21 |
 | 資料庫 | PostgreSQL | - |
 | 建置工具 | Gradle | - |
@@ -27,6 +27,15 @@
 - Chroma
 - Milvus
 - InMemoryEmbeddingStore（預設）
+
+## 版本異動規範
+
+當任何核心版本變更時，**必須同步更新以下文件**：
+
+| 文件 | 路徑 |
+|------|------|
+| doc 文件技術選型頁 | `docs-site/docs/architecture/tech-stack.md` |
+| README 開發環境表格 | `README.md` |
 
 ## 內建工具
 

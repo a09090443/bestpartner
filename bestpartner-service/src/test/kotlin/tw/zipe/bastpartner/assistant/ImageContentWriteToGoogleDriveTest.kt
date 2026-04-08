@@ -17,7 +17,6 @@ import java.io.File
 import java.nio.file.Files
 import java.time.Duration
 import java.util.Base64
-import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.MethodOrderer
@@ -118,13 +117,11 @@ class ImageContentWriteToGoogleDriveTest {
             .mcpClients(listOf(dateMcpClient, fileSystemMcpClient))
             .build()
 
-        val assistant = AiServices.builder(AIAssistant::class.java).systemMessageProvider(
-            object : SystemMessageProvider {
-                override fun getSystemMessage(chatMemoryID: Any): String =
-                    """
-                    你是一個AI助手，會遵循使用者指令完成任務。
-                    """.trimIndent()
-            })
+        val assistant = AiServices.builder(AIAssistant::class.java).systemMessageProvider { _ ->
+            """
+            你是一個AI助手，會遵循使用者指令完成任務。
+            """.trimIndent()
+        }
             .chatModel(grokChatModel)
             .toolProvider(mcpToolProvider)
             .build()

@@ -22,7 +22,6 @@ import jakarta.transaction.Transactional
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.assistant.DynamicAssistant
@@ -177,11 +176,9 @@ class LLMService(
             throwOnInvalid()
         }
 
-        val aiService = AiServices.builder(DynamicAssistant::class.java).systemMessageProvider(
-            object : SystemMessageProvider {
-                override fun getSystemMessage(chatMemoryID: Any): String =
-                    chatRequestDTO.promptContent.orEmpty()
-            })
+        val aiService = AiServices.builder(DynamicAssistant::class.java).systemMessageProvider { _ ->
+            chatRequestDTO.promptContent.orEmpty()
+        }
 
         buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
             when (llm) {

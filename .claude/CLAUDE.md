@@ -16,6 +16,7 @@ BestPartner 是一個 AI 應用大平台，可動態建立 AI agent 並支援多
 | [architecture-and-packages.md](rules/architecture-and-packages.md) | 專案模組結構、各 package 職責說明、完整目錄樹 |
 | [naming-conventions.md](rules/naming-conventions.md) | 套件命名（bastpartner 注意）、各層檔案命名規則 |
 | [build-and-run.md](rules/build-and-run.md) | Gradle 建置指令、uber-jar 生成、執行方式 |
+| [gradle-conventions.md](rules/gradle-conventions.md) | Gradle 版本管理、gradle.properties、build.gradle.kts 規範 |
 | [configuration-and-profiles.md](rules/configuration-and-profiles.md) | application.properties 設定項、dev/sit/prod 差異、資料庫設定 |
 | [authentication-and-security.md](rules/authentication-and-security.md) | JWT 認證、公私鑰、登入端點、RBAC |
 | [api-documentation.md](rules/api-documentation.md) | Swagger UI 路徑、OpenAPI spec、Bearer 認證整合 |

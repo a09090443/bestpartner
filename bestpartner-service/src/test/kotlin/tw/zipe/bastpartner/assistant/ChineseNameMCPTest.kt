@@ -8,8 +8,6 @@ import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
 import dev.langchain4j.service.AiServices
 import java.time.Duration
-import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
-
 fun main() {
     val chatModel = GoogleAiGeminiChatModel.builder()
         .apiKey(System.getenv("GEMINI_API_KEY"))
@@ -33,13 +31,11 @@ fun main() {
         .mcpClients(listOf(chineseNameMcpClient))
         .build()
 
-    val assistant = AiServices.builder(AIAssistant::class.java).systemMessageProvider(
-        object : SystemMessageProvider {
-            override fun getSystemMessage(chatMemoryID: Any): String =
-                """
-                    You are a helpful assistant. You can answer questions, provide information, and assist with various tasks.
-                    """.trimIndent()
-        })
+    val assistant = AiServices.builder(AIAssistant::class.java).systemMessageProvider { _ ->
+        """
+            You are a helpful assistant. You can answer questions, provide information, and assist with various tasks.
+        """.trimIndent()
+    }
         .chatModel(chatModel)
         .toolProvider(mcpToolProvider)
         .build()
