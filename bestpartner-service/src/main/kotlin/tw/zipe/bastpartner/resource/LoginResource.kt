@@ -56,9 +56,9 @@ class LoginResource(
     @Path("/check")
     @RolesAllowed("user-read")
 //    @Authenticated
-    fun check(@Context ctx: SecurityContext): String {
+    fun check(@Context ctx: SecurityContext): ApiResponse<String> {
         println(identity.principal.name)
         println(ctx.userPrincipal)
-        return "check"
+        return ApiResponse.success("check")
     }
 }
