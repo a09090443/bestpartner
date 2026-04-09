@@ -29,18 +29,13 @@ class LLMSettingResource(
 
     @POST
     @Path("/get")
-    fun get(llmDTO: LLMDTO): ApiResponse<LLMDTO?> {
-        DTOValidator.validate(llmDTO) {
-            requireNotEmpty("llmId")
-            throwOnInvalid()
-        }
-        val result =
-            llmService.getLLMSetting(
-                identity.principal.name,
-                llmDTO.platformId,
-                null,
-                llmDTO.llmId.orEmpty()
-            ).firstOrNull()
+    fun get(llmDTO: LLMDTO): ApiResponse<List<LLMDTO?>> {
+        val result = llmService.getLLMSetting(
+            identity.principal.name,
+            llmDTO.platformId,
+            null,
+            llmDTO.llmId
+        )
         return ApiResponse.success(result)
     }
 

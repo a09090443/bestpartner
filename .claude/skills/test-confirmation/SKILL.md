@@ -82,6 +82,17 @@ description: Use when user wants to start a test cycle, record API test results,
 
 > ⚠️ 測試完成後不得遺留服務在背景執行。
 
+## 測試資料清理規則
+
+**凡是測試新增資料的 API（如 POST 建立資源），測試完成後必須立即呼叫對應的刪除 API，以相同的條件（id、名稱、參數等）刪除該筆測試資料。**
+
+清理原則：
+- 新增成功（✅）：記錄後立即呼叫刪除 API 清除資料
+- 新增失敗（❌）：確認資料未寫入，無需清理；在問題追蹤區記錄
+- 若刪除 API 尚未實作或測試失敗：在備註欄說明，手動清除或標記為待清理
+
+> ⚠️ 測試完成後若資料庫殘留測試資料，視同測試流程不完整，需補執行清理步驟。
+
 ## 測試中斷處理
 
 ### 遇到無效 API Key 時
@@ -134,3 +145,4 @@ description: Use when user wants to start a test cycle, record API test results,
 | 先建檔再詢問 | 先詢問 metadata，再建立檔案 |
 | 未重啟服務即開始測試 | 測試前必須強制停止並重新啟動服務（Step 5） |
 | 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 6） |
+| 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |

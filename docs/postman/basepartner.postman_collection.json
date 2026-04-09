@@ -1224,7 +1224,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"llmId\":\"9fc35d01-65e7-43af-9780-a591bd644bf0\"\r\n}",
+              "raw": "{\r\n    \"llmId\":\"9fc35d01-65e7-43af-9780-a591bd644bf0\",\r\n    \"platformId\":\"\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"

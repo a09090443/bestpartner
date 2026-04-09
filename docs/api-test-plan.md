@@ -129,16 +129,17 @@
 | LLMSET-004 | 新增設定 — 缺少 platformId | POST | /llm/setting/save | 有效 JWT、缺少 platformId | HTTP 400 | P1 |
 | LLMSET-005 | 新增設定 — 缺少 modelName | POST | /llm/setting/save | 有效 JWT、缺少 llmModel.modelName | HTTP 400 | P1 |
 | LLMSET-006 | 更新設定 — 正常 | POST | /llm/setting/update | 有效 JWT、存在的設定資料 | HTTP 200 | P1 |
-| LLMSET-007 | 取得設定 — 正常 | POST | /llm/setting/get | 有效 JWT、有效 llmId | HTTP 200 | P0 |
-| LLMSET-008 | 取得設定 — 缺少 llmId | POST | /llm/setting/get | 有效 JWT、無 llmId | HTTP 400 | P1 |
-| LLMSET-009 | 取得設定 — 不存在的 llmId | POST | /llm/setting/get | 有效 JWT、不存在的 llmId | HTTP 404 | P2 |
+| LLMSET-007 | 取得設定 — 以 llmId 查詢 | POST | /llm/setting/get | 有效 JWT、有效 llmId | HTTP 200，回傳含一筆的 List | P0 |
+| LLMSET-008 | 取得設定 — 以 platformId 查詢 | POST | /llm/setting/get | 有效 JWT、有效 platformId | HTTP 200，回傳該平台所有設定 List | P1 |
+| LLMSET-009 | 取得設定 — 不存在的 llmId | POST | /llm/setting/get | 有效 JWT、不存在的 llmId | HTTP 200，回傳空 List | P2 |
+| LLMSET-017 | 取得設定 — 無條件查詢 | POST | /llm/setting/get | 有效 JWT、空 body `{}` | HTTP 200，回傳該用戶所有設定 List | P2 |
 | LLMSET-010 | 刪除設定 — 正常 | POST | /llm/setting/delete | 有效 JWT、有效 id | HTTP 200 | P1 |
 | LLMSET-011 | 刪除設定 — 缺少 id | POST | /llm/setting/delete | 有效 JWT、無 id | HTTP 400 | P1 |
 | LLMSET-012 | 新增平台 — admin 正常 | POST | /llm/setting/platform/add | admin JWT、platform 有效 | HTTP 200 | P1 |
 | LLMSET-013 | 新增平台 — 一般用戶拒絕 | POST | /llm/setting/platform/add | user JWT | HTTP 403 | P1 |
 | LLMSET-014 | 刪除平台 — admin 正常 | POST | /llm/setting/platform/delete | admin JWT、有效 id | HTTP 200 | P1 |
 | LLMSET-015 | 刪除平台 — 一般用戶拒絕 | POST | /llm/setting/platform/delete | user JWT | HTTP 403 | P1 |
-| LLMSET-016 | 業務邏輯 — 刪除後查詢 | POST → DELETE → POST | /llm/setting/get | 建立後刪除，再查詢同 llmId | HTTP 404 | P1 |
+| LLMSET-016 | 業務邏輯 — 刪除後查詢 | POST → DELETE → POST | /llm/setting/get | 建立後刪除，再查詢同 llmId | HTTP 200，回傳空 List | P1 |
 
 ---
 
