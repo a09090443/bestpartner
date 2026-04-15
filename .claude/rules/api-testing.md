@@ -1,5 +1,16 @@
 # API 測試
 
+## 執行測試週期：必須使用 `test-confirmation` skill
+
+**每次執行 API 測試，必須先呼叫 `test-confirmation` skill**，該 skill 會：
+1. 詢問測試環境、人員、LLM 平台等 metadata
+2. 自動以當下時間建立 `docs/test-confirmations/test-confirmation-YYYYMMDDHHmm.md`
+3. 強制重啟服務（port 80）再開始測試
+4. 測試完成後強制停止服務
+5. 提醒清理測試產生的資料
+
+> ⚠️ 若未透過此 skill 啟動測試流程，視同違規。
+
 ## Postman Collection
 
 位置：`docs/postman/basepartner.postman_collection.json`
@@ -21,6 +32,10 @@
 | LLM SETTING | `/llm/setting` |
 | VECTOR | `/llm/vector` |
 | TOOL | `/llm/tool` |
+| MCP SERVER | `/llm/mcpServer` |
+| PERMISSION | `/llm/permission` |
+| SYSTEM SETTING | `/systemSetting` |
+| VIEW | `/view` |
 
 ### 優先順序定義
 

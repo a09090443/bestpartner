@@ -14,8 +14,8 @@ BestPartner project
 
 ## 1.7 版本變更說明
 1. 升級 Quarkus 至 3.21.0 版本
-2. 升級 Langchain4j 至 1.4.0 版本
-3. 升級 Langchain4j 至 1.12.2 版本
+2. 升級 Langchain4j 至 1.12.2 版本
+3. 資料庫由 MySQL 改為 PostgreSQL
 
 ## 1.6 版本變更說明
 1. 新增 MCP Server 支援
@@ -67,7 +67,7 @@ BestPartner project
 
 ### 其他功能
 - 可由資料庫設定 LLM 模型並動態切換
-- 支援 MCP Server 整合
+- 支援 MCP Server 整合（[MCP Server 範例](https://github.com/a09090443/mcp-servers)）
 - 支援 RAG（檢索增強生成）
 - RBAC 權限管理
 - Swagger UI（dev / sit 環境）

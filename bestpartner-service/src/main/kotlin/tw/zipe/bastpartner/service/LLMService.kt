@@ -196,11 +196,11 @@ class LLMService(
 
         val tools: MutableList<Any?> = mutableListOf()
 
-        chatRequestDTO.toolIds?.map {
+        chatRequestDTO.toolIds?.forEach {
             toolService.buildToolWithoutSetting(it)?.let { tool -> tools.add(tool) }
         }
 
-        chatRequestDTO.toolSettingIds?.map {
+        chatRequestDTO.toolSettingIds?.forEach {
             toolService.buildToolWithSetting(it)?.let { tool -> tools.add(tool) }
         }
 
