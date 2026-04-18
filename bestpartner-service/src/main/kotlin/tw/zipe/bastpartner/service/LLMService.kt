@@ -36,6 +36,7 @@ import tw.zipe.bastpartner.entity.LLMSettingEntity
 import tw.zipe.bastpartner.enumerate.FileType
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
@@ -66,7 +67,7 @@ class LLMService(
      */
     fun saveLLMSetting(llmDTO: LLMDTO) {
         val platform = llmPlatformRepository.findById(llmDTO.platformId.orEmpty())
-            ?: throw ServiceException("請確認存取的平台是否存在")
+            ?: throw ServiceException(AppMessage.LLM_PLATFORM_NOT_FOUND)
         llmDTO.llmModel.platform = platform.name
 
         with(LLMSettingEntity()) {
@@ -142,10 +143,10 @@ class LLMService(
         return llmSetting?.let { setting ->
 
             if (setting.type != type.name) {
-                throw ServiceException("請確認存取的 LLM 設定是否為 $type")
+                throw ServiceException(AppMessage.LLM_SETTING_TYPE_MISMATCH, type)
             }
             LLMBuilder().build(setting, type)
-        } ?: throw ServiceException("請確認存取的 LLM 設定是否存在")
+        } ?: throw ServiceException(AppMessage.LLM_SETTING_NOT_FOUND)
     }
 
     /**
@@ -190,7 +191,7 @@ class LLMService(
                     aiService.streamingChatModel(llm)
                 }
 
-                else -> throw ServiceException("LLM 類型錯誤")
+                else -> throw ServiceException(AppMessage.LLM_TYPE_INVALID)
             }
         }
 
@@ -282,7 +283,7 @@ class LLMService(
                         if (targetFile.exists() && !targetFile.delete()) {
                             logger.warn("Failed to delete unsupported file: ${targetFile.absolutePath}")
                         }
-                        throw ServiceException("不支援的檔案類型: $mimeType")
+                        throw ServiceException(AppMessage.FILE_TYPE_UNSUPPORTED, mimeType)
                     }
                 }
 
@@ -290,7 +291,7 @@ class LLMService(
                 logger.info("Successfully uploaded file: ${file.fileName()} (${targetFile.absolutePath})")
             } catch (e: Exception) {
                 logger.error("Failed to upload file: ${file.fileName()}", e)
-                throw ServiceException("檔案上傳失敗: ${file.fileName()} - ${e.message}")
+                throw ServiceException(AppMessage.FILE_UPLOAD_FAILED, file.fileName(), e.message)
             }
         }
     }

@@ -29,6 +29,7 @@ import tw.zipe.bastpartner.entity.LLMDocEntity
 import tw.zipe.bastpartner.entity.LLMDocSliceEntity
 import tw.zipe.bastpartner.entity.LLMKnowledgeEntity
 import tw.zipe.bastpartner.entity.VectorStoreSettingEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.form.FilesFromRequest
@@ -100,7 +101,7 @@ class EmbeddingService(
         val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
         return vectorStoreSettingEntity?.let {
             it.type?.getVectorStore()?.embeddingStore(it.vectorSetting)
-        } ?: throw ServiceException("無向量資料庫設定資料: id = $id")
+        } ?: throw ServiceException(AppMessage.EMBEDDING_VECTOR_STORE_NOT_FOUND, id)
     }
 
     /**
@@ -112,7 +113,7 @@ class EmbeddingService(
     ): Map<String, Map<String, String>> {
         files.forEach {
             llmDocRepository.findByKnowledgeIdAndName(filesForm.knowledgeId, it.fileName())?.run {
-                throw ServiceException("檔案名稱: ${it.fileName()} 已存在")
+                throw ServiceException(AppMessage.EMBEDDING_DOC_ALREADY_EXISTS, it.fileName())
             }
         }
 
@@ -190,7 +191,7 @@ class EmbeddingService(
                     this.buildVectorStore(filesForm.embeddingStoreId).removeAll(map.keys.toList())
                 }
             }
-            throw ServiceException("儲存文件資訊失敗")
+            throw ServiceException(AppMessage.EMBEDDING_SAVE_KNOWLEDGE_FAILED)
         }
 
         return filesForm.knowledgeId
