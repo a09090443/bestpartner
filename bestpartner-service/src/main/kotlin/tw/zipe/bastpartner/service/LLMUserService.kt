@@ -8,6 +8,7 @@ import javax.naming.AuthenticationException
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
 import tw.zipe.bastpartner.entity.LLMUserRoleEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMUserRepository
@@ -56,7 +57,7 @@ class LLMUserService(
 
         user?.let {
             if (it.status != UserStatus.ACTIVE.ordinal.toString()) {
-                throw ServiceException("帳號已停用")
+                throw ServiceException(AppMessage.AUTH_ACCOUNT_DISABLED)
             } else if (it.password != CryptoUtils.sha512(password)) {
                 throw AuthenticationException("密碼錯誤")
             }

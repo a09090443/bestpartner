@@ -9,9 +9,11 @@ import jakarta.ws.rs.container.PreMatching
 import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.ext.Provider
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.JwtValidationException
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.JwtService
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -37,11 +39,11 @@ class JwtFilter(
         if (jwtRefreshSwitch.toBoolean()) {
             jwtService.isTokenNeedingRefresh(token).takeIf { it }?.let {
                 val newToken = handleTokenRefresh(requestContext, payload)
-                throw JwtValidationException("憑證過期，已產生新Token", newToken)
+                throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_EXPIRED_REFRESH), newToken)
             }
         }
         jwtService.isTokenExpired(token).takeIf { it }?.let {
-            throw JwtValidationException("憑證過期，請重新登入", null)
+            throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_EXPIRED_RELOGIN), null)
         }
     }
 
@@ -60,7 +62,7 @@ class JwtFilter(
             return newToken
         } catch (e: Exception) {
             logger.error("Token 更新錯誤", e)
-            throw ServiceException("Token 更新錯誤")
+            throw ServiceException(AppMessage.AUTH_TOKEN_REFRESH_ERROR)
         }
     }
 

@@ -13,7 +13,9 @@ import java.lang.reflect.Field
 import java.lang.reflect.ParameterizedType
 import java.time.LocalDateTime
 import tw.zipe.bastpartner.entity.BaseEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -219,7 +221,7 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
                 emptyList()
             } catch (e: Exception) {
                 logger.error("執行SQL查詢失敗: ${e.message}")
-                throw ServiceException("數據查詢失敗: ${e.javaClass.simpleName}")
+                throw ServiceException(AppMessage.SYSTEM_DB_QUERY_FAILED, e.javaClass.simpleName)
             }
         }
 
@@ -407,10 +409,10 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             val enumClass = fieldType as Class<Enum<*>>
             field[instance] = when (value) {
                 is String -> enumClass.enumConstants?.firstOrNull { it.name == value }
-                    ?: throw IllegalArgumentException("找不到枚舉常數 ${enumClass.name}.$value")
+                    ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_CONSTANT_NOT_FOUND, enumClass.name, value))
                 is Number -> enumClass.enumConstants?.get(value.toInt())
-                    ?: throw IllegalArgumentException("找不到索引 $value 的枚舉常數: ${enumClass.name}")
-                else -> throw IllegalArgumentException("不支援的枚舉值型別: ${value::class.java}")
+                    ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_INDEX_NOT_FOUND, value, enumClass.name))
+                else -> throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_TYPE_UNSUPPORTED, value::class.java))
             }
         }
 
@@ -573,7 +575,7 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
     }
 
     protected fun initParamsMap(vararg params: Pair<String, Any>): Map<String, Any> {
-        val userName = identity?.principal?.name?.takeIf { it.isNotEmpty() } ?: throw ServiceException("請確認已登入")
+        val userName = identity?.principal?.name?.takeIf { it.isNotEmpty() } ?: throw ServiceException(AppMessage.AUTH_NOT_LOGGED_IN)
         val defaultParams = mapOf(
             "updatedAt" to LocalDateTime.now(),
             "updatedBy" to userName
