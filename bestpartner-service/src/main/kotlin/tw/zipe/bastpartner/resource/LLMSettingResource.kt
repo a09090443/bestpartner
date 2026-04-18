@@ -11,8 +11,10 @@ import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.dto.PlatformDTO
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.util.DTOValidator
+import tw.zipe.bastpartner.util.MessageUtil
 
 /**
  * @author Gary
@@ -71,7 +73,7 @@ class LLMSettingResource(
         llmDTO.llmModel.let {
             llmService.updateLLMSetting(llmDTO)
         }
-        return ApiResponse.success("成功更新 LLM 設定")
+        return ApiResponse.success(MessageUtil.get(AppMessage.SUCCESS_LLM_SETTING_UPDATED))
     }
 
     @POST
