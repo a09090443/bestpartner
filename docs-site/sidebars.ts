@@ -10,6 +10,7 @@ const sidebars: SidebarsConfig = {
         'architecture/overview',
         'architecture/modules',
         'architecture/tech-stack',
+        'architecture/i18n-messages',
       ],
     },
     {
