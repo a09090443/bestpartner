@@ -23,6 +23,7 @@ BestPartner 是一個 AI 應用大平台，可動態建立 AI agent 並支援多
 | [api-endpoints.md](rules/api-endpoints.md) | 各模組 API endpoint 清單與功能說明（共 11 模組、49 個端點） |
 | [api-testing.md](rules/api-testing.md) | Postman Collection、API 測試計畫、P0/P1/P2 定義 |
 | [development-notes.md](rules/development-notes.md) | MCP Server 範例、日誌路徑、開關控制 |
+| [i18n-messages.md](rules/i18n-messages.md) | i18n 訊息管理、AppMessage enum、MessageUtil 使用方式、新增訊息步驟 |
 | [documentation-update-policy.md](rules/documentation-update-policy.md) | 套件異動、API 變更、資料表欄位變更時必須更新的文件清單 |
 
 ## 快速建置

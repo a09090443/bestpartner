@@ -16,6 +16,22 @@ bestpartner/
     └── sql/                      # 資料庫 Schema (bestpartner.sql)
 ```
 
+## 資源檔架構（bestpartner-service）
+
+```
+bestpartner-service/src/main/resources/
+├── messages/
+│   ├── messages_en_US.properties   # 英文訊息（預設語言）
+│   └── messages_zh_TW.properties   # 繁體中文訊息
+├── application.properties
+├── publicKey.pem
+└── privateKey.pem
+```
+
+> i18n 訊息管理詳見 [i18n-messages.md](i18n-messages.md)
+
+---
+
 ## 原始碼架構（bestpartner-service）
 
 基底路徑：`bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/`
@@ -61,7 +77,7 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── converter/
 ├── dto/            # ApiResponse, ChatRequestDTO, LLMDTO, McpDTO, ToolDTO ...
 ├── entity/         # BaseEntity, LLMSettingEntity, LLMPlatformEntity, LLMToolEntity ...
-├── enumerate/      # Platform, ModelType, VectorStore, ToolsType ...
+├── enumerate/      # Platform, ModelType, VectorStore, ToolsType, AppMessage ...
 ├── exception/      # LLMException, ServiceException, GlobalExceptionMapper ...
 ├── filter/         # JwtFilter
 ├── form/
@@ -75,5 +91,5 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── tool/
 │   ├── config/     # Google, Tavily
 │   └── text2sql/
-└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, OkHttpUtil ...
+└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, OkHttpUtil, MessageUtil ...
 ```
