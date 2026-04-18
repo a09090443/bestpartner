@@ -59,7 +59,24 @@ description: Use when user wants to start a test cycle, record API test results,
 3. 提醒測試完成後更新「測試結果摘要」統計表
 4. 提醒 ❌ 項目需在「問題追蹤區」記錄
 
-### Step 5：強制重啟服務（測試前必要步驟）
+### Step 5：重新編譯專案（測試前必要步驟）
+
+**在啟動服務前，必須先重新編譯專案，確保測試的是最新程式碼。**
+
+執行指令（於 `bestpartner-service` 目錄）：
+```bash
+./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=dev
+```
+
+執行順序：
+1. 切換至 `bestpartner-service` 目錄
+2. 執行上述編譯指令，等待完成
+3. 確認編譯成功（BUILD SUCCESSFUL），產生 `build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar`
+4. 若編譯失敗，**立即停止測試流程**，回報錯誤給使用者
+
+> ⚠️ 若未重新編譯即啟動服務，視同測試流程違規，需重新執行此步驟。
+
+### Step 6：強制重啟服務（測試前必要步驟）
 
 **在開始任何 API 測試前，必須強制停止並重新啟動服務。**
 
@@ -71,7 +88,7 @@ description: Use when user wants to start a test cycle, record API test results,
 
 > ⚠️ 若未重啟服務即開始測試，視同測試流程違規，需重新執行此步驟。
 
-### Step 6：測試完成後關閉服務
+### Step 7：測試完成後關閉服務
 
 **所有測試案例執行完畢後，必須強制關閉服務。**
 
@@ -143,6 +160,7 @@ description: Use when user wants to start a test cycle, record API test results,
 | 自行設計表格格式 | 從 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 複製 |
 | 只列出主要 7 個模組 | 必須包含整合測試與安全性測試（共 12 個模組） |
 | 先建檔再詢問 | 先詢問 metadata，再建立檔案 |
-| 未重啟服務即開始測試 | 測試前必須強制停止並重新啟動服務（Step 5） |
-| 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 6） |
+| 未重新編譯即啟動服務 | 測試前必須先執行 Gradle 編譯（Step 5） |
+| 未重啟服務即開始測試 | 測試前必須強制停止並重新啟動服務（Step 6） |
+| 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 7） |
 | 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |

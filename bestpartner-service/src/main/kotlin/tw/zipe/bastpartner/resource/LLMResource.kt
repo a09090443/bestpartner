@@ -24,6 +24,7 @@ import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.service.McpServerService
 import tw.zipe.bastpartner.exception.LLMException
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.util.RequestContext
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.logger
@@ -52,8 +53,9 @@ class LLMResource(
         val requestId = RequestContext.generateRequestId()
         logger.info("[REQ:$requestId] 接收聊天請求: ${chatRequestDTO.llmId}")
 
+        validateChatRequest(chatRequestDTO)
+
         try {
-            validateChatRequest(chatRequestDTO)
             val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatModel
             val result = baseChat(llm, chatRequestDTO.message.orEmpty())
             logger.info("[REQ:$requestId] 聊天請求完成")
@@ -74,8 +76,9 @@ class LLMResource(
         val requestId = RequestContext.generateRequestId()
         logger.info("[REQ:$requestId] 接收串流聊天請求: ${chatRequestDTO.llmId}")
 
+        validateChatRequest(chatRequestDTO)
+
         try {
-            validateChatRequest(chatRequestDTO)
             val llm = llmService.buildLLM(
                 chatRequestDTO.llmId.orEmpty(),
                 ModelType.STREAMING_CHAT
@@ -173,12 +176,12 @@ class LLMResource(
     fun uploadFile(filesForm: FilesFromRequest): ApiResponse<List<String>> {
         val requestId = RequestContext.generateRequestId()
         logger.info("[REQ:$requestId] 接收檔案上傳請求")
+        DTOValidator.validate(filesForm) {
+            requireNotEmpty("files")
+            throwOnInvalid()
+        }
 
         try {
-            DTOValidator.validate(filesForm) {
-                requireNotEmpty("files")
-                throwOnInvalid()
-            }
 
             val files = filesForm.files.orEmpty()
             val fileNames = files.map { it.fileName() }
@@ -257,6 +260,7 @@ class LLMResource(
 
     private fun handleServiceException(e: Exception): Exception {
         return when (e) {
+            is ServiceException -> e
             is IllegalArgumentException -> LLMException("請求參數無效: ${e.message}", e)
             is IllegalStateException -> LLMException("LLM服務狀態異常: ${e.message}", e)
             else -> LLMException("LLM服務處理發生錯誤", e)

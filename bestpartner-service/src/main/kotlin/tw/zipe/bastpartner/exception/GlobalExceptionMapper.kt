@@ -18,6 +18,7 @@ import javax.naming.AuthenticationException
 import org.apache.http.HttpStatus
 import org.hibernate.exception.ConstraintViolationException
 import tw.zipe.bastpartner.dto.ApiResponse
+import tw.zipe.bastpartner.exception.LLMException
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -39,6 +40,10 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
             is ServiceException -> ApiResponse<Nothing>(
                 code = 400,
                 message = exception.message ?: "Service exception"
+            )
+            is LLMException -> ApiResponse<Nothing>(
+                code = 400,
+                message = exception.message ?: "LLM service error"
             )
             // 保留原有的異常處理
             is NotFoundException -> ApiResponse<Nothing>(

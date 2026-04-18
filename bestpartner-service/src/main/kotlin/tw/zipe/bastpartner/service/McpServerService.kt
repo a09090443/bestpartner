@@ -99,6 +99,8 @@ class McpServerService(
                 userId.takeIf { it.isNotBlank() }
                     ?.let { buildUserSpecificMcpClient(id, it) }
                     ?: buildDefaultMcpClient(id)
+            } catch (e: ServiceException) {
+                throw e
             } catch (e: Exception) {
                 logger.error("Failed to create MCP client for ID: $id", e)
                 null
@@ -119,14 +121,14 @@ class McpServerService(
     }
 
     private fun buildDefaultMcpClient(mcpId: String): DefaultMcpClient? {
-        return llmMcpServerRepository.findById(mcpId)?.let { data ->
-            val transport = createTransport(
-                type = data.type,
-                commandSetting = data.commandSetting,
-                isUserSetting = false
-            )
-            transport?.let { DefaultMcpClient.Builder().transport(it).build() }
-        }
+        val data = llmMcpServerRepository.findById(mcpId)
+            ?: throw ServiceException("MCP 設定不存在: $mcpId")
+        val transport = createTransport(
+            type = data.type,
+            commandSetting = data.commandSetting,
+            isUserSetting = false
+        )
+        return transport?.let { DefaultMcpClient.Builder().transport(it).build() }
     }
 
     private fun createTransport(
