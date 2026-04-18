@@ -1,5 +1,7 @@
 package tw.zipe.bastpartner.enumerate
 
+import tw.zipe.bastpartner.util.MessageUtil
+
 /**
  * @author Gary
  * @created 2024/10/25
@@ -15,7 +17,7 @@ enum class UserStatus {
          */
         fun fromOrdinal(ordinal: Int): UserStatus {
             return entries.getOrNull(ordinal)
-                ?: throw IllegalArgumentException("使用者狀態錯誤: $ordinal")
+                ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_USER_STATUS_INVALID, ordinal))
         }
     }
 }

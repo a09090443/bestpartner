@@ -7,6 +7,8 @@ import tw.zipe.bastpartner.builder.llm.OllamaModelBuilder
 import tw.zipe.bastpartner.builder.llm.OpenaiModelBuilder
 import tw.zipe.bastpartner.builder.llm.OpenrouterModelBuilder
 import tw.zipe.bastpartner.provider.ModelProvider
+import tw.zipe.bastpartner.util.MessageUtil
+import tw.zipe.bastpartner.enumerate.AppMessage
 
 /**
  * @author Gary
@@ -26,7 +28,7 @@ enum class Platform(val builder: ModelProvider) {
     companion object {
         fun getPlatform(name: String): Platform {
             return entries.firstOrNull { it.name == name }
-                ?: throw IllegalArgumentException("找不到對應的平台")
+                ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_PLATFORM_NOT_FOUND))
         }
     }
 }
