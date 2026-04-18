@@ -7,10 +7,15 @@ import tw.zipe.bastpartner.enumerate.AppMessage
 
 object MessageUtil {
 
-    private const val BUNDLE_BASE_NAME = "messages/messages_zh_TW"
+    private const val BUNDLE_BASE_NAME = "messages/messages"
+
+    private val localeContext: ThreadLocal<Locale> = ThreadLocal.withInitial { Locale.US }
+
+    fun setLocale(locale: Locale) = localeContext.set(locale)
+    fun clearLocale() = localeContext.remove()
 
     private fun bundle(): ResourceBundle =
-        ResourceBundle.getBundle(BUNDLE_BASE_NAME, Locale.TAIWAN)
+        ResourceBundle.getBundle(BUNDLE_BASE_NAME, localeContext.get())
 
     fun get(message: AppMessage): String =
         runCatching { bundle().getString(message.key) }.getOrDefault(message.key)
