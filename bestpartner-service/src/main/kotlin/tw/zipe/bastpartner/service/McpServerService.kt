@@ -12,8 +12,10 @@ import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.McpDTO
 import tw.zipe.bastpartner.entity.LLMMcpServerEntity
 import tw.zipe.bastpartner.entity.LLMMcpUserSetting
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.McpType
 import tw.zipe.bastpartner.exception.ServiceException
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.model.McpCommandSetting
 import tw.zipe.bastpartner.repository.LLMMcpServerRepository
 import tw.zipe.bastpartner.repository.LLMMcpUserSettingRepository
@@ -35,7 +37,7 @@ class McpServerService(
 
     fun getMcpServer(mcpId: String): McpDTO {
         return llmMcpServerRepository.findById(mcpId)?.let { entityToDto(it) }
-            ?: throw ServiceException("找不到 MCP server")
+            ?: throw ServiceException(AppMessage.MCP_SERVER_NOT_FOUND)
     }
 
     fun saveMcpServer(mcpDTO: McpDTO) {
@@ -66,7 +68,7 @@ class McpServerService(
                 this.settingContent = it.settingContent
                 this
             }
-        } ?: throw ServiceException("無用戶設定資料")
+        } ?: throw ServiceException(AppMessage.MCP_USER_SETTING_NOT_FOUND)
 
     fun saveUserSetting(mcpDTO: McpDTO) {
         val mcp = getMcpServer(mcpDTO.mcpId.orEmpty())
@@ -122,7 +124,7 @@ class McpServerService(
 
     private fun buildDefaultMcpClient(mcpId: String): DefaultMcpClient? {
         val data = llmMcpServerRepository.findById(mcpId)
-            ?: throw ServiceException("MCP 設定不存在: $mcpId")
+            ?: throw ServiceException(AppMessage.MCP_SERVER_SETTING_NOT_FOUND, mcpId)
         val transport = createTransport(
             type = data.type,
             commandSetting = data.commandSetting,
@@ -189,18 +191,18 @@ class McpServerService(
     }
 
     private fun validateArguments(userArgs: Map<String, String>?, argsDesc: Map<String, String>?) {
-        validateMapSettings(userArgs, argsDesc, "參數", "使用者 MCP server 參數設定不正確")
+        validateMapSettings(userArgs, argsDesc, "參數", AppMessage.MCP_ARGS_SETTING_INVALID)
     }
 
     private fun validateEnvironmentVariables(userEnv: Map<String, String>?, serverEnv: Map<String, String>?) {
-        validateMapSettings(userEnv, serverEnv, "環境變數", "使用者 MCP server 環境變數設定不正確")
+        validateMapSettings(userEnv, serverEnv, "環境變數", AppMessage.MCP_ENV_SETTING_INVALID)
     }
 
     private fun validateMapSettings(
         userSettings: Map<String, String>?,
         requiredSettings: Map<String, String>?,
         settingType: String,
-        errorMessage: String
+        errorMessage: AppMessage
     ) {
         if (requiredSettings.isNullOrEmpty()) {
             return
@@ -211,7 +213,7 @@ class McpServerService(
         // Check if all keys in requiredSettings exist in userSettings
         val missingSettings = requiredSettings.keys.filter { !userSettings.containsKey(it) }
         if (missingSettings.isNotEmpty()) {
-            throw ServiceException("缺少必要的${settingType}設定: ${missingSettings.joinToString(", ")}")
+            throw ServiceException(AppMessage.MCP_MISSING_ARGS, settingType, missingSettings.joinToString(", "))
         }
     }
 
@@ -283,7 +285,7 @@ class McpServerService(
                 }
             }
 
-            else -> throw IllegalArgumentException("Invalid McpType")
+            else -> throw IllegalArgumentException(MessageUtil.get(AppMessage.MCP_TYPE_INVALID))
         }
     }
 
