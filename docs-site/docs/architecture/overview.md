@@ -39,7 +39,7 @@ BestPartner 是一個以 **Quarkus** 框架為基礎的雲原生 AI 應用平台
     │              外部服務                       │
     │                                             │
     │  ┌──────────┐  ┌────────┐  ┌────────────┐  │
-    │  │ AI 模型  │  │向量資料│  │  MySQL DB  │  │
+    │  │ AI 模型  │  │向量資料│  │ PostgreSQL │  │
     │  │OpenAI    │  │庫      │  │            │  │
     │  │Anthropic │  │Chroma  │  │  MCP Server│  │
     │  │Gemini    │  │Milvus  │  │  (外部工具)│  │

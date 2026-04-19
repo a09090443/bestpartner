@@ -13,14 +13,11 @@ cd bestpartner
 
 ## 2. 初始化資料庫
 
-確認 MySQL 已啟動，建立資料庫並匯入初始資料：
-
-```sql
-CREATE DATABASE bestpartner CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+確認 PostgreSQL 已啟動，建立資料庫並匯入初始資料：
 
 ```bash
-mysql -u root -p bestpartner < docs/sql/bestpartner.sql
+psql -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
+psql -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
 ```
 
 ## 3. 設定 application.properties
@@ -36,11 +33,10 @@ cd bestpartner-service/src/main/resources
 ### 資料庫設定
 
 ```properties
-quarkus.datasource.db-kind=mysql
-quarkus.datasource.username=llm
-quarkus.datasource.password=bestpartner
-quarkus.datasource.jdbc.url=jdbc:mysql://localhost:3306/bestpartner
-quarkus.datasource.jdbc.driver=com.mysql.cj.jdbc.Driver
+quarkus.datasource.db-kind=postgresql
+quarkus.datasource.username=pguser
+quarkus.datasource.password=pgpass
+quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/pgdb
 ```
 
 ### AI 模型設定
@@ -106,7 +102,7 @@ cd bestpartner-service
 建置完成後，JAR 檔案位置：
 
 ```
-bestpartner-service/build/bestpartner-service-0.1.6-SNAPSHOT-runner.jar
+bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
 ```
 
 ## 5. 使用 Flyway 初始化資料庫（選用）
@@ -118,5 +114,5 @@ quarkus.flyway.migrate-at-start=true
 ```
 
 :::info Flyway 現況
-Flyway 設定預設為關閉（`quarkus.flyway.migrate-at-start=false`），但設定仍保留在 `application-sit.properties` 和 `application-prod.properties` 中。建議使用 `docs/sql/bestpartner.sql` 手動初始化資料庫。
+Flyway 設定預設為關閉（`quarkus.flyway.migrate-at-start=false`），但設定仍保留在 `application-sit.properties` 和 `application-prod.properties` 中。建議使用 `docs/sql/bestpartner-ddl.sql` 手動初始化資料庫。
 :::

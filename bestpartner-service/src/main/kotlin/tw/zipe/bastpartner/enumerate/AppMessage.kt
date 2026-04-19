@@ -33,6 +33,15 @@ enum class AppMessage(val key: String) {
     MCP_MISSING_ARGS("mcp.missing.args"),
     MCP_TYPE_INVALID("mcp.type.invalid"),
 
+    // SKILL
+    SKILL_NOT_FOUND("skill.not.found"),
+    SKILL_NAME_DUPLICATE("skill.name.duplicate"),
+    SKILL_RESOURCE_NOT_FOUND("skill.resource.not.found"),
+    SKILL_ZIP_NOT_PROVIDED("skill.zip.not.provided"),
+    SKILL_ZIP_FORMAT_INVALID("skill.zip.format.invalid"),
+    SKILL_ZIP_PATH_TRAVERSAL("skill.zip.path.traversal"),
+    SKILL_MD_NOT_FOUND("skill.md.not.found"),
+
     // TOOL
     TOOL_NOT_FOUND("tool.not.found"),
     TOOL_SETTING_NOT_FOUND("tool.setting.not.found"),

@@ -71,6 +71,7 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom")
     implementation("dev.langchain4j:langchain4j-web-search-engine-tavily")
     implementation("dev.langchain4j:langchain4j-mcp")
+    implementation("dev.langchain4j:langchain4j-skills")
 
     implementation("com.github.jsqlparser:jsqlparser:5.1")
 

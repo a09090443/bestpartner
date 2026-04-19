@@ -31,6 +31,7 @@
 | USER | `/llm/user` |
 | LLM SETTING | `/llm/setting` |
 | VECTOR | `/llm/vector` |
+| SKILL | `/llm/skill` |
 | TOOL | `/llm/tool` |
 | MCP SERVER | `/llm/mcpServer` |
 | PERMISSION | `/llm/permission` |

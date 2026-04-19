@@ -10,7 +10,7 @@ sidebar_position: 3
 |------|------|------|
 | **Quarkus** | 3.21.0 | 雲原生 Java/Kotlin 框架，支援 GraalVM 原生編譯 |
 | **Kotlin** | 2.1.0 | 主要開發語言 |
-| **LangChain4J** | 1.12.2 | AI 模型整合框架 |
+| **LangChain4J** | 1.13.0 | AI 模型整合框架 |
 | **Hibernate Panache** | — | ORM 資料庫存取 |
 | **SmallRye JWT** | — | JWT 認證與授權 |
 
@@ -36,8 +36,7 @@ sidebar_position: 3
 
 | 資料庫 | 版本 | 說明 |
 |--------|------|------|
-| **MySQL** | 最新版 | 主要關聯式資料庫，儲存模型設定、工具設定、使用者資料 |
-| **PostgreSQL** | — | 備用支援 |
+| **PostgreSQL** | 最新版 | 主要關聯式資料庫，儲存模型設定、工具設定、使用者資料 |
 
 ## 搜尋工具整合
 
@@ -52,7 +51,7 @@ sidebar_position: 3
 |------|------|------|
 | **OpenJDK** | 21 | Java 執行環境 |
 | **Gradle** | 最新版 | 建置工具 |
-| **Docker** | — | 本地開發環境（向量資料庫、MySQL） |
+| **Docker** | — | 本地開發環境（向量資料庫、PostgreSQL） |
 | **Postman** | 最新版 | API 測試 |
 
 ## 架構決策說明

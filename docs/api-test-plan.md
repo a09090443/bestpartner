@@ -257,6 +257,36 @@
 
 ---
 
+## 模組十一：SKILL（/llm/skill）
+
+> **⚠️ 前置條件**：需要有效 JWT（登入後取得）。Skill 以 `.zip` 壓縮檔上傳，zip 內須包含 `skill.md` 主內容檔。
+
+| 測試編號 | 測試場景 | 方法 | 端點 | 輸入資料 | 預期結果 | 優先順序 |
+|----------|----------|------|------|----------|----------|----------|
+| SKILL-001 | 列出 Skill — 正常 | GET | /llm/skill/list | 有效 JWT | HTTP 200，回傳清單 | P0 |
+| SKILL-002 | 列出 Skill — 未認證 | GET | /llm/skill/list | 無 JWT | HTTP 401 | P0 |
+| SKILL-003 | 上傳 Skill — 正常 | POST | /llm/skill/upload | 有效 JWT、含 skill.md 的 zip、description（選填） | HTTP 200，回傳 SkillDTO（含 id、dirPath） | P1 |
+| SKILL-004 | 上傳 Skill — 缺少 file | POST | /llm/skill/upload | 有效 JWT、無 file | 業務錯誤（請上傳 zip） | P1 |
+| SKILL-005 | 上傳 Skill — 非 zip 格式 | POST | /llm/skill/upload | 有效 JWT、上傳 .txt 檔 | 業務錯誤（格式不正確） | P1 |
+| SKILL-006 | 上傳 Skill — zip 內無 skill.md | POST | /llm/skill/upload | 有效 JWT、zip 不含 skill.md | 業務錯誤（找不到 skill.md） | P1 |
+| SKILL-007 | 上傳 Skill — 同名覆蓋 | POST | /llm/skill/upload | 有效 JWT、與已存在 Skill 同名的 zip | HTTP 200，回傳更新後的 SkillDTO | P1 |
+| SKILL-008 | 上傳 Skill — 惡意 path traversal zip | POST | /llm/skill/upload | 有效 JWT、含 `../` 路徑的 zip | 業務錯誤（非法路徑） | P2 |
+| SKILL-009 | 上傳 Skill — 未認證 | POST | /llm/skill/upload | 無 JWT | HTTP 401 | P1 |
+| SKILL-010 | 取得 Skill — 正常 | POST | /llm/skill/get | 有效 JWT、id 有效 | HTTP 200，回傳 SkillDTO（含 content 及 resources） | P1 |
+| SKILL-011 | 取得 Skill — 缺少 id | POST | /llm/skill/get | 有效 JWT、無 id | HTTP 400 | P1 |
+| SKILL-012 | 取得 Skill — 不存在的 id | POST | /llm/skill/get | 有效 JWT、不存在的 id | HTTP 404 或業務錯誤 | P2 |
+| SKILL-013 | 刪除 Skill — 正常（同時刪除目錄） | POST | /llm/skill/delete | 有效 JWT、id 有效 | HTTP 200，伺服器目錄一併刪除 | P1 |
+| SKILL-014 | 刪除 Skill — 缺少 id | POST | /llm/skill/delete | 有效 JWT、無 id | HTTP 400 | P1 |
+| SKILL-015 | 聊天整合 — 帶有效 skillIds | POST | /llm/customAssistantChat | 有效 JWT、skillIds | HTTP 200，AI 可激活 Skill | P1 |
+| SKILL-016 | 上傳 Global Skill — 正常 | POST | /llm/skill/global/upload | admin JWT、含 skill.md 的 zip | HTTP 200，回傳 SkillDTO（isGlobal=true） | P1 |
+| SKILL-017 | 上傳 Global Skill — 非管理員 | POST | /llm/skill/global/upload | 一般用戶 JWT、有效 zip | HTTP 403 | P1 |
+| SKILL-018 | 上傳 Global Skill — 同名覆蓋 | POST | /llm/skill/global/upload | admin JWT、與已存在 Global Skill 同名的 zip | HTTP 200，回傳更新後的 SkillDTO | P1 |
+| SKILL-019 | 刪除 Global Skill — 正常 | POST | /llm/skill/global/delete | admin JWT、id 有效 | HTTP 200，伺服器目錄一併刪除 | P1 |
+| SKILL-020 | 刪除 Global Skill — 非管理員 | POST | /llm/skill/global/delete | 一般用戶 JWT、id 有效 | HTTP 403 | P1 |
+| SKILL-021 | Global Skill 對一般使用者可見 | GET | /llm/skill/list | 一般用戶 JWT | HTTP 200，清單含 isGlobal=true 的項目 | P1 |
+
+---
+
 ## 跨模組整合測試
 
 | 測試編號 | 測試場景 | 涉及端點 | 執行步驟 | 預期結果 | 優先順序 |

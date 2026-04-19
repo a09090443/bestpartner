@@ -158,7 +158,7 @@ bestpartner/
 ### PostgreSQL 資料庫
 
 - 安裝 PostgreSQL：[官方文件](https://www.postgresql.org/download/)
-- 安裝完成後，建立資料庫 `pgdb`，並執行 `docs/sql/bestpartner.sql`
+- 安裝完成後，建立資料庫 `pgdb`，並依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
 
 ---
 
@@ -168,7 +168,7 @@ bestpartner/
 |------|------|
 | 語言 | Kotlin 2.1.0 |
 | 框架 | Quarkus 3.21.0 |
-| AI 函式庫 | Langchain4j 1.12.2 |
+| AI 函式庫 | Langchain4j 1.13.0 |
 | JDK | OpenJDK 21 |
 | 資料庫 | PostgreSQL latest |
 | 建置工具 | Gradle latest |
@@ -178,7 +178,7 @@ bestpartner/
 ## 程式執行注意事項
 
 - 目前使用 PostgreSQL Database，可在 `application.properties` 中設定連線資訊
-- 無自動 Flyway 遷移（`migrate-at-start=false`），需手動執行 `docs/sql/bestpartner.sql`
+- 無自動 Flyway 遷移（`migrate-at-start=false`），需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
 
 ---
 

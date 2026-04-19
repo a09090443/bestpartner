@@ -78,7 +78,8 @@ INSERT INTO bestpartner.llm_user_role (user_id, role_num) VALUES ('5554f255-08d5
 INSERT INTO bestpartner.llm_user_role (user_id, role_num) VALUES ('c88f57c8-ad26-4ea0-9f71-a65995b49357', 0);
 
 -- 系統設定表
-INSERT INTO bestpartner.system_setting (id, setting_key, setting_value, description, created_at, updated_at, created_by, updated_by) VALUES (1, 'default_llm_platform', 'OPENAI', 'system default llm_platform', '2024-10-19 20:08:22', '2025-01-04 12:57:17', 'system', 'system');
+INSERT INTO bestpartner.system_setting (setting_key, setting_value, description, created_at, updated_at, created_by, updated_by) VALUES ('default_llm_platform', 'OPENAI', 'system default llm_platform', '2024-10-19 20:08:22', '2025-01-04 12:57:17', 'system', 'system');
+INSERT INTO bestpartner.system_setting (setting_key, setting_value, description, created_at, updated_at, created_by, updated_by) VALUES ('skill.global.dir', 'D:/tmp/bestpartner/upload/skills/global', 'Global skill directory path. If empty, defaults to {file.upload.dir}/skills/global/', '2026-04-19 21:40:50.653356', null, 'c88f57c8-ad26-4ea0-9f71-a65995b49357', '');
 
 -- 向量資料庫設定表
 INSERT INTO bestpartner.vector_store_setting (id, user_id, type, alias, vector_setting, created_at, updated_at, created_by, updated_by) VALUES ('b6776d0e-406b-454f-85b0-08e18aaf9248', '670017b4-23d0-4339-a9c0-22b6d9446461', 'MILVUS', 'rag-test', '{"url": "http://127.0.0.1:19530", "password": null, "username": null, "dimension": 1024, "requestLog": false, "responseLog": false, "collectionName": "test"}', '2025-03-08 14:21:47', '2025-03-08 13:52:28', '670017b4-23d0-4339-a9c0-22b6d9446461', '670017b4-23d0-4339-a9c0-22b6d9446461');

@@ -27,6 +27,7 @@ bestpartner/
 | `LLMMcpServerResource.kt` | MCP Server 管理 API |
 | `LLMPermissionResource.kt` | 權限管理 API |
 | `LLMSettingResource.kt` | 模型設定 API |
+| `LLMSkillResource.kt` | Skill 管理 API |
 | `LLMToolResource.kt` | 工具管理 API |
 | `LLMUserResource.kt` | 使用者管理 API |
 | `LLMVectorResource.kt` | 向量知識庫 API |
@@ -45,6 +46,7 @@ bestpartner/
 | `EmbeddingService.kt` | 向量嵌入服務 |
 | `ToolService.kt` | 工具管理服務 |
 | `McpServerService.kt` | MCP Server 整合服務 |
+| `SkillService.kt` | Skill 管理服務 |
 | `JwtService.kt` | JWT Token 產生與驗證 |
 | `LLMPermissionService.kt` | 權限控制服務 |
 | `LLMUserService.kt` | 使用者管理服務 |

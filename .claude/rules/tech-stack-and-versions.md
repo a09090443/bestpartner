@@ -6,7 +6,7 @@
 |------|------|------|
 | 語言 | Kotlin | 2.1.0 |
 | 框架 | Quarkus | 3.21.0 |
-| AI 函式庫 | Langchain4j | 1.12.2 |
+| AI 函式庫 | Langchain4j | 1.13.0 |
 | JDK | OpenJDK | 21 |
 | 資料庫 | PostgreSQL | - |
 | 建置工具 | Gradle | - |

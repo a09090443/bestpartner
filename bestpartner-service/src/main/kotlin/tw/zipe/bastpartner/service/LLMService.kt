@@ -56,6 +56,7 @@ class LLMService(
     private val securityValidator: SecurityValidator,
     private val toolService: ToolService,
     private val embeddingService: EmbeddingService,
+    private val skillService: SkillService,
     private val objectMapper: ObjectMapper,
     @ConfigProperty(name = "file.upload.dir") private val fileUploadDir: String
 ) {
@@ -242,6 +243,17 @@ class LLMService(
             }
         }
         aiService.chatMemoryProvider(chatMemoryProvider)
+
+        chatRequestDTO.skillIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+            val skills = skillService.buildSkills(ids)
+            aiService.toolProvider(skills.toolProvider())
+            val basePrompt = chatRequestDTO.promptContent.orEmpty()
+            val skillInfo = skills.formatAvailableSkills()
+            aiService.systemMessageProvider { _ ->
+                "$basePrompt\n\nYou have access to the following skills:\n$skillInfo\nWhen the user's request relates to one of these skills, activate it first using the `activate_skill` tool before proceeding."
+            }
+        }
+
         return aiService
     }
 

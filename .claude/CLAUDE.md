@@ -20,7 +20,7 @@ BestPartner 是一個 AI 應用大平台，可動態建立 AI agent 並支援多
 | [configuration-and-profiles.md](rules/configuration-and-profiles.md) | application.properties 設定項、dev/sit/prod 差異、資料庫設定 |
 | [authentication-and-security.md](rules/authentication-and-security.md) | JWT 認證、公私鑰、登入端點、RBAC |
 | [api-documentation.md](rules/api-documentation.md) | Swagger UI 路徑、OpenAPI spec、Bearer 認證整合 |
-| [api-endpoints.md](rules/api-endpoints.md) | 各模組 API endpoint 清單與功能說明（共 11 模組、49 個端點） |
+| [api-endpoints.md](rules/api-endpoints.md) | 各模組 API endpoint 清單與功能說明（共 12 模組、59 個端點） |
 | [api-testing.md](rules/api-testing.md) | Postman Collection、API 測試計畫、P0/P1/P2 定義 |
 | [development-notes.md](rules/development-notes.md) | MCP Server 範例、日誌路徑、開關控制 |
 | [i18n-messages.md](rules/i18n-messages.md) | i18n 訊息管理、AppMessage enum、MessageUtil 使用方式、新增訊息步驟 |

@@ -1,6 +1,6 @@
 # API Endpoints 說明
 
-> 共 11 個模組、49 個 endpoint。
+> 共 12 個模組、59 個 endpoint。
 > 權限標示：無標示 = 公開或依類別預設；括號內為額外限制。
 
 ---
@@ -22,8 +22,8 @@
 |------|------|------|---------|
 | POST | `/llm/chat` | 同步聊天，傳入 llmId + message，回傳 AI 完整回覆 | - |
 | POST | `/llm/chatStreaming` | 串流聊天（SSE），以 text/plain 逐步回傳 AI 回覆 | - |
-| POST | `/llm/customAssistantChat` | 自定義助手同步聊天，支援 Memory、Tool、MCP Server 整合 | - |
-| POST | `/llm/customAssistantChatStreaming` | 自定義助手串流聊天（SSE），支援 Memory、Tool、MCP Server 整合 | - |
+| POST | `/llm/customAssistantChat` | 自定義助手同步聊天，支援 Memory、Tool、MCP Server、Skill 整合 | - |
+| POST | `/llm/customAssistantChatStreaming` | 自定義助手串流聊天（SSE），支援 Memory、Tool、MCP Server、Skill 整合 | - |
 | POST | `/llm/uploadFile` | 上傳本地檔案（multipart/form-data），回傳上傳成功的檔案名稱清單 | - |
 
 ---
@@ -94,6 +94,23 @@
 | POST | `/llm/tool/category/save` | 新增工具分類（須傳入 group） | @RolesAllowed("admin") |
 | POST | `/llm/tool/category/update` | 更新工具分類（須傳入 groupId + group） | @RolesAllowed("admin") |
 | POST | `/llm/tool/category/delete` | 刪除工具分類（須傳入 groupId） | @RolesAllowed("admin") |
+
+---
+
+## SKILL - `/llm/skill`
+
+> 類別層級：`@Authenticated`（所有 endpoint 皆需登入）
+
+Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄（`{upload_dir}/skills/{userId}/{skillName}/`）。zip 檔名（去掉 `.zip`）為 skillName，`skill.md` 為必要主內容，其餘檔案為 resources。
+
+| HTTP | 路徑 | 說明 | 額外權限 |
+|------|------|------|---------|
+| GET | `/llm/skill/list` | 列出當前使用者的所有 Skill（含 global skills，`isGlobal` 欄位區分） | - |
+| POST | `/llm/skill/get` | 取得特定 Skill 詳細資訊（含 resources 內容；可讀自己的或 global skill，須傳入 id） | - |
+| POST | `/llm/skill/upload` | 上傳個人 Skill zip 壓縮檔（multipart/form-data；file 必填、description 選填；同名自動覆蓋） | - |
+| POST | `/llm/skill/delete` | 刪除個人 Skill（須傳入 id；只能刪除自己的 Skill，同時刪除伺服器目錄） | - |
+| POST | `/llm/skill/global/upload` | 上傳 Global Skill zip 壓縮檔（所有使用者皆可讀取；multipart/form-data） | @RolesAllowed("admin") |
+| POST | `/llm/skill/global/delete` | 刪除 Global Skill（須傳入 id） | @RolesAllowed("admin") |
 
 ---
 

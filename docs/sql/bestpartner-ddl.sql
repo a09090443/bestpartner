@@ -228,3 +228,33 @@ CREATE TABLE "vector_store_setting" (
                                         "updated_by" varchar(50) DEFAULT NULL,
                                         PRIMARY KEY ("id")
 );
+
+DROP TABLE IF EXISTS "llm_skill_resource";
+DROP TABLE IF EXISTS "llm_skill";
+CREATE TABLE "llm_skill" (
+    "id" varchar(36) NOT NULL,
+    "user_id" varchar(36) NOT NULL,
+    "name" varchar(255) NOT NULL,
+    "description" text,
+    "content" text,
+    "dir_path" varchar(500) DEFAULT NULL,
+    "scope" varchar(10) NOT NULL DEFAULT 'USER',
+    "created_at" timestamp NOT NULL,
+    "updated_at" timestamp NULL DEFAULT NULL,
+    "created_by" varchar(50) DEFAULT NULL,
+    "updated_by" varchar(50) DEFAULT NULL,
+    PRIMARY KEY ("id"),
+    UNIQUE ("user_id", "name")
+);
+
+CREATE TABLE "llm_skill_resource" (
+    "id" varchar(36) NOT NULL,
+    "skill_id" varchar(36) NOT NULL,
+    "relative_path" varchar(255) NOT NULL,
+    "content" text,
+    "created_at" timestamp NOT NULL,
+    "updated_at" timestamp NULL DEFAULT NULL,
+    "created_by" varchar(50) DEFAULT NULL,
+    "updated_by" varchar(50) DEFAULT NULL,
+    PRIMARY KEY ("id")
+);
