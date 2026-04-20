@@ -167,7 +167,7 @@ class SkillService(
                 LLMSkillResourceEntity().apply {
                     this.skillId = skillId
                     this.relativePath = skillDir.relativize(file.toPath()).toString()
-                    this.content = null
+                    this.content = ""
                     skillResourceRepository.saveOrUpdate(this)
                 }
             }

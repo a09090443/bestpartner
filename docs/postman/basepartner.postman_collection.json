@@ -213,7 +213,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"llmId\": \"4069f3c2-ba50-4eed-b3d3-0cc53478dd9a\",\r\n    \"message\": \"我是Gary\"\r\n}",
+              "raw": "{\r\n    \"llmId\": \"2b44c811-d38c-417b-89d4-ae675b3093f5\",\r\n    \"message\": \"我是Gary\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -244,7 +244,8 @@
                   ""
                 ],
                 "type": "text/javascript",
-                "packages": {}
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -259,7 +260,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"llmId\":\"42758e05-0c8f-4acd-9f72-3b9f6f38c5df\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Tom\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"toolSettingIds\":[\"c14e82ca-511f-424c-b20c-a96d93cae920\"]\r\n}",
+              "raw": "{\r\n    \"llmId\":\"583b9222-8cb0-4109-b072-5f0fd1e9fed9\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"你好，我是Tom\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回答使用者的問題\",\r\n    \"toolSettingIds\":[\"c14e82ca-511f-424c-b20c-a96d93cae920\"]\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -290,7 +291,8 @@
                   ""
                 ],
                 "type": "text/javascript",
-                "packages": {}
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -305,7 +307,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"llmId\":\"98ee56bd-da8d-48d2-8305-46545045d66b\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問今天的日期，格式:yyyy-MM-dd\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回應使用者需求\",\r\n    \"mcpIds\":[\"4b9ba306-2fc5-4aa6-9e54-22bce834e021\"],\r\n    \"mcpSettingIds\":[\"0dbe3e67-9b58-4e0b-adc3-d546ae44c6c1\"]\r\n}",
+              "raw": "{\r\n    \"llmId\":\"583b9222-8cb0-4109-b072-5f0fd1e9fed9\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問今天的日期，格式:yyyy-MM-dd\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回應使用者需求\",\r\n    \"mcpIds\":[\"4b9ba306-2fc5-4aa6-9e54-22bce834e021\"],\r\n    \"mcpSettingIds\":[\"0dbe3e67-9b58-4e0b-adc3-d546ae44c6c1\"]\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -336,7 +338,8 @@
                   ""
                 ],
                 "type": "text/javascript",
-                "packages": {}
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -351,7 +354,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"llmId\":\"cc03a445-55c2-4ed1-92e4-c639b9c62366\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問今天的日期，格式:yyyy-MM-dd\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回應使用者需求\",\r\n    \"mcpIds\":[\"4b9ba306-2fc5-4aa6-9e54-22bce834e021\"],\r\n    \"mcpSettingIds\":[\"0dbe3e67-9b58-4e0b-adc3-d546ae44c6c1\"]\r\n}",
+              "raw": "{\r\n    \"llmId\":\"2b44c811-d38c-417b-89d4-ae675b3093f5\",\r\n    \"memory\":{\r\n        \"id\":\"gary\",\r\n        \"maxSize\":10\r\n    },\r\n    \"message\":\"請問今天的日期，格式:yyyy-MM-dd\",\r\n    \"promptContent\":\"你是一位很專業的AI助手，會精準的回應使用者需求\",\r\n    \"mcpIds\":[\"4b9ba306-2fc5-4aa6-9e54-22bce834e021\"],\r\n    \"mcpSettingIds\":[\"0dbe3e67-9b58-4e0b-adc3-d546ae44c6c1\"]\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1177,6 +1180,41 @@
           "response": []
         },
         {
+          "name": "OPENROUTER_save_llm_chat_streaming_model_Setting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"alias\": \"openrouter_local_streaming_chat_test\",\r\n  \"modelType\": \"STREAMING_CHAT\",\r\n  \"platformId\": \"006f1076-b023-4197-b917-70455f2a3501\",\r\n  \"llmModel\": {\r\n    \"apiKey\": \"sk-or-v1-xxxx\",\r\n    \"modelName\": \"deepseek/deepseek-v3.2\",\r\n    \"temperature\": 0.7,\r\n    \"topP\": 0.5,\r\n    \"maxTokens\": 4096,\r\n    \"timeout\": 6000,\r\n    \"logRequestsAndResponses\": true\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/setting/save",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "setting",
+                "save"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "OPENROUTER_save_llm_chat_model_Setting",
           "request": {
             "method": "POST",
@@ -1224,7 +1262,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"llmId\":\"9fc35d01-65e7-43af-9780-a591bd644bf0\",\r\n    \"platformId\":\"\"\r\n}",
+              "raw": "{\r\n    \"llmId\":\"9fc35d01-65e7-43af-9780-a591bd644bf0\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2488,6 +2526,269 @@
                 "llm",
                 "vector",
                 "save"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "skill",
+      "item": [
+        {
+          "name": "skill_list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/list",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "list"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "skill_get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"{{skillId}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/get",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "get"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "skill_upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "ZIP 壓縮檔，檔名（去掉 .zip）即為 skillName，zip 根目錄須含 skill.md"
+                },
+                {
+                  "key": "description",
+                  "value": "My skill description",
+                  "type": "text",
+                  "description": "技能描述（選填）"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/upload",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "upload"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "skill_upload_no_description",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "ZIP 壓縮檔，zip 根目錄須含 skill.md"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/upload",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "upload"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "skill_delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"{{skillId}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/delete",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "delete"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "skill_global_upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text",
+                "description": "需要 admin 角色 JWT"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "ZIP 壓縮檔，zip 根目錄須含 skill.md，所有使用者皆可讀取"
+                },
+                {
+                  "key": "description",
+                  "value": "Global skill description",
+                  "type": "text",
+                  "description": "技能描述（選填）"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/global/upload",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "global",
+                "upload"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "skill_global_delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text",
+                "description": "需要 admin 角色 JWT"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"{{skillId}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/skill/global/delete",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "skill",
+                "global",
+                "delete"
               ]
             }
           },
