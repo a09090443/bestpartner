@@ -14,6 +14,7 @@ enum class AppMessage(val key: String) {
     LLM_SETTING_TYPE_MISMATCH("llm.setting.type.mismatch"),
     LLM_TYPE_INVALID("llm.type.invalid"),
     LLM_MODEL_NOT_FOUND("llm.model.not.found"),
+    LLM_USER_NOT_FOUND("llm.user.not.found"),
 
     // FILE
     FILE_TYPE_UNSUPPORTED("file.type.unsupported"),

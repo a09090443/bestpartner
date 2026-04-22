@@ -2,6 +2,7 @@ package tw.zipe.bastpartner.dto
 
 import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
+import tw.zipe.bastpartner.enumerate.UserStatus
 
 /**
  * @author Gary
@@ -16,6 +17,6 @@ class UserDTO(
     var phone: String? = null,
     var email: String? = null,
     var avatar: String? = null,
-    var status: Int? = null,
+    var status: UserStatus? = null,
     var role: UserRole? = null
 )

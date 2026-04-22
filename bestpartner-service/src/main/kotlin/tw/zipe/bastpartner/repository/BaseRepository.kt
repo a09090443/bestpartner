@@ -92,13 +92,11 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
 
     @Transactional
     override fun persist(entity: T) {
-        setAuditFields(entity)
         super.persist(entity)
     }
 
     @Transactional
     override fun persist(entities: Iterable<T>) {
-        entities.forEach { setAuditFields(it) }
         super.persist(entities)
     }
 
@@ -408,8 +406,12 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             @Suppress("UNCHECKED_CAST")
             val enumClass = fieldType as Class<Enum<*>>
             field[instance] = when (value) {
-                is String -> enumClass.enumConstants?.firstOrNull { it.name == value }
-                    ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_CONSTANT_NOT_FOUND, enumClass.name, value))
+                is String, is Char -> {
+                    val str = value.toString()
+                    enumClass.enumConstants?.firstOrNull { it.name == str }
+                        ?: enumClass.enumConstants?.getOrNull(str.toIntOrNull() ?: -1)
+                        ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_CONSTANT_NOT_FOUND, enumClass.name, str))
+                }
                 is Number -> enumClass.enumConstants?.get(value.toInt())
                     ?: throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_INDEX_NOT_FOUND, value, enumClass.name))
                 else -> throw IllegalArgumentException(MessageUtil.get(AppMessage.SYSTEM_ENUM_TYPE_UNSUPPORTED, value::class.java))

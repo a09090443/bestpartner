@@ -38,7 +38,7 @@ class LLMUserService(
         }
         llmUserRepository.saveOrUpdate(userEntity).also {
             userDTO.id = userEntity.id
-            userDTO.status = userEntity.status.toInt()
+            userDTO.status = UserStatus.fromOrdinal(userEntity.status.toInt())
         }
 
         val userRole = LLMUserRoleEntity().apply {
@@ -48,7 +48,7 @@ class LLMUserService(
         llmUserRoleRepository.saveOrUpdate(userRole)
     }
 
-    fun findUserById(userId: String) = llmUserRepository.findUserInfo(userId) ?: UserDTO()
+    fun findUserById(userId: String) = llmUserRepository.findUserInfo(userId) ?: throw ServiceException(AppMessage.LLM_USER_NOT_FOUND)
 
     fun findUserByName(username: String) = llmUserRepository.findUserByUsername(username)
 
@@ -74,9 +74,10 @@ class LLMUserService(
             "nickname" to userDTO.nickname.orEmpty(),
             "phone" to userDTO.phone.orEmpty(),
             "avatar" to userDTO.avatar.orEmpty(),
-            "status" to userDTO.status!!
+            "status" to userDTO.status!!.ordinal.toString()
         )
-        llmUserRepository.updateUserByNativeSQL(userDTO.id!!, paramMap)
+        val affected = llmUserRepository.updateUserByNativeSQL(userDTO.id!!, paramMap)
+        if (affected == 0) throw ServiceException(AppMessage.LLM_USER_NOT_FOUND)
     }
 
     @Transactional(rollbackOn = [Exception::class])

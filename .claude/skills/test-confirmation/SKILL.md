@@ -88,7 +88,36 @@ description: Use when user wants to start a test cycle, record API test results,
 
 > ⚠️ 若未重啟服務即開始測試，視同測試流程違規，需重新執行此步驟。
 
-### Step 7：測試完成後關閉服務
+### Step 7：逐案執行循環（每個測試案例都必須照此順序）
+
+**對每個測試案例，依序執行以下動作，缺一不可：**
+
+1. **準備 curl 指令**：根據測試場景組合完整的 curl 指令（含真實 token、真實 id、真實 request body）
+2. **執行 curl 指令**：實際發送請求，取得 HTTP status code 與 response body
+3. **立即寫入確認表**：在該案例對應位置附上以下區塊，**不得使用佔位符**
+
+```bash
+# [TEST-ID] 測試場景名稱
+curl -s -X METHOD http://localhost:80/path \
+  -H "Authorization: Bearer eyJhbGci...（完整 token）" \
+  -H "Content-Type: application/json" \
+  -d '{"field":"實際值"}'
+# HTTP 200
+# {"data":...（實際回應摘要）}
+```
+
+4. **標記狀態**：確認 curl 已寫入後，才在狀態欄填入 ✅ / ❌ / ⏭️
+
+> ⚠️ **封鎖規則**：狀態欄填寫任何符號前，若該案例尚未附上真實 curl 記錄，視同非法操作，必須先補記錄。
+
+#### 模組結束檢核
+
+每個模組最後一個案例完成後，執行自我檢查：
+- 本模組所有案例是否都有 curl 記錄？
+- curl 記錄中是否有未替換的佔位符（`<token>`、`<id>` 等）？
+- 若有遺漏，**立即補寫**，不得繼續下一模組。
+
+### Step 8：測試完成後關閉服務
 
 **所有測試案例執行完畢後，必須強制關閉服務。**
 
@@ -162,5 +191,6 @@ description: Use when user wants to start a test cycle, record API test results,
 | 先建檔再詢問 | 先詢問 metadata，再建立檔案 |
 | 未重新編譯即啟動服務 | 測試前必須先執行 Gradle 編譯（Step 5） |
 | 未重啟服務即開始測試 | 測試前必須強制停止並重新啟動服務（Step 6） |
-| 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 7） |
+| 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 8） |
 | 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |
+| 先標記狀態才記錄 curl | 必須先執行 curl 並寫入記錄，才能標記狀態；先標記視同違規，需撤銷並補記錄（Step 7） |
