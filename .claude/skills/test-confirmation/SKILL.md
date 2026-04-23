@@ -7,7 +7,7 @@ description: Use when user wants to start a test cycle, record API test results,
 
 ## Overview
 
-每次測試週期建立一份帶日期的確認記錄檔。**必須基於現有模板** `docs/test-confirmation-checklist.md`，並使用帶日期的命名，不得另行設計格式。
+每次測試週期建立一份帶日期的確認記錄檔。**必須基於現有模板** `./test-confirmation-checklist.md`，並使用帶日期的命名，不得另行設計格式。
 
 ## When to Use
 
@@ -164,22 +164,11 @@ curl -s -X METHOD http://localhost:80/path \
 | ⏭️ | Skip — 備註欄說明原因 |
 | — | 不適用 |
 
-## 測試模組覆蓋範圍（共 12 個，152 案例）
+## 測試模組覆蓋範圍
 
-| 模組 | 案例數 |
-|------|-------|
-| AUTH | 10 |
-| CHAT | 16 |
-| ADMIN CHAT | 5 |
-| USER | 17 |
-| LLM SETTING | 16 |
-| VECTOR | 14 |
-| TOOL | 19 |
-| MCP | 19 |
-| PERMISSION | 11 |
-| SYSTEM SETTING | 13 |
-| 跨模組整合 | 6 |
-| 通用安全性 | 6 |
+**覆蓋範圍以 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 的「測試結果摘要」表為準。**
+
+執行測試前，必須讀取該 checklist 檔案以確認最新的模組清單、案例數與通過標準，不得沿用任何硬編碼的模組數或案例總計。
 
 ## 常見錯誤
 
@@ -194,3 +183,4 @@ curl -s -X METHOD http://localhost:80/path \
 | 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 8） |
 | 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |
 | 先標記狀態才記錄 curl | 必須先執行 curl 並寫入記錄，才能標記狀態；先標記視同違規，需撤銷並補記錄（Step 7） |
+| 直接使用記憶中的模組數與案例數 | 每次執行前讀取 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 取得最新數字 |
