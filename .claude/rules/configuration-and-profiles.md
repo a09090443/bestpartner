@@ -36,6 +36,7 @@
 | `mp.jwt.verify.publickey.location` | `publicKey.pem` | JWT 公鑰位置 |
 | `smallrye.jwt.sign.key.location` | `privateKey.pem` | JWT 私鑰位置 |
 | `jwt.refresh.switch` | `true` | JWT 自動刷新開關 |
+| `crypto.secret-key` | `changeme-please-replace-in-production` | 敏感欄位 AES-GCM 加密金鑰（正式環境務必替換） |
 | `mcp.server.log.enable` | `true` | MCP server 日誌開關（僅 dev） |
 | `file.upload.dir` | `D:/tmp/bestpartner/upload` | 上傳檔案目錄（僅 dev） |
 

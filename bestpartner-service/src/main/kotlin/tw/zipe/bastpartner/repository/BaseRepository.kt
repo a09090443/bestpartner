@@ -549,6 +549,11 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
         return entity
     }
 
+    @Transactional
+    open fun update(entity: T): T {
+        return getEntityManager().merge(entity)
+    }
+
     open fun findOptionalById(id: ID): T? {
         return findById(id)
     }

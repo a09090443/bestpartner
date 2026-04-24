@@ -25,6 +25,7 @@ import tw.zipe.bastpartner.constant.KNOWLEDGE
 import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
+import tw.zipe.bastpartner.model.VectorStoreModel
 import tw.zipe.bastpartner.entity.LLMDocEntity
 import tw.zipe.bastpartner.entity.LLMDocSliceEntity
 import tw.zipe.bastpartner.entity.LLMKnowledgeEntity
@@ -60,37 +61,55 @@ class EmbeddingService(
             userId = securityValidator.validateLoggedInUser()
             alias = vectorStoreDTO.alias
             type = vectorStoreDTO.vectorStoreType
-            vectorSetting = vectorStoreDTO.vectorStore
+            url = vectorStoreDTO.vectorStore.url
+            username = vectorStoreDTO.vectorStore.username
+            password = vectorStoreDTO.vectorStore.password
+            collectionName = vectorStoreDTO.vectorStore.collectionName
+            dimension = vectorStoreDTO.vectorStore.dimension
+            requestLog = vectorStoreDTO.vectorStore.requestLog
+            responseLog = vectorStoreDTO.vectorStore.responseLog
             vectorStoreSettingRepository.saveOrUpdate(this).also { vectorStoreDTO.id = this.id }
         }
     }
 
     /**
      * 更新向量資料庫設定
+     * 使用 entity-based 更新以確保 JPA AttributeConverter（如 PasswordEncryptConverter）正確套用
      */
     fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): Int {
-        return mapOf(
-            "id" to vectorStoreDTO.id.orEmpty(),
-            "alias" to vectorStoreDTO.alias,
-            "type" to vectorStoreDTO.vectorStoreType?.name.orEmpty(),
-            "vectorSetting" to vectorStoreDTO.vectorStore
-        ).let {
-            vectorStoreSettingRepository.updateSetting(it)
-        }
+        val entity = vectorStoreSettingRepository.findById(vectorStoreDTO.id.orEmpty()) ?: return 0
+        entity.alias = vectorStoreDTO.alias
+        entity.type = vectorStoreDTO.vectorStoreType
+        entity.url = vectorStoreDTO.vectorStore.url
+        entity.username = vectorStoreDTO.vectorStore.username
+        entity.password = vectorStoreDTO.vectorStore.password
+        entity.collectionName = vectorStoreDTO.vectorStore.collectionName
+        entity.dimension = vectorStoreDTO.vectorStore.dimension
+        entity.requestLog = vectorStoreDTO.vectorStore.requestLog
+        entity.responseLog = vectorStoreDTO.vectorStore.responseLog
+        vectorStoreSettingRepository.update(entity)
+        return 1
     }
 
     /**
      * 取得向量資料庫設定
      */
     fun getVectorStoreSetting(id: String): VectorStoreDTO? {
-        val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
-        return vectorStoreSettingEntity?.let {
-            val vectorStoreDTO = VectorStoreDTO()
-            vectorStoreDTO.id = it.id
-            vectorStoreDTO.vectorStoreType = it.type
-            vectorStoreDTO.alias = it.alias
-            vectorStoreDTO.vectorStore = it.vectorSetting
-            return vectorStoreDTO
+        return vectorStoreSettingRepository.findById(id)?.let {
+            VectorStoreDTO().apply {
+                this.id = it.id
+                vectorStoreType = it.type
+                alias = it.alias
+                vectorStore = VectorStoreModel().apply {
+                    url = it.url
+                    username = it.username
+                    password = it.password
+                    collectionName = it.collectionName
+                    dimension = it.dimension
+                    requestLog = it.requestLog
+                    responseLog = it.responseLog
+                }
+            }
         }
     }
 
@@ -98,10 +117,19 @@ class EmbeddingService(
      * 建立向量資料庫
      */
     fun buildVectorStore(id: String): EmbeddingStore<TextSegment> {
-        val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
-        return vectorStoreSettingEntity?.let {
-            it.type?.getVectorStore()?.embeddingStore(it.vectorSetting)
-        } ?: throw ServiceException(AppMessage.EMBEDDING_VECTOR_STORE_NOT_FOUND, id)
+        val entity = vectorStoreSettingRepository.findById(id)
+            ?: throw ServiceException(AppMessage.EMBEDDING_VECTOR_STORE_NOT_FOUND, id)
+        val model = VectorStoreModel().apply {
+            url = entity.url
+            username = entity.username
+            password = entity.password
+            collectionName = entity.collectionName
+            dimension = entity.dimension
+            requestLog = entity.requestLog
+            responseLog = entity.responseLog
+        }
+        return entity.type?.getVectorStore()?.embeddingStore(model)
+            ?: throw ServiceException(AppMessage.EMBEDDING_VECTOR_STORE_NOT_FOUND, id)
     }
 
     /**

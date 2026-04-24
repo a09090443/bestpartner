@@ -82,6 +82,14 @@ mp.jwt.verify.publickey.location=publicKey.pem
 smallrye.jwt.sign.key.location=privateKey.pem
 ```
 
+### 加解密設定
+
+```properties
+# 敏感欄位（如向量資料庫密碼）AES-GCM 加密金鑰
+# ⚠️ 正式環境請務必替換為高強度隨機字串（建議 32 字元以上），且不同環境使用不同金鑰
+crypto.secret-key=changeme-please-replace-in-production
+```
+
 ## 4. 建置專案
 
 回到 `bestpartner-service` 目錄執行建置：

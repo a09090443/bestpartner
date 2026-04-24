@@ -74,7 +74,7 @@ class LLMVectorResource(
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest): ApiResponse<String> {
         DTOValidator.validate(filesForm) {
-            requireNotEmpty("embeddingModelId", "embeddingStoreId")
+            requireNotEmpty("embeddingModelId", "embeddingStoreId", "files")
             throwOnInvalid()
         }
 
