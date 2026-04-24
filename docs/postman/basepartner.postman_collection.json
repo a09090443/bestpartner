@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "bbd2c389-331f-429d-8e0f-fd9d89c6b8bd",
+    "_postman_id": "c8246e36-e010-4252-9b28-03e866c3a748",
     "name": "basepartner",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "3129584"
@@ -1250,6 +1250,41 @@
           "response": []
         },
         {
+          "name": "OPENROUTER_update_llm_embedding_Setting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"fbeafc72-eda0-4a2b-b79e-ed88f53db29f\",\r\n    \"alias\": \"openrouter_local_embedding_test\",\r\n    \"modelType\": \"EMBEDDING\",\r\n    \"platformId\": \"006f1076-b023-4197-b917-70455f2a3501\",\r\n    \"llmModel\": {\r\n        \"apiKey\": \"sk-or-v1-xxx\",\r\n        \"modelName\": \"perplexity/pplx-embed-v1-4b\",\r\n        \"temperature\": 0.7,\r\n        \"topP\": 0.5,\r\n        \"dimensions\": 1536,\r\n        \"maxTokens\": 4096,\r\n        \"timeout\": 6000,\r\n        \"logRequests\": true,\r\n        \"logResponses\": true\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/setting/update",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "setting",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "get_settings",
           "request": {
             "method": "POST",
@@ -2289,20 +2324,19 @@
                     },
                     {
                       "key": "embeddingModelId",
-                      "value": "e9b7f145-23a2-43cc-8bc0-3866ea265c50",
+                      "value": "fbeafc72-eda0-4a2b-b79e-ed88f53db29f",
                       "type": "text"
                     },
                     {
                       "key": "embeddingStoreId",
-                      "value": "b6776d0e-406b-454f-85b0-08e18aaf9248",
+                      "value": "94c3d279-4340-4696-9c04-5e579bbd188f",
                       "type": "text"
                     },
                     {
                       "key": "knowledgeId",
-                      "value": "06a81d58-faea-40b7-a8be-8198a0ccb203",
+                      "value": "vec-test-knowledge-001",
                       "type": "text",
-                      "uuid": "a72f9903-ac1a-4dd7-9936-174f97cc999f",
-                      "disabled": true
+                      "uuid": "a72f9903-ac1a-4dd7-9936-174f97cc999f"
                     },
                     {
                       "key": "name",
@@ -2614,8 +2648,8 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "",
-                  "description": "ZIP 壓縮檔，檔名（去掉 .zip）即為 skillName，zip 根目錄須含 skill.md"
+                  "description": "ZIP 壓縮檔，檔名（去掉 .zip）即為 skillName，zip 根目錄須含 skill.md",
+                  "value": ""
                 },
                 {
                   "key": "description",
@@ -2657,8 +2691,8 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "",
-                  "description": "ZIP 壓縮檔，zip 根目錄須含 skill.md"
+                  "description": "ZIP 壓縮檔，zip 根目錄須含 skill.md",
+                  "value": ""
                 }
               ]
             },
@@ -2720,8 +2754,8 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{adminToken}}",
-                "type": "text",
-                "description": "需要 admin 角色 JWT"
+                "description": "需要 admin 角色 JWT",
+                "type": "text"
               }
             ],
             "body": {
@@ -2730,8 +2764,8 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "",
-                  "description": "ZIP 壓縮檔，zip 根目錄須含 skill.md，所有使用者皆可讀取"
+                  "description": "ZIP 壓縮檔，zip 根目錄須含 skill.md，所有使用者皆可讀取",
+                  "value": ""
                 },
                 {
                   "key": "description",
@@ -2765,8 +2799,8 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{adminToken}}",
-                "type": "text",
-                "description": "需要 admin 角色 JWT"
+                "description": "需要 admin 角色 JWT",
+                "type": "text"
               }
             ],
             "body": {

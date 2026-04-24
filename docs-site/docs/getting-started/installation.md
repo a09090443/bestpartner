@@ -112,15 +112,3 @@ cd bestpartner-service
 ```
 bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
 ```
-
-## 5. 使用 Flyway 初始化資料庫（選用）
-
-如果想使用 Flyway 自動執行資料庫遷移，在 `application.properties` 中開啟：
-
-```properties
-quarkus.flyway.migrate-at-start=true
-```
-
-:::info Flyway 現況
-Flyway 設定預設為關閉（`quarkus.flyway.migrate-at-start=false`），但設定仍保留在 `application-sit.properties` 和 `application-prod.properties` 中。建議使用 `docs/sql/bestpartner-ddl.sql` 手動初始化資料庫。
-:::

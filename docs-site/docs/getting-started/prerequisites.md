@@ -19,26 +19,28 @@ java -version
 
 ### 資料庫
 
-**MySQL**（必要）
+**PostgreSQL**（必要）
 
-BestPartner 使用 MySQL 儲存所有設定資料。
+BestPartner 使用 PostgreSQL 儲存所有設定資料。
 
 ```bash
 # 使用 Docker 快速啟動（建議）
-cd docs/docker/mysql
-docker-compose up -d
+docker run -d \
+  --name bestpartner-postgres \
+  -e POSTGRES_USER=pguser \
+  -e POSTGRES_PASSWORD=pgpass \
+  -e POSTGRES_DB=pgdb \
+  -p 5432:5432 \
+  postgres:16
 ```
 
-或參考 [MySQL 官方安裝文件](https://dev.mysql.com/doc/mysql-installation-excerpt/8.0/en/) 手動安裝。
+或參考 [PostgreSQL 官方安裝文件](https://www.postgresql.org/download/) 手動安裝。
 
-安裝完成後，建立資料庫並執行初始化 SQL：
-
-```sql
-CREATE DATABASE bestpartner;
-```
+安裝完成後，匯入初始化 SQL：
 
 ```bash
-mysql -u root -p bestpartner < docs/sql/bestpartner.sql
+psql -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
+psql -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
 ```
 
 ## AI 模型（擇一）
