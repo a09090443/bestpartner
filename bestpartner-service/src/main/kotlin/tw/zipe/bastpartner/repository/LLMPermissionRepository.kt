@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.transaction.Transactional
 import tw.zipe.bastpartner.dto.PermissionDTO
 import tw.zipe.bastpartner.entity.LLMPermissionEntity
 import tw.zipe.bastpartner.enumerate.UserStatus
@@ -13,30 +14,27 @@ import tw.zipe.bastpartner.enumerate.UserStatus
 class LLMPermissionRepository : BaseRepository<LLMPermissionEntity, String>() {
 
     fun findUserPermissionByStatus(id: String, status: UserStatus): List<PermissionDTO> {
-        val paramMap = mapOf("id" to id, "status" to status.ordinal.toString())
-
-        val sql = """
-            SELECT lp.num, lp.name
-            FROM llm_user lu
-                     JOIN llm_user_role lur ON lu.id = lur.user_id
-                     JOIN llm_role_permission lrp ON lur.ROLE_NUM = lrp.ROLE_NUM
-                     JOIN llm_permission lp ON lrp.PERMISSION_NUM = lp.NUM
+        val jpql = """
+            SELECT lp.num AS num, lp.name AS name
+            FROM LLMUserEntity lu
+            JOIN LLMUserRoleEntity lur ON lur.id.userId = lu.id
+            JOIN LLMRolePermissionEntity lrp ON lrp.id.roleNum = lur.id.roleNum
+            JOIN LLMPermissionEntity lp ON lp.num = lrp.id.permissionNum
             WHERE lu.id = :id AND lu.status = :status
-            ORDER BY lu.created_at DESC
+            ORDER BY lu.createdAt DESC
         """.trimIndent()
-        return this.executeSelect(sql, paramMap, PermissionDTO::class.java)
+        val paramMap = mapOf("id" to id, "status" to status.ordinal.toString())
+        return executeJpqlSelect(jpql, paramMap, PermissionDTO::class.java)
     }
 
+    @Transactional
     fun updatePermission(id: String, name: String, num: Int, description: String): Int {
-        val paramMap = initParamsMap("id" to id, "name" to name, "num" to num, "description" to description)
-        val sql = """
-            UPDATE llm_permission lp
-            SET lp.name = :name, lp.num = :num, lp.description = :description, lp.updated_at = :updatedAt, lp.updated_by = :updatedBy
-            WHERE lp.id = :id
-        """.trimIndent()
-        val executor = createSqlExecutor()
-            .withSql(sql)
-            .withParamMap(paramMap)
-        return executeUpdateWithTransaction(executor)
+        val entity = findById(id) ?: return 0
+        entity.name = name
+        entity.num = num
+        entity.description = description
+        // @PreUpdate 自動設定 updatedAt / updatedBy
+        update(entity)
+        return 1
     }
 }

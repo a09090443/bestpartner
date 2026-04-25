@@ -35,7 +35,11 @@ class JwtFilter(
 
     override fun filter(requestContext: ContainerRequestContext) {
         val token = extractToken(requestContext) ?: return
-        val payload = jwtService.getTokenPayload(token)
+        val payload = try {
+            jwtService.getTokenPayload(token)
+        } catch (e: Exception) {
+            throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_INVALID), null)
+        }
         if (jwtRefreshSwitch.toBoolean()) {
             jwtService.isTokenNeedingRefresh(token).takeIf { it }?.let {
                 val newToken = handleTokenRefresh(requestContext, payload)

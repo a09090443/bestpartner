@@ -6,6 +6,7 @@ import io.quarkus.security.identity.SecurityIdentity
 import jakarta.persistence.Column
 import jakarta.persistence.MappedSuperclass
 import jakarta.persistence.PrePersist
+import jakarta.persistence.PreUpdate
 import java.time.LocalDateTime
 
 /**
@@ -53,5 +54,21 @@ open class BaseEntity {
                     ?.get(this)?.toString() ?: StringUtil.EMPTY_STRING
             }.getOrDefault(StringUtil.EMPTY_STRING)
         }
+    }
+
+    /**
+     * JPA 生命週期回呼：在 UPDATE 前執行
+     * 統一設定 updatedAt 與 updatedBy
+     */
+    @PreUpdate
+    fun onPreUpdate() {
+        updatedAt = LocalDateTime.now()
+        val username = runCatching {
+            Arc.container()
+                ?.instance(SecurityIdentity::class.java)?.get()
+                ?.takeUnless { it.isAnonymous }
+                ?.principal?.name ?: StringUtil.EMPTY_STRING
+        }.getOrDefault(StringUtil.EMPTY_STRING)
+        updatedBy = username
     }
 }

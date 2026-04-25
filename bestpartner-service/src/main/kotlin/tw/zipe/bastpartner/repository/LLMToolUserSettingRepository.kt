@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.transaction.Transactional
 import tw.zipe.bastpartner.entity.LLMToolUserSettingEntity
 
 /**
@@ -15,16 +16,12 @@ class LLMToolUserSettingRepository : BaseRepository<LLMToolUserSettingEntity, St
         return find("userId = :userId AND toolId = :toolId", params).firstResult()
     }
 
+    @Transactional
     fun updateSettingsByNative(id: String, settingContent: String): Int {
-        val paramMap = initParamsMap("id" to id, "settingContent" to settingContent)
-        val sql = """
-            UPDATE llm_tool_user_setting ltus
-            SET ltus.setting_content = :settingContent, ltus.updated_at = :updatedAt, ltus.updated_by = :updatedBy
-            WHERE ltus.id = :id
-        """.trimIndent()
-        val executor = createSqlExecutor()
-            .withSql(sql)
-            .withParamMap(paramMap)
-        return executeUpdateWithTransaction(executor)
+        val entity = findById(id) ?: return 0
+        entity.settingContent = settingContent
+        // @PreUpdate 自動設定 updatedAt / updatedBy
+        update(entity)
+        return 1
     }
 }

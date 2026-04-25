@@ -117,6 +117,16 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
         private val paramMap: MutableMap<String, Any> = mutableMapOf()
         private var isInsert: Boolean = false
         private var isUpdate: Boolean = false
+        private var useJpql: Boolean = false
+
+        /**
+         * 切換為 JPQL 模式（使用 createQuery 而非 createNativeQuery）
+         * 適用於需要 JPQL 語法的查詢（e.g., 跨 Entity JOIN 而無 @ManyToOne 關聯）
+         */
+        fun asJpql(): SafeSqlExecutor<T> {
+            this.useJpql = true
+            return this
+        }
 
         /**
          * 設置 SQL 查詢語句
@@ -204,7 +214,10 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
         @Suppress("UNCHECKED_CAST")
         fun <R : Any> select(resultClass: Class<R>): List<R> {
             val processedSql = processAuditFields()
-            val query = em!!.createNativeQuery(processedSql, Tuple::class.java)
+            val query = if (useJpql)
+                em!!.createQuery(processedSql, Tuple::class.java)
+            else
+                em!!.createNativeQuery(processedSql, Tuple::class.java)
 
             // 設置參數
             paramMap.forEach { (key, value) -> query.setParameter(key, value) }
@@ -542,6 +555,33 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
             .withParams(*params.toTypedArray())
             .select(resultClass)
     }
+
+    /**
+     * 以 JPQL（createQuery）執行查詢並映射結果，複用 Tuple → DTO 反射映射機制
+     * 與 executeSelect 相同介面，但底層使用 JPA JPQL 而非 native SQL
+     */
+    protected fun <R : Any> executeJpqlSelect(
+        jpql: String,
+        params: Map<String, Any>,
+        resultClass: Class<R>
+    ): List<R> = createSqlExecutor()
+        .asJpql()
+        .withSql(jpql)
+        .withParamMap(params)
+        .select(resultClass)
+
+    /**
+     * 以 JPQL 查詢單一結果，結果不存在回傳 null
+     */
+    protected fun <R : Any> executeJpqlSelectOne(
+        jpql: String,
+        params: Map<String, Any>,
+        resultClass: Class<R>
+    ): R? = createSqlExecutor()
+        .asJpql()
+        .withSql(jpql)
+        .withParamMap(params)
+        .selectOne(resultClass)
 
     @Transactional
     open fun saveOrUpdate(entity: T): T {

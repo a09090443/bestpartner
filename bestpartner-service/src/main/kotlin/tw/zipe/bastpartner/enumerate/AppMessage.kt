@@ -7,6 +7,7 @@ enum class AppMessage(val key: String) {
     AUTH_TOKEN_EXPIRED_REFRESH("auth.token.expired.refresh"),
     AUTH_TOKEN_EXPIRED_RELOGIN("auth.token.expired.relogin"),
     AUTH_TOKEN_REFRESH_ERROR("auth.token.refresh.error"),
+    AUTH_TOKEN_INVALID("auth.token.invalid"),
 
     // LLM
     LLM_PLATFORM_NOT_FOUND("llm.platform.not.found"),

@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.transaction.Transactional
 import tw.zipe.bastpartner.dto.McpDTO
 import tw.zipe.bastpartner.entity.LLMMcpServerEntity
 
@@ -11,21 +12,16 @@ import tw.zipe.bastpartner.entity.LLMMcpServerEntity
 @ApplicationScoped
 class LLMMcpServerRepository : BaseRepository<LLMMcpServerEntity, String>() {
 
+    @Transactional
     fun update(mcpDto: McpDTO): Int {
-        val paramMap = initParamsMap(
-            "id" to mcpDto.mcpId.orEmpty(),
-            "name" to mcpDto.name.orEmpty(),
-            "command_setting" to objectMapper.writeValueAsString(mcpDto.commandSetting),
-            "type" to mcpDto.type?.name.orEmpty(),
-        )
-        val sql = """
-            UPDATE llm_mcp_server lms
-            SET lms.name = :name, lms.command_setting = :command_setting, lms.type = :type, lms.updated_at = :updatedAt, lms.updated_by = :updatedBy
-            WHERE lms.id = :id
-        """.trimIndent()
-        val executor = createSqlExecutor()
-            .withSql(sql)
-            .withParamMap(paramMap)
-        return executeUpdateWithTransaction(executor)
+        val entity = findById(mcpDto.mcpId.orEmpty()) ?: return 0
+        entity.name = mcpDto.name.orEmpty()
+        // commandSetting 為 JSON 欄位，Hibernate Converter 自動序列化，無需手動 writeValueAsString
+        mcpDto.commandSetting?.let { entity.commandSetting = it }
+        // type 為 lateinit，僅在 DTO 有值時才更新
+        mcpDto.type?.let { entity.type = it }
+        // @PreUpdate 自動設定 updatedAt / updatedBy
+        update(entity)
+        return 1
     }
 }
