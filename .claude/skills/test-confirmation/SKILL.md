@@ -24,7 +24,6 @@ description: Use when user wants to start a test cycle, record API test results,
 向使用者確認以下項目：
 ```
 - 測試環境（dev / sit）
-- 測試人員姓名
 - LLM 平台（OpenAI / Ollama / Anthropic / Gemini / Grok / OpenRouter，可多選）
   ※ 若找不到對應的 LLM 設定資料，請同時提供 llm_setting id
 ```
@@ -44,7 +43,6 @@ description: Use when user wants to start a test cycle, record API test results,
 ```markdown
 | 測試日期 | YYYY-MM-DD HH:mm |
 | 測試環境 | dev 或 sit |
-| 測試人員 | [名字] |
 | LLM 平台 | [平台名稱] |
 | LLM Setting ID | [id，若找不到平台資料時填入，否則留空] |
 ```
