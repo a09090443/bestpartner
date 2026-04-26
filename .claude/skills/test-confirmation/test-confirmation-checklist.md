@@ -36,7 +36,6 @@
 | LLM 平台 | |
 | LLM Setting ID | |
 | Base URL | `http://localhost:80` |
-| 測試人員 | |
 | 測試結束日期 | |
 
 ---
