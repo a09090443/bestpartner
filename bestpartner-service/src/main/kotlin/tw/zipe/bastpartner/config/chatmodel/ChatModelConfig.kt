@@ -20,6 +20,7 @@ abstract class ChatModelConfig {
         temperature = baseAIPlatform.temperature()
         topP = baseAIPlatform.topP().orElse(Double.MIN_VALUE)
         topK = baseAIPlatform.topK().orElse(Int.MIN_VALUE)
+        maxTokens = baseAIPlatform.maxTokens().orElse(null)
         timeout = baseAIPlatform.timeout().toMillis()
         logRequests = baseAIPlatform.logRequests().orElse(false)
         logResponses = baseAIPlatform.logResponses().orElse(false)

@@ -20,7 +20,28 @@ psql -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
 psql -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
 ```
 
-## 3. 設定 application.properties
+## 3. 建立 .env 檔案（敏感金鑰）
+
+專案使用 `.env` 檔案管理敏感的 API Key，避免明文寫入版本控制。
+
+```bash
+cp .env.example .env
+```
+
+編輯 `.env`，填入實際金鑰：
+
+```dotenv
+# OpenRouter API Key
+OPENROUTER_API_KEY=your-openrouter-api-key-here
+```
+
+> `.env` 已列入 `.gitignore`，不會被提交。`.env.example` 為範本，提交至版本控制供參考。
+
+Quarkus 啟動時會自動載入 `.env`，`application.properties` 中以 `${VARIABLE_NAME}` 引用對應的值。
+
+---
+
+## 4. 設定 application.properties
 
 切換至主服務目錄：
 
@@ -41,24 +62,42 @@ quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/pgdb
 
 ### AI 模型設定
 
-依照你選擇的 AI 模型填入相對應的設定：
+API Key 請透過 `.env` 檔案管理（參考步驟 3），`application.properties` 以 `${VARIABLE_NAME}` 引用。
+
+**`.env`（填入實際金鑰，不提交）**
+
+```dotenv
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key-here
+
+# OpenRouter
+OPENROUTER_API_KEY=your-openrouter-api-key-here
+```
+
+**`application.properties`（使用環境變數引用）**
 
 ```properties
-# OpenAI
-openai.api.key=sk-xxxxxxxxxxxxxxxx
+# OpenAI 系統預設模型設定
+%dev.ai-platform.openai.api-key=${OPENAI_API_KEY}
+%dev.ai-platform.openai.model-name=gpt-4o
+%dev.ai-platform.openai.temperature=0.7
+%dev.ai-platform.openai.max-tokens=4096
+%dev.ai-platform.openai.timeout=60s
 
-# Anthropic
-anthropic.api.key=sk-ant-xxxxxxxxxxxxxxxx
+# OpenRouter 系統預設模型設定
+%dev.ai-platform.openrouter.api-key=${OPENROUTER_API_KEY}
+%dev.ai-platform.openrouter.model-name=openai/gpt-4o
+%dev.ai-platform.openrouter.temperature=0.7
+%dev.ai-platform.openrouter.max-tokens=4096
+%dev.ai-platform.openrouter.timeout=60s
 
-# Google Gemini
-gemini.api.key=AIzaxxxxxxxxxxxxxxxx
-
-# Grok
-grok.api.key=xai-xxxxxxxxxxxxxxxx
-
-# Ollama（本地端，預設無需金鑰）
-ollama.base.url=http://localhost:11434
+# Ollama（本地端，無需 API Key）
+%dev.ai-platform.ollama.url=http://localhost:11434
+%dev.ai-platform.ollama.model-name=llama3
+%dev.ai-platform.ollama.timeout=60s
 ```
+
+> 其他平台（Anthropic、Gemini、Grok）的 API Key 透過 ADMIN 介面的 LLM Setting 儲存於資料庫，無需在設定檔中設定。
 
 ### 向量資料庫設定
 
@@ -90,7 +129,7 @@ smallrye.jwt.sign.key.location=privateKey.pem
 crypto.secret-key=changeme-please-replace-in-production
 ```
 
-## 4. 建置專案
+## 5. 建置專案
 
 回到 `bestpartner-service` 目錄執行建置：
 

@@ -180,6 +180,20 @@ bestpartner/
 - 目前使用 PostgreSQL Database，可在 `application.properties` 中設定連線資訊
 - 無自動 Flyway 遷移（`migrate-at-start=false`），需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
 
+### 敏感金鑰管理（.env 檔案）
+
+專案使用 `.env` 管理 API Key 等敏感設定，避免明文寫入版本控制：
+
+```bash
+# 1. 複製範本
+cp .env.example .env
+
+# 2. 編輯 .env，填入實際金鑰
+# OPENROUTER_API_KEY=your-openrouter-api-key-here
+```
+
+`.env` 已列入 `.gitignore`，不會被提交；`.env.example` 為範本，提交至版本控制供參考。Quarkus 啟動時會自動載入 `.env`。
+
 ---
 
 ## 文件服務系統（docs-site）
