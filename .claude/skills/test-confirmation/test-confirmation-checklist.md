@@ -67,7 +67,7 @@
 | 模組 | 總數 | ✅ Pass | ❌ Fail | ⏭️ Skip | Pass 率 |
 |------|------|--------|--------|---------|---------|
 | AUTH | 10 | | | | |
-| CHAT | 16 | | | | |
+| CHAT | 18 | | | | |
 | ADMIN CHAT | 5 | | | | |
 | USER | 17 | | | | |
 | LLM SETTING | 16 | | | | |
@@ -78,7 +78,8 @@
 | SYSTEM SETTING | 13 | | | | |
 | 跨模組整合 | 6 | | | | |
 | 通用安全性 | 6 | | | | |
-| **合計** | **152** | | | | |
+| **合計** | **154** | | | | |
+
 
 ### 通過標準
 
@@ -131,10 +132,15 @@
 | CHAT-014 | 上傳檔案（無附件） | P2 | POST | `/llm/uploadFile` | | |
 | CHAT-015 | 上傳檔案（超大檔案） | P2 | POST | `/llm/uploadFile` | | |
 | CHAT-016 | 同步聊天（message 為空） | P2 | POST | `/llm/chat` | | |
+| CHAT-017 | 同步聊天（admin 帳號） | P1 | POST | `/llm/chat` | | 驗證 admin 身分可正常使用聊天功能 |
+| CHAT-018 | 串流聊天（admin 帳號） | P1 | POST | `/llm/chatStreaming` | | 驗證 admin 身分可正常使用串流聊天 |
 
 ---
 
 ### ADMIN CHAT — 管理員聊天模組（`/llm/admin`）
+
+> ⚙️ **此模組使用 `application.properties` 設定檔中的系統預設模型**（`ai-platform.openrouter.*` 等），與資料庫中的使用者 LLM Setting 無關。
+> Request body 需傳入 `platform` 欄位（如 `"OPENROUTER"`）以指定系統模型，測試前請確認設定檔已正確設定對應平台的 `api-key`、`model-name` 等參數。
 
 | 測試 ID | 測試場景 | 優先級 | 方法 | 端點 | 狀態 | 備註 |
 |---------|---------|--------|------|------|------|------|
