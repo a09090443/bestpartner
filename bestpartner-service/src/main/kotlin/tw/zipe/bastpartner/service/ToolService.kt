@@ -127,6 +127,7 @@ class ToolService(
     /**
      * 刪除工具群組
      */
+    @Transactional
     fun deleteCategory(toolDTO: ToolDTO): Boolean {
         llmToolRepository.findByCategoryId(toolDTO.groupId.orEmpty()).takeIf { it.isEmpty() }
             ?: throw ServiceException(AppMessage.TOOL_CATEGORY_HAS_TOOLS)

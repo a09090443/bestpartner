@@ -101,12 +101,13 @@ curl -s -X METHOD http://localhost:80/path \
   -H "Content-Type: application/json" \
   -d '{"field":"實際值"}'
 # HTTP 200
-# {"data":...（實際回應摘要）}
+# {"code":0,"data":{...},"message":"success"}（完整 response body，不得省略或截斷）
 ```
 
 4. **標記狀態**：確認 curl 已寫入後，才在狀態欄填入 ✅ / ❌ / ⏭️
 
 > ⚠️ **封鎖規則**：狀態欄填寫任何符號前，若該案例尚未附上真實 curl 記錄，視同非法操作，必須先補記錄。
+> ⚠️ **Response 完整性規則**：response body 必須記錄完整內容，不得使用 `...` 省略、截斷或改寫為摘要；若回應為空或非 JSON，如實記錄原始內容。
 
 #### 模組結束檢核
 
@@ -182,3 +183,4 @@ curl -s -X METHOD http://localhost:80/path \
 | 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |
 | 先標記狀態才記錄 curl | 必須先執行 curl 並寫入記錄，才能標記狀態；先標記視同違規，需撤銷並補記錄（Step 7） |
 | 直接使用記憶中的模組數與案例數 | 每次執行前讀取 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 取得最新數字 |
+| response body 只記錄摘要或用 `...` 省略 | 必須記錄完整 response body 原始內容，不得截斷（Step 7 Response 完整性規則） |

@@ -248,6 +248,35 @@
 
 ### MCP — MCP Server 模組（`/llm/mcpServer`）
 
+> #### 範例 MCP 設定參考
+>
+> 以下為 `docs/sample/mcp/` 提供的範例 jar，可直接用於 MCP-005（註冊 MCP）測試。
+>
+> **1. date.jar（使用 jbang 啟動）**
+> 範例檔案：`docs/sample/mcp/date.jar`
+> ```json
+> {
+>   "args": ["D:/MCP/date-1.0-SNAPSHOT-runner.jar"],
+>   "command": "D:/tools/jbang/bin/jbang.cmd"
+> }
+> ```
+>
+> **2. filesystem.jar（使用 java 啟動，支援多目錄參數）**
+> 範例檔案：`docs/sample/mcp/filesystem.jar`
+> ```json
+> {
+>   "args": ["-jar", "D:/MCP/mcp-server-filesystem-999-SNAPSHOT.jar", "${path0}", "${path1}"],
+>   "command": "D:/tools/openlogic-openjdk-21.0.6+7-windows-x64/bin/java",
+>   "argsDesc": {
+>     "path0": "請帶入目錄位置",
+>     "path1": "請帶入目錄位置"
+>   }
+> }
+> ```
+>
+> **3. jbang 工具位置**
+> `docs/sample/mcp/jbang`
+
 | 測試 ID | 測試場景 | 優先級 | 方法 | 端點 | 狀態 | 備註 |
 |---------|---------|--------|------|------|------|------|
 | MCP-001 | 列出 MCP（已認證） | P0 | GET | `/llm/mcpServer/list` | | |

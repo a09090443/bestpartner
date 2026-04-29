@@ -43,7 +43,7 @@ class McpServerService(
     fun saveMcpServer(mcpDTO: McpDTO) {
         val mcpCommandSetting = createMcpCommandSetting(mcpDTO)
         with(LLMMcpServerEntity()) {
-            id = mcpDTO.mcpId.orEmpty()
+            if (!mcpDTO.mcpId.isNullOrEmpty()) id = mcpDTO.mcpId
             name = mcpDTO.name.orEmpty()
             commandSetting = mcpCommandSetting
             type = mcpDTO.type ?: McpType.STDIO
@@ -57,6 +57,7 @@ class McpServerService(
         llmMcpServerRepository.update(mcpDTO)
     }
 
+    @Transactional
     fun deleteMcpServer(mcpId: String) = llmMcpServerRepository.deleteById(mcpId)
 
     fun getUserSetting(mcpDTO: McpDTO): McpDTO =
