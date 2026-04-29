@@ -375,4 +375,346 @@
 
 ---
 
-*最後更新：2026-04-04*
+## 已驗證 API 範例
+
+> 本部分包含所有已驗證的 API curl 命令和預期響應，可供測試時參考。  
+> 來源：`docs/api-test-examples.md`（2026-04-29 測試執行）
+
+### AUTH 模組已驗證範例
+
+#### AUTH-001: 正常登入（有效帳密）
+
+```bash
+curl -X POST "http://localhost:80/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@bestpartner.com.tw","password":"admin"}'
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+}
+```
+
+#### AUTH-002: 驗證 JWT 有效
+
+```bash
+curl -X POST "http://localhost:80/login/check" \
+  -H "Authorization: Bearer {ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": "check"
+}
+```
+
+#### AUTH-003: 錯誤登入（密碼錯誤）
+
+```bash
+curl -X POST "http://localhost:80/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@bestpartner.com.tw","password":"wrongpassword"}'
+```
+
+**預期響應** (HTTP 401):
+```json
+{
+  "code": 401,
+  "message": "密碼錯誤",
+  "data": null
+}
+```
+
+#### AUTH-004: 錯誤登入（信箱不存在）
+
+```bash
+curl -X POST "http://localhost:80/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"notexist@example.com","password":"anypassword"}'
+```
+
+**預期響應** (HTTP 401):
+```json
+{
+  "code": 401,
+  "message": "帳號不存在",
+  "data": null
+}
+```
+
+#### AUTH-010: 邊界條件（超長密碼）
+
+```bash
+# 注意：超長密碼會返回 HTTP 400（格式驗證失敗）
+LONG_PASSWORD=$(python3 -c "print('x'*1000)")
+curl -X POST "http://localhost:80/login/" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"admin@bestpartner.com.tw\",\"password\":\"${LONG_PASSWORD}\"}"
+```
+
+**預期響應** (HTTP 400):
+```json
+{
+  "code": 400,
+  "message": "欄位驗證失敗",
+  "data": null
+}
+```
+
+**說明**：此為正確行為 - 輸入驗證應返回 400，已確認為已知行為（非缺陷）
+
+---
+
+### CHAT 模組已驗證範例
+
+#### CHAT-001: 同步聊天（正常請求）
+
+```bash
+curl -X POST "http://localhost:80/llm/chat" \
+  -H "Authorization: Bearer {USER_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"llmId\":\"33b5e4a4-798b-41fd-abad-21e2e68831b1\",\"message\":\"Hello, how are you?\"}"
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": "I'm doing well, thank you for asking!..."
+}
+```
+
+#### CHAT-002: 同步聊天（未認證）
+
+```bash
+curl -X POST "http://localhost:80/llm/chat" \
+  -H "Content-Type: application/json" \
+  -d "{\"llmId\":\"33b5e4a4-798b-41fd-abad-21e2e68831b1\",\"message\":\"Test\"}"
+```
+
+**預期響應** (HTTP 401):
+```json
+{
+  "code": 401,
+  "message": "Unauthorized",
+  "data": null
+}
+```
+
+#### CHAT-006: 串流聊天（正常請求）
+
+```bash
+curl -X POST "http://localhost:80/llm/chatStreaming" \
+  -H "Authorization: Bearer {USER_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"llmId\":\"9d94a87e-4d79-41f8-a252-0bcd1624d3cd\",\"message\":\"Hello\"}"
+```
+
+**預期響應** (HTTP 200 + SSE):
+```
+data: First chunk of response...
+data: Second chunk...
+data: ...
+```
+
+#### CHAT-007: 串流聊天（未認證）
+
+```bash
+curl -X POST "http://localhost:80/llm/chatStreaming" \
+  -H "Content-Type: application/json" \
+  -d "{\"llmId\":\"9d94a87e-4d79-41f8-a252-0bcd1624d3cd\",\"message\":\"Test\"}"
+```
+
+**預期響應** (HTTP 401)
+
+---
+
+### ADMIN CHAT 模組已驗證範例
+
+#### ADCHAT-001: 管理員聊天（admin 正常）
+
+```bash
+curl -X POST "http://localhost:80/llm/admin/chat" \
+  -H "Authorization: Bearer {ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"What is 2+2?","platform":"OPENROUTER"}'
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": "2+2 equals 4."
+}
+```
+
+#### ADCHAT-002: 管理員聊天（一般用戶存取）
+
+```bash
+curl -X POST "http://localhost:80/llm/admin/chat" \
+  -H "Authorization: Bearer {USER_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Test","platform":"OPENROUTER"}'
+```
+
+**預期響應** (HTTP 403):
+```json
+{
+  "code": 403,
+  "message": "Forbidden",
+  "data": null
+}
+```
+
+#### ADCHAT-003: 管理員聊天（未認證）
+
+```bash
+curl -X POST "http://localhost:80/llm/admin/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Test","platform":"OPENROUTER"}'
+```
+
+**預期響應** (HTTP 401)
+
+---
+
+### USER 模組已驗證範例
+
+#### USER-001: 註冊（正常新帳號）
+
+```bash
+curl -X POST "http://localhost:80/llm/user/register" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"newuser","password":"password123","email":"newuser@example.com"}'
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "uuid-here",
+    "username": "newuser",
+    "email": "newuser@example.com",
+    "status": "ACTIVE"
+  }
+}
+```
+
+#### USER-007: 取得用戶資訊（已認證）
+
+```bash
+curl -X POST "http://localhost:80/llm/user/get" \
+  -H "Authorization: Bearer {USER_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "user-id",
+    "username": "user",
+    "email": "user@bestpartner.com.tw",
+    "status": "ACTIVE"
+  }
+}
+```
+
+#### USER-008: 取得用戶資訊（未認證）
+
+```bash
+curl -X POST "http://localhost:80/llm/user/get" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**預期響應** (HTTP 401)
+
+---
+
+### LLM SETTING 模組已驗證範例
+
+#### LLM SETTING 平台設定（準備工作）
+
+```bash
+# 新增 OpenRouter 平台
+curl -X POST "http://localhost:80/llm/setting/platform/add" \
+  -H "Authorization: Bearer {ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"platform":"OPENROUTER"}'
+```
+
+#### LLM SETTING 新增設定
+
+```bash
+# 新增 CHAT 類型 LLM 設定
+curl -X POST "http://localhost:80/llm/setting/save" \
+  -H "Authorization: Bearer {USER_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"platformId\":\"{PLATFORM_ID}\",
+    \"modelType\":\"CHAT\",
+    \"llmModel\":{
+      \"modelName\":\"deepseek/deepseek-r1\",
+      \"apiKey\":\"sk-or-v1-test-key\"
+    }
+  }"
+```
+
+---
+
+### SYSTEM SETTING 模組已驗證範例
+
+#### SYS-001: 列出設定（正常）
+
+```bash
+curl -X GET "http://localhost:80/systemSetting/list" \
+  -H "Content-Type: application/json"
+```
+
+**預期響應** (HTTP 200):
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": "setting-1",
+      "key": "setting_key_1",
+      "value": "value_1",
+      "description": "Description"
+    }
+  ]
+}
+```
+
+---
+
+### 常見錯誤和解決方案
+
+| 錯誤 | 原因 | 解決方案 |
+|------|------|---------|
+| HTTP 400 | 請求格式或驗證錯誤 | 檢查 JSON 格式和必填欄位 |
+| HTTP 401 | 未認證或 Token 無效 | 確認 Bearer Token 正確 |
+| HTTP 403 | 無權限 | 確認用戶角色和端點權限要求 |
+| HTTP 500 | 服務器錯誤 | 檢查服務器日誌 |
+
+---
+
+*最後更新：2026-04-29*
