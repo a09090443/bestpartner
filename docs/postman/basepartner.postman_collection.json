@@ -3222,6 +3222,71 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Tested APIs",
+      "item": [
+        {
+          "name": "✅ TEST-AUTH-001",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"admin@bestpartner.com.tw\",\"password\":\"admin\"}"
+            },
+            "url": {
+              "raw": "http://{{domain}}/login/",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "✅ TEST-CHAT-001",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"llmId\":\"{{chatLlmId}}\",\"message\":\"Hello, how are you?\"}"
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/chat",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "chat"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

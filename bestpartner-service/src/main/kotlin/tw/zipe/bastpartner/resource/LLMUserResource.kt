@@ -53,6 +53,9 @@ class LLMUserResource(
     @Path("/switchStatus")
     @RolesAllowed("admin")
     fun switchStatus(userDTO: UserDTO): ApiResponse<UserDTO> {
+        if (userDTO.id == null || userDTO.status == null) {
+            throw IllegalArgumentException("id and status are required")
+        }
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
             requireNotEmpty("status")
