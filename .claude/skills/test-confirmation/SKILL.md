@@ -59,62 +59,71 @@ description: Use when user wants to start a test cycle, record API test results,
 
 ### Step 5：重新編譯專案（測試前必要步驟）
 
-**在啟動服務前，必須先重新編譯專案，確保測試的是最新程式碼。**
-
-執行指令（於 `bestpartner-service` 目錄）：
+在 `bestpartner-service` 目錄執行：
 ```bash
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=dev
 ```
 
-執行順序：
-1. 切換至 `bestpartner-service` 目錄
-2. 執行上述編譯指令，等待完成
-3. 確認編譯成功（BUILD SUCCESSFUL），產生 `build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar`
-4. 若編譯失敗，**立即停止測試流程**，回報錯誤給使用者
+確認編譯成功（BUILD SUCCESSFUL）並產生 jar 檔案。若失敗，立即停止測試並回報錯誤。
 
-> ⚠️ 若未重新編譯即啟動服務，視同測試流程違規，需重新執行此步驟。
+> ⚠️ 若未重新編譯即啟動服務，視同測試流程違規。
 
 ### Step 6：強制重啟服務（測試前必要步驟）
 
-**在開始任何 API 測試前，必須強制停止並重新啟動服務。**
+停止現有服務（port 80），重新啟動並確認服務已正常回應（HTTP 200）後才開始測試。
 
-執行順序：
-1. 確認服務正在執行（port 80）
-2. 強制停止服務
-3. 重新啟動服務並等待啟動完成（回應 HTTP 200）
-4. 確認服務已正常啟動後，才開始進行測試
-
-> ⚠️ 若未重啟服務即開始測試，視同測試流程違規，需重新執行此步驟。
+> ⚠️ 若未重啟服務即開始測試，視同測試流程違規。
 
 ### Step 7：逐案執行循環（每個測試案例都必須照此順序）
 
-**對每個測試案例，依序執行以下動作，缺一不可：**
+1. **讀入模組檔案**：開啟對應的 `modules/test-module-{MODULE}.md` 檔案（見 checklist 「模組測試清單」章節）
+2. **執行測試**：對該模組每個案例依序執行：
+   - 準備 curl 指令（根據模組檔案中的 curl 範本）
+   - 執行 curl 指令，取得 HTTP status code 與 response body
+   - **立即寫入確認表**：附上完整的 curl 記錄和 response（不得使用佔位符、不得省略或截斷）
+   - 標記狀態（✅ / ❌ / ⏭️）
 
-1. **準備 curl 指令**：根據測試場景組合完整的 curl 指令（含真實 token、真實 id、真實 request body）
-2. **執行 curl 指令**：實際發送請求，取得 HTTP status code 與 response body
-3. **立即寫入確認表**：在該案例對應位置附上以下區塊，**不得使用佔位符**
+> ⚠️ **必須先寫入 curl 記錄，再標記狀態；狀態欄填寫前若無記錄，視同違規。**
 
-```bash
-# [TEST-ID] 測試場景名稱
-curl -s -X METHOD http://localhost:80/path \
-  -H "Authorization: Bearer eyJhbGci...（完整 token）" \
-  -H "Content-Type: application/json" \
-  -d '{"field":"實際值"}'
-# HTTP 200
-# {"code":0,"data":{...},"message":"success"}（完整 response body，不得省略或截斷）
+### Step 7.5：模組完成後立即更新測試結果摘要（強制執行，不可延後）
+
+**每完成一個模組的所有測試案例後，必須立即更新確認表中的「測試結果摘要」統計表，嚴格執行以下檢查清單：**
+
+#### 模組測試完成檢查清單
+
+在進入下一個模組前，必須依序確認（打勾）以下項目：
+
+```
+□ 所有案例 curl 記錄已寫入確認表（無佔位符、無省略）
+□ 所有案例狀態已標記（✅ / ❌ / ⏭️）
+□ 失敗案例（❌）已在「問題追蹤區」詳細記錄（Test ID、現象、期望、實際、根因）
+□ 摘要表中該模組的統計數字已更新：
+  - ✅ Pass：符合狀態數
+  - ❌ Fail：失敗案例數
+  - ⏭️ Skip：跳過案例數
+  - 總數：該模組的總案例數
+□ Pass 率已計算並填入（格式：XX.X%）
+□ 測試資料清理完成（若該模組有新增資料的 API 測試，務必呼叫刪除 API 清除）
 ```
 
-4. **標記狀態**：確認 curl 已寫入後，才在狀態欄填入 ✅ / ❌ / ⏭️
+#### 更新摘要表的方式
 
-> ⚠️ **封鎖規則**：狀態欄填寫任何符號前，若該案例尚未附上真實 curl 記錄，視同非法操作，必須先補記錄。
-> ⚠️ **Response 完整性規則**：response body 必須記錄完整內容，不得使用 `...` 省略、截斷或改寫為摘要；若回應為空或非 JSON，如實記錄原始內容。
+在「測試結果摘要」表中找到剛完成的模組行，填寫統計數字與 Pass 率：
 
-#### 模組結束檢核
+```markdown
+| 模組 | 總數 | ✅ Pass | ❌ Fail | ⏭️ Skip | Pass 率 |
+|------|------|--------|--------|---------|---------|
+| AUTH | 10 | 8 | 1 | 1 | 80.0% |  ← 範例：此模組完成
+```
 
-每個模組最後一個案例完成後，執行自我檢查：
-- 本模組所有案例是否都有 curl 記錄？
-- curl 記錄中是否有未替換的佔位符（`<token>`、`<id>` 等）？
-- 若有遺漏，**立即補寫**，不得繼續下一模組。
+#### 嚴格規則
+
+- **不可延後**：必須完成一個模組的所有測試後立即更新，不可等到所有模組測完才統一更新
+- **即時發現問題**：若某模組 Pass 率過低（P0 應 100%、P1 應 ≥95%、P2 應 ≥80%），立即暫停並評估是否繼續
+- **與問題追蹤區同步**：失敗案例必須在摘要更新前寫入問題追蹤區，缺一不可
+- **計算必須精確**：Pass 率 = Pass 案例數 ÷ 總案例數 × 100%，不可四捨五入到整數（應保留一位小數）
+
+> ⚠️ **若發現任何模組未按此步驟立即更新，視同測試流程違規，需撤銷摘要表並重新執行此步驟。**
 
 ### Step 8：測試完成後關閉服務
 
@@ -127,119 +136,12 @@ curl -s -X METHOD http://localhost:80/path \
 
 > ⚠️ 測試完成後不得遺留服務在背景執行。
 
-## 測試資料清理規則
-
-**凡是測試新增資料的 API（如 POST 建立資源），測試完成後必須立即呼叫對應的刪除 API，以相同的條件（id、名稱、參數等）刪除該筆測試資料。**
-
-清理原則：
-- 新增成功（✅）：記錄後立即呼叫刪除 API 清除資料
-- 新增失敗（❌）：確認資料未寫入，無需清理；在問題追蹤區記錄
-- 若刪除 API 尚未實作或測試失敗：在備註欄說明，手動清除或標記為待清理
-
-> ⚠️ 測試完成後若資料庫殘留測試資料，視同測試流程不完整，需補執行清理步驟。
-
-## 測試中斷處理
-
-### 遇到無效 API Key 時
-
-若測試過程中任何端點回傳 API Key 無效（如 HTTP 401、403，或錯誤訊息含 `invalid api key`、`unauthorized`、`authentication failed` 等），**立即暫停測試**並向使用者詢問：
-
-```
-測試發現 API Key 無效，無法繼續呼叫 LLM。
-請問 LLM SETTING 中，目前哪個 llmId 的設定是有效可測試的？
-請提供可用的 llmId，後續測試將改用該設定。
-```
-
-取得使用者提供的 `llmId` 後：
-1. 將該 `llmId` 填入已建立的確認表「測試週期資訊」中的 `LLM Setting ID` 欄位
-2. 後續所有需要 LLM 的測試案例改用此 `llmId` 指定的設定繼續執行
-
-## 狀態符號（不可更改）
-
-| 符號 | 意義 |
-|------|------|
-| ✅ | Pass — 測試通過 |
-| ❌ | Fail — 填入問題追蹤區 |
-| ⏭️ | Skip — 備註欄說明原因 |
-| — | 不適用 |
-
-## 測試模組覆蓋範圍
-
-**覆蓋範圍以 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 的「測試結果摘要」表為準。**
-
-執行測試前，必須讀取該 checklist 檔案以確認最新的模組清單、案例數與通過標準，不得沿用任何硬編碼的模組數或案例總計。
 
 ---
 
-## API 變動時的 Checklist 維護規則
+## API 維護規則
 
-**任何時候 API 發生新增、修改或刪除，必須同時更新 checklist 模板。**
-
-### 觸發條件
-
-| API 變動類型 | 檢查點 | 必要動作 |
-|-------------|--------|--------|
-| 新增 endpoint | 新的 `@Path` 註解 | 在 checklist 對應模組表格新增測試案例列，並在「已驗證 API 範例」加入 curl 範本 |
-| 修改 endpoint 路徑 | 更改 `@Path` 的路徑值 | 更新 checklist 表格中的端點路徑，更新已驗證範例中的 curl 命令 |
-| 修改 endpoint 參數 | 更改 request/response 結構 | 更新 checklist 備註欄，更新已驗證範例中的 request body 和 response |
-| 修改權限要求 | 改變 `@RolesAllowed` 或 `@Authenticated` | 更新 checklist 表格對應行的備註，說明新的權限要求 |
-| 刪除 endpoint | 移除整個方法或 `@Path` | 在 checklist 對應案例旁加註「已廢除」，不刪除列（保留歷史記錄） |
-
-### 詳細規則
-
-#### 新增 Endpoint 時
-
-1. **更新 checklist 的模組表格**
-   - 在對應模組的測試案例表格中新增行
-   - 測試 ID 格式：`{MODULE}-{NUMBER}` (例：`VECTOR-020`)
-   - 優先級：根據功能重要性判斷（P0/P1/P2）
-   - 方法、端點、狀態、備註欄位如實填寫
-
-2. **添加到已驗證 API 範例部分**
-   - 若新 endpoint 已測試過，添加完整 curl 命令和預期響應
-   - 格式參照現有的已驗證範例（含 HTTP 狀態碼、JSON body）
-   - 若尚未測試，先在相應模組後新增佔位符註記（「待測試」）
-
-#### 修改 Endpoint 時
-
-1. **更新 checklist 中的端點行**
-   - 修改路徑、參數、備註欄位
-   - 若修改涉及認證或權限，在備註欄補充說明
-
-2. **同步更新已驗證範例**
-   - 更新對應的 curl 命令和 request body
-   - 更新預期的 response（若 response 結構變更）
-   - 添加修改說明的註釋
-
-#### 刪除 Endpoint 時
-
-1. **保留 checklist 中的案例行，但標記為「已廢除」**
-   ```markdown
-   | {TEST-ID} | {場景} | {優先級} | {方法} | {端點} ~~（已廢除）~~ | — | 服務版本 X.X.X 起不再支援 |
-   ```
-
-2. **移除已驗證範例中對應的 curl 命令**
-   - 添加註釋說明該 API 已廢除及廢除版本
-
-### 執行流程
-
-完成任何 API 變動後，**必須在提交 code 前同時提交 checklist 更新**：
-
-```
-1. 編寫或修改 API endpoint 代碼
-2. 更新 .claude/skills/test-confirmation/test-confirmation-checklist.md
-3. 執行 git add & git commit（包含 code + checklist）
-4. 若有已驗證的測試結果，同時更新 docs/api-test-examples.md
-```
-
-### 檢查清單
-
-提交前確認：
-- [ ] checklist 中的測試模組表格已更新
-- [ ] 若 endpoint 已測試，已驗證範例部分已包含 curl 命令和響應
-- [ ] 若 endpoint 新增了權限要求，在備註欄有清楚說明
-- [ ] 已刪除的 endpoint 保留在表格中但標記為「已廢除」
-- [ ] checklist 和 code 變更一起提交（同一個 commit）
+任何時候 API 發生新增、修改或刪除，必須同時更新 checklist 模板。詳細規則見 [api-maintenance.md](api-maintenance.md)。
 
 ---
 
@@ -255,10 +157,9 @@ curl -s -X METHOD http://localhost:80/path \
 | 未重啟服務即開始測試 | 測試前必須強制停止並重新啟動服務（Step 6） |
 | 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 8） |
 | 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |
-| 先標記狀態才記錄 curl | 必須先執行 curl 並寫入記錄，才能標記狀態；先標記視同違規，需撤銷並補記錄（Step 7） |
-| 直接使用記憶中的模組數與案例數 | 每次執行前讀取 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 取得最新數字 |
-| response body 只記錄摘要或用 `...` 省略 | 必須記錄完整 response body 原始內容，不得截斷（Step 7 Response 完整性規則） |
-| 新增 API 後沒有更新 checklist | API 變動時必須同時更新 checklist（新增行、已驗證範例等）— 見「API 變動時的 Checklist 維護規則」 |
-| API 修改了但 checklist 中的端點路徑沒改 | 同步更新 checklist 表格和已驗證範例中的 curl 命令 |
-| 刪除 API 直接從 checklist 刪除整行 | 刪除 API 時應保留行但標記為「已廢除」，保留歷史記錄 |
-| checklist 更新和 code 分開提交 | API 變動時，checklist 更新必須與 code 變更在同一個 commit 中提交 |
+| 先標記狀態才記錄 curl | 必須先執行 curl 並寫入記錄，才能標記狀態；先標記視同違規（Step 7） |
+| response body 只記錄摘要或省略 | 必須記錄完整 response body 原始內容，不得截斷（Step 7） |
+| **延後更新**：測試完成後才更新摘要 | **模組級強制更新**：每完成一個模組立即更新摘要表（Step 7.5） |
+| **只更新一次**：所有模組測完後統一更新 | **即時更新**：必須完成每一個模組後立即填寫統計數字、Pass 率（Step 7.5） |
+| **漏記模組統計**：忘記更新某個模組數字 | **檢查清單確認**：勾選「模組測試完成檢查清單」，確保統計完整（Step 7.5） |
+| **摘要表與問題追蹤區脫節**：失敗案例未記錄 | **同步維護**：更新摘要表前先記錄所有 ❌ 項目（Test ID、現象、期望、實際、根因）（Step 7.5） |
