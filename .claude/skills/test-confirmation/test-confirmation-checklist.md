@@ -1,7 +1,7 @@
 # BestPartner API 測試功能確認表
 
 > 本文件為定期測試記錄模板，每次測試週期開始前請複製此文件並填寫狀態欄位。
-> 詳細測試說明請參考 `.claude/skills/test-confirmation/api-test-examples.md`。
+> 各模組 curl 範本請參考 `.claude/skills/test-confirmation/modules/` 目錄。
 
 ---
 
@@ -184,3 +184,48 @@ echo "TEST_USER_TOKEN=${TEST_USER_TOKEN:0:30}..."
 | Test ID | 現象 | 期望行為 | 實際行為 | 根因 | 狀態 |
 |---------|------|---------|---------|------|------|
 | | | | | | |
+
+---
+
+## 快速煙霧測試（P0）
+
+```bash
+#!/bin/bash
+DOMAIN="localhost:80"
+
+# 1. 登入取得 token
+ADMIN_RESPONSE=$(curl -s -X POST "http://${DOMAIN}/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@bestpartner.com.tw","password":"admin"}')
+ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | grep -o '"data":"[^"]*' | cut -d'"' -f4)
+echo "✅ Admin Token: ${ADMIN_TOKEN:0:20}..."
+
+# 2. 驗證 JWT
+curl -s -X POST "http://${DOMAIN}/login/check" \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{}' | grep -q "check" && echo "✅ JWT 驗證通過" || echo "❌ JWT 驗證失敗"
+
+# 3. 測試同步聊天（需填入有效 llmId）
+# curl -s -X POST "http://${DOMAIN}/llm/chat" \
+#   -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+#   -H "Content-Type: application/json" \
+#   -d '{"llmId":"<CHAT_LLM_ID>","message":"Hello"}'
+
+# 4. 未認證應返回 401
+curl -s -X POST "http://${DOMAIN}/llm/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"llmId":"test","message":"test"}' | grep -q "401" \
+  && echo "✅ 未認證正確返回 401" || echo "❌ 未認證檢查失敗"
+```
+
+---
+
+## 常見錯誤和解決方案
+
+| HTTP 狀態碼 | 原因 | 解決方案 |
+|------------|------|---------|
+| 400 | 請求格式或驗證錯誤 | 檢查 JSON 格式和必填欄位 |
+| 401 | 未認證或 Token 無效 | 確認 Bearer Token 正確且未過期 |
+| 403 | 無權限 | 確認用戶角色和端點權限要求 |
+| 500 | 服務器錯誤 | 檢查服務器日誌（`D:/tmp/bestpartner/bestpartner_error.log`） |

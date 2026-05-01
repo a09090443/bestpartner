@@ -56,7 +56,7 @@
 1. 編寫或修改 API endpoint 代碼
 2. 更新 .claude/skills/test-confirmation/test-confirmation-checklist.md
 3. 執行 git add & git commit（包含 code + checklist）
-4. 若有已驗證的測試結果，同時更新 `.claude/skills/test-confirmation/api-test-examples.md`
+4. 若有新的已驗證 curl 範本，同時更新對應的 `.claude/skills/test-confirmation/modules/test-module-{MODULE}.md`
 ```
 
 ## 檢查清單
