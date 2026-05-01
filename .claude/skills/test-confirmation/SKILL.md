@@ -1,6 +1,6 @@
 ---
 name: test-confirmation
-description: Use when user wants to start a test cycle, record API test results, or generate a test checklist for BestPartner. Triggered by "執行測試", "開始測試", "測試確認表", "test confirmation", "run tests".
+description: Use when user wants to start a test cycle, record API test results, or generate a test checklist for BestPartner. Triggered by "執行測試", "開始測試", "測試確認表", "API 測試", "回歸測試", "煙霧測試", "test confirmation", "run tests".
 ---
 
 # BestPartner 測試確認表產生器
@@ -87,43 +87,9 @@ description: Use when user wants to start a test cycle, record API test results,
 
 ### Step 7.5：模組完成後立即更新測試結果摘要（強制執行，不可延後）
 
-**每完成一個模組的所有測試案例後，必須立即更新確認表中的「測試結果摘要」統計表，嚴格執行以下檢查清單：**
+每完成一模組的所有測試案例後，必須立即依 [`test-confirmation-checklist.md`](test-confirmation-checklist.md) 中的「模組完成檢查清單」逐項勾選，並更新摘要表的統計數字與 Pass 率。
 
-#### 模組測試完成檢查清單
-
-在進入下一個模組前，必須依序確認（打勾）以下項目：
-
-```
-□ 所有案例 curl 記錄已寫入確認表（無佔位符、無省略）
-□ 所有案例狀態已標記（✅ / ❌ / ⏭️）
-□ 失敗案例（❌）已在「問題追蹤區」詳細記錄（Test ID、現象、期望、實際、根因）
-□ 摘要表中該模組的統計數字已更新：
-  - ✅ Pass：符合狀態數
-  - ❌ Fail：失敗案例數
-  - ⏭️ Skip：跳過案例數
-  - 總數：該模組的總案例數
-□ Pass 率已計算並填入（格式：XX.X%）
-□ 測試資料清理完成（若該模組有新增資料的 API 測試，務必呼叫刪除 API 清除）
-```
-
-#### 更新摘要表的方式
-
-在「測試結果摘要」表中找到剛完成的模組行，填寫統計數字與 Pass 率：
-
-```markdown
-| 模組 | 總數 | ✅ Pass | ❌ Fail | ⏭️ Skip | Pass 率 |
-|------|------|--------|--------|---------|---------|
-| AUTH | 10 | 8 | 1 | 1 | 80.0% |  ← 範例：此模組完成
-```
-
-#### 嚴格規則
-
-- **不可延後**：必須完成一個模組的所有測試後立即更新，不可等到所有模組測完才統一更新
-- **即時發現問題**：若某模組 Pass 率過低（P0 應 100%、P1 應 ≥95%、P2 應 ≥80%），立即暫停並評估是否繼續
-- **與問題追蹤區同步**：失敗案例必須在摘要更新前寫入問題追蹤區，缺一不可
-- **計算必須精確**：Pass 率 = Pass 案例數 ÷ 總案例數 × 100%，不可四捨五入到整數（應保留一位小數）
-
-> ⚠️ **若發現任何模組未按此步驟立即更新，視同測試流程違規，需撤銷摘要表並重新執行此步驟。**
+> ⚠️ 不可等到所有模組測完才統一更新；違反視同測試流程違規。詳細規則與範例見 checklist「模組完成檢查清單」章節。
 
 ### Step 8：測試完成後關閉服務
 
@@ -147,19 +113,13 @@ description: Use when user wants to start a test cycle, record API test results,
 
 ## 常見錯誤
 
+> 步驟內 ⚠️ 違規警告為必讀，本表僅列出步驟未涵蓋的概念性錯誤。
+
 | 錯誤 | 正確做法 |
 |------|---------|
-| 建立 `api-test-checklist.md` 固定名稱 | 使用帶日期的 `docs/test-confirmations/test-confirmation-YYYYMMDD.md` |
-| 自行設計表格格式 | 從 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 複製 |
+| 建立 `api-test-checklist.md` 固定名稱 | 使用帶日期的 `docs/test-confirmations/test-confirmation-YYYYMMDDHHmm.md` |
+| 自行設計表格格式 | 從 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 完整複製 |
 | 只列出主要 7 個模組 | 必須包含整合測試與安全性測試（共 12 個模組） |
-| 先建檔再詢問 | 先詢問 metadata，再建立檔案 |
-| 未重新編譯即啟動服務 | 測試前必須先執行 Gradle 編譯（Step 5） |
-| 未重啟服務即開始測試 | 測試前必須強制停止並重新啟動服務（Step 6） |
-| 測試完成後未關閉服務 | 測試結束後必須強制停止服務（Step 8） |
-| 新增資料測試後未清理 | 每次新增資料的 API 測試後，必須呼叫對應刪除 API 清除測試資料 |
-| 先標記狀態才記錄 curl | 必須先執行 curl 並寫入記錄，才能標記狀態；先標記視同違規（Step 7） |
+| 先建檔再詢問 metadata | 先詢問 metadata（Step 1），再建立檔案（Step 2） |
+| 先標記狀態才記錄 curl | 先執行 curl 並寫入完整記錄，才能標記狀態（Step 7） |
 | response body 只記錄摘要或省略 | 必須記錄完整 response body 原始內容，不得截斷（Step 7） |
-| **延後更新**：測試完成後才更新摘要 | **模組級強制更新**：每完成一個模組立即更新摘要表（Step 7.5） |
-| **只更新一次**：所有模組測完後統一更新 | **即時更新**：必須完成每一個模組後立即填寫統計數字、Pass 率（Step 7.5） |
-| **漏記模組統計**：忘記更新某個模組數字 | **檢查清單確認**：勾選「模組測試完成檢查清單」，確保統計完整（Step 7.5） |
-| **摘要表與問題追蹤區脫節**：失敗案例未記錄 | **同步維護**：更新摘要表前先記錄所有 ❌ 項目（Test ID、現象、期望、實際、根因）（Step 7.5） |
