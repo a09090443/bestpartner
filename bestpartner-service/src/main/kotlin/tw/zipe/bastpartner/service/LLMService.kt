@@ -41,6 +41,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
+import tw.zipe.bastpartner.converter.PasswordEncryptConverter
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.LLMBuilder
 import tw.zipe.bastpartner.util.logger
@@ -58,6 +59,7 @@ class LLMService(
     private val embeddingService: EmbeddingService,
     private val skillService: SkillService,
     private val objectMapper: ObjectMapper,
+    private val passwordEncryptConverter: PasswordEncryptConverter,
     @ConfigProperty(name = "file.upload.dir") private val fileUploadDir: String
 ) {
 
@@ -71,14 +73,20 @@ class LLMService(
             ?: throw ServiceException(AppMessage.LLM_PLATFORM_NOT_FOUND)
         llmDTO.llmModel.platform = platform.name
 
+        val rawApiKey = llmDTO.llmModel.apiKey
+        llmDTO.llmModel.apiKey = null  // 避免明文寫入 JSON
+
         with(LLMSettingEntity()) {
             userId = securityValidator.validateLoggedInUser()
             platformId = llmDTO.platformId.orEmpty()
             type = llmDTO.modelType
             alias = llmDTO.alias
             modelSetting = llmDTO.llmModel
+            apiKey = rawApiKey              // JPA @Convert 自動加密
             llmSettingRepository.saveOrUpdate(this).also { llmDTO.id = this.id }
         }
+
+        llmDTO.llmModel.apiKey = rawApiKey  // 還原，讓 caller 拿到完整 DTO
     }
 
     /**
@@ -91,7 +99,9 @@ class LLMService(
                 alias = llmSetting.alias
                 platformId = llmSetting.platformId
                 modelType = llmSetting.type ?: ModelType.CHAT
-                llmModel = llmSetting.modelSetting
+                llmModel = llmSetting.modelSetting.also {
+                    it.apiKey = llmSetting.apiKey  // JPA @Convert 已解密
+                }
             }
         }
     }
@@ -106,8 +116,14 @@ class LLMService(
                     id = llmSetting.id
                     alias = llmSetting.alias
                     modelType = ModelType.valueOf(llmSetting.type)
-                    llmModel = objectMapper.readValue(llmSetting.modelSetting, LLModel::class.java)
                     platform = Platform.valueOf(llmSetting.platformName)
+                    llmModel = objectMapper.readValue(llmSetting.modelSetting, LLModel::class.java).also { model ->
+                        // 優先使用獨立欄位（解密後），fallback 讀取 JSON 內舊值（相容舊資料）
+                        val decryptedApiKey = llmSetting.apiKey
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { passwordEncryptConverter.convertToEntityAttribute(it) }
+                        model.apiKey = decryptedApiKey ?: model.apiKey
+                    }
                 }
             }.toList()
     }
@@ -116,11 +132,17 @@ class LLMService(
      * 更新 LLM 設定
      */
     fun updateLLMSetting(llmDTO: LLMDTO) {
+        val rawApiKey = llmDTO.llmModel.apiKey
+        llmDTO.llmModel.apiKey = null  // 避免明文寫入 JSON
+
+        val encryptedApiKey = passwordEncryptConverter.convertToDatabaseColumn(rawApiKey).orEmpty()
+
         mapOf(
             "alias" to llmDTO.alias,
             "platformId" to llmDTO.platformId.orEmpty(),
             "type" to llmDTO.modelType?.name.orEmpty(),
             "modelSetting" to llmDTO.llmModel,
+            "apiKey" to encryptedApiKey,        // raw SQL 不觸發 JPA @Convert，手動加密
             "id" to llmDTO.id.orEmpty()
         ).let {
             llmSettingRepository.updateSetting(it)
@@ -142,11 +164,15 @@ class LLMService(
                 .firstOrNull()
 
         return llmSetting?.let { setting ->
-
             if (setting.type != type.name) {
                 throw ServiceException(AppMessage.LLM_SETTING_TYPE_MISMATCH, type)
             }
-            LLMBuilder().build(setting, type)
+            val llmModel = objectMapper.readValue(setting.modelSetting, LLModel::class.java)
+            val decryptedApiKey = setting.apiKey
+                .takeIf { it.isNotEmpty() }
+                ?.let { passwordEncryptConverter.convertToEntityAttribute(it) }
+            llmModel.apiKey = decryptedApiKey ?: llmModel.apiKey
+            LLMBuilder().build(Platform.getPlatform(setting.platformName), llmModel, type)
         } ?: throw ServiceException(AppMessage.LLM_SETTING_NOT_FOUND)
     }
 

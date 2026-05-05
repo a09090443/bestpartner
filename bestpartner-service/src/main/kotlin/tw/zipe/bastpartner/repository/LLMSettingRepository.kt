@@ -19,6 +19,7 @@ class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
                    ls.type          AS type,
                    ls.alias         AS alias,
                    ls.model_setting AS modelSetting,
+                   ls.api_key       AS apiKey,
                    lp.name          AS platformName
             FROM llm_setting ls
                      LEFT JOIN llm_platform lp ON ls.platform_id = lp.id
@@ -51,6 +52,7 @@ class LLMSettingRepository : BaseRepository<LLMSettingEntity, String>() {
                 platform_id = :platformId,
                 type = :type,
                 model_setting = :modelSetting,
+                api_key = :apiKey,
                 updated_at = :updatedAt,
                 updated_by = :updatedBy
             WHERE id = :id

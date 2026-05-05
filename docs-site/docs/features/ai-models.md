@@ -47,7 +47,8 @@ user_id          -- 使用者 ID
 platform_id      -- 對應 llm_platform.id
 type             -- ModelType（CHAT / STREAMING_CHAT / EMBEDDING）
 alias            -- 自訂別名
-model_setting    -- JSON，包含模型細節設定（模型名稱、API Key、溫度等）
+model_setting    -- JSON，包含模型細節設定（模型名稱、溫度等）
+api_key          -- API Key（AES-GCM 加密儲存）
 ```
 
 ## 設定模型範例
@@ -55,13 +56,14 @@ model_setting    -- JSON，包含模型細節設定（模型名稱、API Key、�
 ### OpenAI
 
 ```sql
-INSERT INTO llm_setting (id, platform_id, type, alias, model_setting)
+INSERT INTO llm_setting (id, platform_id, type, alias, model_setting, api_key)
 VALUES (
   UUID(),
   (SELECT id FROM llm_platform WHERE name = 'OPENAI'),
   'CHAT',
   'GPT-4o',
-  '{"modelName":"gpt-4o","apiKey":"sk-xxxxxxxx","temperature":0.7,"maxTokens":2048}'
+  '{"modelName":"gpt-4o","temperature":0.7,"maxTokens":2048}',
+  'sk-xxxxxxxx'
 );
 ```
 
@@ -81,12 +83,13 @@ VALUES (
 ### 嵌入模型（用於 RAG）
 
 ```sql
-INSERT INTO llm_setting (id, platform_id, type, alias, model_setting)
+INSERT INTO llm_setting (id, platform_id, type, alias, model_setting, api_key)
 VALUES (
   UUID(),
   (SELECT id FROM llm_platform WHERE name = 'OPENAI'),
   'EMBEDDING',
   'OpenAI Embedding',
-  '{"modelName":"text-embedding-3-small","apiKey":"sk-xxxxxxxx"}'
+  '{"modelName":"text-embedding-3-small"}',
+  'sk-xxxxxxxx'
 );
 ```

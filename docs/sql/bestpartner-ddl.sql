@@ -123,6 +123,7 @@ CREATE TABLE "llm_setting" (
                                "type" varchar(15) NOT NULL,
                                "alias" varchar(100) DEFAULT NULL,
                                "model_setting" json DEFAULT NULL,
+                               "api_key" varchar(500) DEFAULT NULL,
                                "created_at" timestamp NULL DEFAULT CURRENT_TIMESTAMP,
                                "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
                                "created_by" varchar(50) DEFAULT NULL,
