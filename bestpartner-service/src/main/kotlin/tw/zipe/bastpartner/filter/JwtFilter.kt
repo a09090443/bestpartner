@@ -41,6 +41,11 @@ class JwtFilter(
             throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_INVALID), null)
         }
         if (jwtRefreshSwitch.toBoolean()) {
+            // SEC-004 Fix: 驗證 token 簽名，防止偽造 payload 的 token 透過 refresh 機制取得有效 JWT。
+            // 必須先確認 token 是由本伺服器私鑰簽發，才允許進入 refresh 流程。
+            if (!jwtService.isTokenSignatureValid(token)) {
+                throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_INVALID), null)
+            }
             jwtService.isTokenNeedingRefresh(token).takeIf { it }?.let {
                 val newToken = handleTokenRefresh(requestContext, payload)
                 throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_EXPIRED_REFRESH), newToken)
