@@ -26,6 +26,19 @@ BestPartner 是一個 AI 應用大平台，可動態建立 AI agent 並支援多
 | [i18n-messages.md](rules/i18n-messages.md) | i18n 訊息管理、AppMessage enum、MessageUtil 使用方式、新增訊息步驟 |
 | [documentation-update-policy.md](rules/documentation-update-policy.md) | 套件異動、API 變更、資料表欄位變更時必須更新的文件清單 |
 
+## 啟動文件網站（docs-site）
+
+```bash
+cd docs-site
+npm start
+```
+
+服務預設埠：**port 3000**（http://localhost:3000/）
+
+> 文件網站使用 Docusaurus，開發伺服器支援熱重載。
+
+---
+
 ## 快速建置
 
 ```bash
