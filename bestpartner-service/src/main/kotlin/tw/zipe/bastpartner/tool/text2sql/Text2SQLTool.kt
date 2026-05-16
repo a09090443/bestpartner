@@ -3,7 +3,7 @@ package tw.zipe.bastpartner.tool.text2sql
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mysql.cj.jdbc.MysqlDataSource
 import dev.langchain4j.agent.tool.ToolExecutionRequest
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.rag.query.Query
 import dev.langchain4j.service.tool.ToolExecutor
 import javax.sql.DataSource
@@ -44,7 +44,7 @@ class Text2SQLTool(
         }
     }
 
-    private fun buildLLM(): ChatLanguageModel {
+    private fun buildLLM(): ChatModel {
         val llmModel: LLModel = LLModel().apply {
             apiKey = llmApiKey
             url = llmUrl
@@ -55,7 +55,7 @@ class Text2SQLTool(
         }
 
         return LLMBuilder().build(Platform.getPlatform(platform), llmModel, ModelType.CHAT).let {
-            it as ChatLanguageModel
+            it as ChatModel
         }
     }
 
@@ -68,7 +68,7 @@ class Text2SQLTool(
             .dataSource(buildDatasource())
             .sqlDialect(datasourceDatabaseType)
 //            .databaseStructure("")
-            .chatLanguageModel(buildLLM())
+            .chatModel(buildLLM())
             .build()
         val retrieved = content.retrieve(Query.from(query))
         return retrieved[0].textSegment().text()

@@ -8,6 +8,8 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.util.UUID
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 
 /**
  * @author Gary
@@ -45,7 +47,8 @@ class LLMToolUserSettingEntity : BaseEntity() {
     /**
      * 設定值內容
      */
-    @Column(name = "setting_content", nullable = true)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "setting_content", columnDefinition = "json", nullable = true)
     var settingContent: String? = null
 
 }

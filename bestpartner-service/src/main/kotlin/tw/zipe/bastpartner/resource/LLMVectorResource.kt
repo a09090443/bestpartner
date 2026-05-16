@@ -12,9 +12,11 @@ import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.service.EmbeddingService
 import tw.zipe.bastpartner.util.DTOValidator
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -42,7 +44,7 @@ class LLMVectorResource(
             throwOnInvalid()
         }
         embeddingService.saveVectorStore(vectorStoreDTO)
-        return ApiResponse.success("成功儲存向量資料庫設定")
+        return ApiResponse.success(MessageUtil.get(AppMessage.SUCCESS_VECTOR_STORE_SAVED))
     }
 
     @POST
@@ -72,7 +74,7 @@ class LLMVectorResource(
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun storeDocFiles(filesForm: FilesFromRequest): ApiResponse<String> {
         DTOValidator.validate(filesForm) {
-            requireNotEmpty("embeddingModelId", "embeddingStoreId")
+            requireNotEmpty("embeddingModelId", "embeddingStoreId", "files")
             throwOnInvalid()
         }
 
@@ -106,6 +108,6 @@ class LLMVectorResource(
             throwOnInvalid()
         }
         embeddingService.deleteDocData(llmDocDTO.knowledgeId.orEmpty(), llmDocDTO.docIds)
-        return ApiResponse.success("成功刪除資料")
+        return ApiResponse.success(MessageUtil.get(AppMessage.SUCCESS_DATA_DELETED))
     }
 }

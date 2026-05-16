@@ -9,9 +9,11 @@ import jakarta.ws.rs.container.PreMatching
 import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.ext.Provider
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.JwtValidationException
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.JwtService
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -33,15 +35,24 @@ class JwtFilter(
 
     override fun filter(requestContext: ContainerRequestContext) {
         val token = extractToken(requestContext) ?: return
-        val payload = jwtService.getTokenPayload(token)
+        val payload = try {
+            jwtService.getTokenPayload(token)
+        } catch (e: Exception) {
+            throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_INVALID), null)
+        }
         if (jwtRefreshSwitch.toBoolean()) {
+            // SEC-004 Fix: 驗證 token 簽名，防止偽造 payload 的 token 透過 refresh 機制取得有效 JWT。
+            // 必須先確認 token 是由本伺服器私鑰簽發，才允許進入 refresh 流程。
+            if (!jwtService.isTokenSignatureValid(token)) {
+                throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_INVALID), null)
+            }
             jwtService.isTokenNeedingRefresh(token).takeIf { it }?.let {
                 val newToken = handleTokenRefresh(requestContext, payload)
-                throw JwtValidationException("憑證過期，已產生新Token", newToken)
+                throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_EXPIRED_REFRESH), newToken)
             }
         }
         jwtService.isTokenExpired(token).takeIf { it }?.let {
-            throw JwtValidationException("憑證過期，請重新登入", null)
+            throw JwtValidationException(MessageUtil.get(AppMessage.AUTH_TOKEN_EXPIRED_RELOGIN), null)
         }
     }
 
@@ -60,7 +71,7 @@ class JwtFilter(
             return newToken
         } catch (e: Exception) {
             logger.error("Token 更新錯誤", e)
-            throw ServiceException("Token 更新錯誤")
+            throw ServiceException(AppMessage.AUTH_TOKEN_REFRESH_ERROR)
         }
     }
 

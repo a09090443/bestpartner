@@ -2,8 +2,8 @@ package tw.zipe.bastpartner.resource
 
 import dev.langchain4j.mcp.McpToolProvider
 import dev.langchain4j.mcp.client.McpClient
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
@@ -23,8 +23,9 @@ import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.form.FilesFromRequest
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.service.McpServerService
-import tw.zipe.bastpartner.tw.zipe.bastpartner.exception.LLMException
-import tw.zipe.bastpartner.tw.zipe.bastpartner.util.RequestContext
+import tw.zipe.bastpartner.exception.LLMException
+import tw.zipe.bastpartner.exception.ServiceException
+import tw.zipe.bastpartner.util.RequestContext
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.logger
 
@@ -52,9 +53,10 @@ class LLMResource(
         val requestId = RequestContext.generateRequestId()
         logger.info("[REQ:$requestId] 接收聊天請求: ${chatRequestDTO.llmId}")
 
+        validateChatRequest(chatRequestDTO)
+
         try {
-            validateChatRequest(chatRequestDTO)
-            val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatLanguageModel
+            val llm = llmService.buildLLM(chatRequestDTO.llmId.orEmpty(), ModelType.CHAT) as ChatModel
             val result = baseChat(llm, chatRequestDTO.message.orEmpty())
             logger.info("[REQ:$requestId] 聊天請求完成")
 
@@ -74,12 +76,13 @@ class LLMResource(
         val requestId = RequestContext.generateRequestId()
         logger.info("[REQ:$requestId] 接收串流聊天請求: ${chatRequestDTO.llmId}")
 
+        validateChatRequest(chatRequestDTO)
+
         try {
-            validateChatRequest(chatRequestDTO)
             val llm = llmService.buildLLM(
                 chatRequestDTO.llmId.orEmpty(),
                 ModelType.STREAMING_CHAT
-            ) as StreamingChatLanguageModel
+            ) as StreamingChatModel
 
             logger.debug("[REQ:$requestId] 開始串流聊天")
             return baseStreamingChat(llm, chatRequestDTO.message!!)
@@ -173,12 +176,12 @@ class LLMResource(
     fun uploadFile(filesForm: FilesFromRequest): ApiResponse<List<String>> {
         val requestId = RequestContext.generateRequestId()
         logger.info("[REQ:$requestId] 接收檔案上傳請求")
+        DTOValidator.validate(filesForm) {
+            requireNotEmpty("files")
+            throwOnInvalid()
+        }
 
         try {
-            DTOValidator.validate(filesForm) {
-                requireNotEmpty("files")
-                throwOnInvalid()
-            }
 
             val files = filesForm.files.orEmpty()
             val fileNames = files.map { it.fileName() }
@@ -257,6 +260,7 @@ class LLMResource(
 
     private fun handleServiceException(e: Exception): Exception {
         return when (e) {
+            is ServiceException -> e
             is IllegalArgumentException -> LLMException("請求參數無效: ${e.message}", e)
             is IllegalStateException -> LLMException("LLM服務狀態異常: ${e.message}", e)
             else -> LLMException("LLM服務處理發生錯誤", e)

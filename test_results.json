@@ -1,0 +1,271 @@
+{
+  "timestamp": "2026-04-29T22:01:46.213303",
+  "environment": "dev",
+  "total_tests": 31,
+  "passed": 29,
+  "failed": 0,
+  "skipped": 2,
+  "tests": [
+    {
+      "test_id": "AUTH-003",
+      "endpoint": "/login/",
+      "method": "POST",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"code\":401,\"message\":\"密碼錯誤\",\"data\":null}"
+    },
+    {
+      "test_id": "AUTH-004",
+      "endpoint": "/login/",
+      "method": "POST",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"code\":401,\"message\":\"帳號不存在\",\"data\":null}"
+    },
+    {
+      "test_id": "AUTH-005",
+      "endpoint": "/login/",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 email 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "AUTH-006",
+      "endpoint": "/login/",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 password 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "AUTH-007",
+      "endpoint": "/login/",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 email 不可為空值\\n欄位 password 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "AUTH-009",
+      "endpoint": "/login/check",
+      "method": "POST",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"code\":401,\"message\":\"Invalid or malformed token, please log in again\",\"data\":null}"
+    },
+    {
+      "test_id": "CHAT-003",
+      "endpoint": "/llm/chat",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 llmId 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "CHAT-004",
+      "endpoint": "/llm/chat",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 message 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "CHAT-005",
+      "endpoint": "/llm/chat",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"Please verify the LLM setting you are accessing exists\",\"data\":null}"
+    },
+    {
+      "test_id": "USER-002",
+      "endpoint": "/llm/user/register",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"Database processing error\",\"data\":null}"
+    },
+    {
+      "test_id": "USER-003",
+      "endpoint": "/llm/user/register",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 username 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "USER-004",
+      "endpoint": "/llm/user/register",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 password 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "USER-005",
+      "endpoint": "/llm/user/register",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 email 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "PERM-001",
+      "endpoint": "/llm/permission/add",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "response": "{\"code\":200,\"message\":\"success\",\"data\":{\"id\":\"fba3862b-18ed-43f6-bd92-3741fa475716\",\"name\":\"test_perm_1777471306442\",\"num\":999,\"description\":null}}"
+    },
+    {
+      "test_id": "PERM-002",
+      "endpoint": "/llm/permission/add",
+      "method": "POST",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": ""
+    },
+    {
+      "test_id": "PERM-003",
+      "endpoint": "/llm/permission/add",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 name 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "PERM-004",
+      "endpoint": "/llm/permission/add",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 num 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "SYS-002",
+      "endpoint": "/systemSetting/get",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "response": "{\"code\":200,\"message\":\"success\",\"data\":\"OPENROUTER\"}"
+    },
+    {
+      "test_id": "SYS-003",
+      "endpoint": "/systemSetting/get",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"Field 'key' is required for type with serial name 'tw.zipe.bastpartner.dto.SystemSettingDTO', but it was missing at path: $\",\"data\":null}"
+    },
+    {
+      "test_id": "SYS-004",
+      "endpoint": "/systemSetting/get",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "response": "{\"code\":200,\"message\":\"success\",\"data\":\"\"}"
+    },
+    {
+      "test_id": "TOOL-002",
+      "endpoint": "/llm/tool/get",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"Tool not found\",\"data\":null}"
+    },
+    {
+      "test_id": "TOOL-003",
+      "endpoint": "/llm/tool/get",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 id 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "MCP-003",
+      "endpoint": "/llm/mcpServer/get",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"MCP server not found\",\"data\":null}"
+    },
+    {
+      "test_id": "MCP-004",
+      "endpoint": "/llm/mcpServer/get",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"欄位 mcpId 不可為空值\",\"data\":null}"
+    },
+    {
+      "test_id": "VEC-003",
+      "endpoint": "/llm/vector/update",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "response": "{\"code\":200,\"message\":\"success\",\"data\":0}"
+    },
+    {
+      "test_id": "LLM-001",
+      "endpoint": "/llm/setting/get",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "response": "{\"code\":200,\"message\":\"success\",\"data\":[]}"
+    },
+    {
+      "test_id": "LLM-002",
+      "endpoint": "/llm/setting/get",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "response": "{\"code\":200,\"message\":\"success\",\"data\":[{\"llmId\":null,\"platformId\":null,\"platform\":\"OPENROUTER\",\"llmModel\":{\"platform\":\"OPENROUTER\",\"baseUrl\":null,\"apiKey\":\"sk-or-v1-test-openrouter-key\",\"url\":null,\"modelName\":\"deepseek/deepseek-r1\",\"temperature\":null,\"topP\":null,\"topK\":null,\"dimensions\":null,\"maxTokens\":null,\"timeout\":3000,\"maxRetries\":null,\"logRequests\":false,\"logResponses\":false,\"logRequestsAndResponses\":false},\"id\":\"33b5e4a4-798b-41fd-abad-21e2e68831b1\",\"alias\":\"\",\"modelType\":\"CHAT\"},{\"llmId"
+    },
+    {
+      "test_id": "ADCHAT-001",
+      "endpoint": "/llm/admin/chat",
+      "method": "POST",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "{\"code\":400,\"message\":\"LLM model not found\",\"data\":null}"
+    },
+    {
+      "test_id": "ADCHAT-002",
+      "endpoint": "/llm/admin/chat",
+      "method": "POST",
+      "expected_status": 403,
+      "actual_status": 403,
+      "passed": true,
+      "response": "{\"code\":403,\"message\":\"權限錯誤\",\"data\":null}"
+    }
+  ]
+}

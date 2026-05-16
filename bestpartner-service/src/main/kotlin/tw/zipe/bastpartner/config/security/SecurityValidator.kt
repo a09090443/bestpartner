@@ -3,6 +3,7 @@ package tw.zipe.bastpartner.config.security
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
 
 /**
@@ -20,6 +21,6 @@ class SecurityValidator @Inject constructor(private val securityIdentity: Securi
     fun validateLoggedInUser(): String {
         return securityIdentity.principal?.name
             ?.takeIf { it.isNotEmpty() }
-            ?: throw ServiceException("請確認已登入")
+            ?: throw ServiceException(AppMessage.AUTH_NOT_LOGGED_IN)
     }
 }

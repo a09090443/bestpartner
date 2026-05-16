@@ -6,8 +6,8 @@ import dev.langchain4j.data.message.SystemMessage
 import dev.langchain4j.data.message.UserMessage
 import dev.langchain4j.memory.chat.ChatMemoryProvider
 import dev.langchain4j.memory.chat.MessageWindowChatMemory
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.DefaultRetrievalAugmentor
@@ -22,7 +22,6 @@ import jakarta.transaction.Transactional
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import me.kpavlov.langchain4j.kotlin.service.SystemMessageProvider
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import tw.zipe.bastpartner.assistant.DynamicAssistant
@@ -37,10 +36,12 @@ import tw.zipe.bastpartner.entity.LLMSettingEntity
 import tw.zipe.bastpartner.enumerate.FileType
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.Platform
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
+import tw.zipe.bastpartner.converter.PasswordEncryptConverter
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.LLMBuilder
 import tw.zipe.bastpartner.util.logger
@@ -56,7 +57,9 @@ class LLMService(
     private val securityValidator: SecurityValidator,
     private val toolService: ToolService,
     private val embeddingService: EmbeddingService,
+    private val skillService: SkillService,
     private val objectMapper: ObjectMapper,
+    private val passwordEncryptConverter: PasswordEncryptConverter,
     @ConfigProperty(name = "file.upload.dir") private val fileUploadDir: String
 ) {
 
@@ -67,8 +70,11 @@ class LLMService(
      */
     fun saveLLMSetting(llmDTO: LLMDTO) {
         val platform = llmPlatformRepository.findById(llmDTO.platformId.orEmpty())
-            ?: throw ServiceException("請確認存取的平台是否存在")
+            ?: throw ServiceException(AppMessage.LLM_PLATFORM_NOT_FOUND)
         llmDTO.llmModel.platform = platform.name
+
+        val rawApiKey = llmDTO.llmModel.apiKey
+        llmDTO.llmModel.apiKey = null  // 避免明文寫入 JSON
 
         with(LLMSettingEntity()) {
             userId = securityValidator.validateLoggedInUser()
@@ -76,8 +82,11 @@ class LLMService(
             type = llmDTO.modelType
             alias = llmDTO.alias
             modelSetting = llmDTO.llmModel
+            apiKey = rawApiKey              // JPA @Convert 自動加密
             llmSettingRepository.saveOrUpdate(this).also { llmDTO.id = this.id }
         }
+
+        llmDTO.llmModel.apiKey = rawApiKey  // 還原，讓 caller 拿到完整 DTO
     }
 
     /**
@@ -90,7 +99,9 @@ class LLMService(
                 alias = llmSetting.alias
                 platformId = llmSetting.platformId
                 modelType = llmSetting.type ?: ModelType.CHAT
-                llmModel = llmSetting.modelSetting
+                llmModel = llmSetting.modelSetting.also {
+                    it.apiKey = llmSetting.apiKey  // JPA @Convert 已解密
+                }
             }
         }
     }
@@ -105,8 +116,14 @@ class LLMService(
                     id = llmSetting.id
                     alias = llmSetting.alias
                     modelType = ModelType.valueOf(llmSetting.type)
-                    llmModel = objectMapper.readValue(llmSetting.modelSetting, LLModel::class.java)
                     platform = Platform.valueOf(llmSetting.platformName)
+                    llmModel = objectMapper.readValue(llmSetting.modelSetting, LLModel::class.java).also { model ->
+                        // 優先使用獨立欄位（解密後），fallback 讀取 JSON 內舊值（相容舊資料）
+                        val decryptedApiKey = llmSetting.apiKey
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { passwordEncryptConverter.convertToEntityAttribute(it) }
+                        model.apiKey = decryptedApiKey ?: model.apiKey
+                    }
                 }
             }.toList()
     }
@@ -115,11 +132,17 @@ class LLMService(
      * 更新 LLM 設定
      */
     fun updateLLMSetting(llmDTO: LLMDTO) {
+        val rawApiKey = llmDTO.llmModel.apiKey
+        llmDTO.llmModel.apiKey = null  // 避免明文寫入 JSON
+
+        val encryptedApiKey = passwordEncryptConverter.convertToDatabaseColumn(rawApiKey).orEmpty()
+
         mapOf(
             "alias" to llmDTO.alias,
             "platformId" to llmDTO.platformId.orEmpty(),
             "type" to llmDTO.modelType?.name.orEmpty(),
             "modelSetting" to llmDTO.llmModel,
+            "apiKey" to encryptedApiKey,        // raw SQL 不觸發 JPA @Convert，手動加密
             "id" to llmDTO.id.orEmpty()
         ).let {
             llmSettingRepository.updateSetting(it)
@@ -141,12 +164,16 @@ class LLMService(
                 .firstOrNull()
 
         return llmSetting?.let { setting ->
-
             if (setting.type != type.name) {
-                throw ServiceException("請確認存取的 LLM 設定是否為 $type")
+                throw ServiceException(AppMessage.LLM_SETTING_TYPE_MISMATCH, type)
             }
-            LLMBuilder().build(setting, type)
-        } ?: throw ServiceException("請確認存取的 LLM 設定是否存在")
+            val llmModel = objectMapper.readValue(setting.modelSetting, LLModel::class.java)
+            val decryptedApiKey = setting.apiKey
+                .takeIf { it.isNotEmpty() }
+                ?.let { passwordEncryptConverter.convertToEntityAttribute(it) }
+            llmModel.apiKey = decryptedApiKey ?: llmModel.apiKey
+            LLMBuilder().build(Platform.getPlatform(setting.platformName), llmModel, type)
+        } ?: throw ServiceException(AppMessage.LLM_SETTING_NOT_FOUND)
     }
 
     /**
@@ -177,33 +204,31 @@ class LLMService(
             throwOnInvalid()
         }
 
-        val aiService = AiServices.builder(DynamicAssistant::class.java).systemMessageProvider(
-            object : SystemMessageProvider {
-                override fun getSystemMessage(chatMemoryID: Any): String =
-                    chatRequestDTO.promptContent.orEmpty()
-            })
+        val aiService = AiServices.builder(DynamicAssistant::class.java).systemMessageProvider { _ ->
+            chatRequestDTO.promptContent.orEmpty()
+        }
 
         buildLLM(chatRequestDTO.llmId.orEmpty(), modelType).let { llm ->
             when (llm) {
-                is ChatLanguageModel -> {
-                    aiService.chatLanguageModel(llm)
+                is ChatModel -> {
+                    aiService.chatModel(llm)
                 }
 
-                is StreamingChatLanguageModel -> {
-                    aiService.streamingChatLanguageModel(llm)
+                is StreamingChatModel -> {
+                    aiService.streamingChatModel(llm)
                 }
 
-                else -> throw ServiceException("LLM 類型錯誤")
+                else -> throw ServiceException(AppMessage.LLM_TYPE_INVALID)
             }
         }
 
         val tools: MutableList<Any?> = mutableListOf()
 
-        chatRequestDTO.toolIds?.map {
+        chatRequestDTO.toolIds?.forEach {
             toolService.buildToolWithoutSetting(it)?.let { tool -> tools.add(tool) }
         }
 
-        chatRequestDTO.toolSettingIds?.map {
+        chatRequestDTO.toolSettingIds?.forEach {
             toolService.buildToolWithSetting(it)?.let { tool -> tools.add(tool) }
         }
 
@@ -244,6 +269,17 @@ class LLMService(
             }
         }
         aiService.chatMemoryProvider(chatMemoryProvider)
+
+        chatRequestDTO.skillIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+            val skills = skillService.buildSkills(ids)
+            aiService.toolProvider(skills.toolProvider())
+            val basePrompt = chatRequestDTO.promptContent.orEmpty()
+            val skillInfo = skills.formatAvailableSkills()
+            aiService.systemMessageProvider { _ ->
+                "$basePrompt\n\nYou have access to the following skills:\n$skillInfo\nWhen the user's request relates to one of these skills, activate it first using the `activate_skill` tool before proceeding."
+            }
+        }
+
         return aiService
     }
 
@@ -285,7 +321,7 @@ class LLMService(
                         if (targetFile.exists() && !targetFile.delete()) {
                             logger.warn("Failed to delete unsupported file: ${targetFile.absolutePath}")
                         }
-                        throw ServiceException("不支援的檔案類型: $mimeType")
+                        throw ServiceException(AppMessage.FILE_TYPE_UNSUPPORTED, mimeType)
                     }
                 }
 
@@ -293,7 +329,7 @@ class LLMService(
                 logger.info("Successfully uploaded file: ${file.fileName()} (${targetFile.absolutePath})")
             } catch (e: Exception) {
                 logger.error("Failed to upload file: ${file.fileName()}", e)
-                throw ServiceException("檔案上傳失敗: ${file.fileName()} - ${e.message}")
+                throw ServiceException(AppMessage.FILE_UPLOAD_FAILED, file.fileName(), e.message)
             }
         }
     }

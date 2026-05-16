@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.repository
 
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.transaction.Transactional
 import tw.zipe.bastpartner.dto.McpDTO
 import tw.zipe.bastpartner.entity.LLMMcpUserSetting
 
@@ -22,42 +23,28 @@ class LLMMcpUserSettingRepository : BaseRepository<LLMMcpUserSetting, String>() 
     }
 
     fun findByCondition(settingId: String?, userId: String?): List<McpDTO>? {
-        var sql = """
-            SELECT lmus.id              AS id,
-                   lmus.alias           AS alias,
-                   lmus.user_id         AS userId,
-                   lmus.mcp_id          AS mcpId,
-                   lmus.setting_content AS settingContent,
-                   lms.command_setting  AS commandSetting,
-                   lms.type             AS type,
-                   lms.description      AS description
-            FROM llm_mcp_server lms,
-                 llm_mcp_user_setting lmus
-            WHERE lms.id = lmus.mcp_id
+        var jpql = """
+            SELECT lmus.id AS id, lmus.alias AS alias, lmus.userId AS userId,
+                   lmus.mcpId AS mcpId, lmus.settingContent AS settingContent,
+                   lms.commandSetting AS commandSetting, lms.type AS type, lms.description AS description
+            FROM LLMMcpUserSetting lmus JOIN LLMMcpServerEntity lms ON lmus.mcpId = lms.id
+            WHERE 1 = 1
         """.trimIndent()
         val parameters = mutableMapOf<String, Any>()
 
-        settingId?.let {
-            sql = sql.plus(" AND lmus.id = :settingId")
-            parameters["settingId"] = it
-        }
-        userId?.let {
-            sql = sql.plus(" AND lmus.user_id = :userId")
-            parameters["userId"] = it
-        }
-        return this.executeSelect(sql, parameters, McpDTO::class.java)
+        settingId?.let { jpql += " AND lmus.id = :settingId"; parameters["settingId"] = it }
+        userId?.let { jpql += " AND lmus.userId = :userId"; parameters["userId"] = it }
+
+        return executeJpqlSelect(jpql, parameters, McpDTO::class.java)
     }
 
+    @Transactional
     fun updateSettingsByNative(id: String, settingContent: Map<String, Any>): Int {
-        val paramMap = initParamsMap("id" to id, "settingContent" to settingContent)
-        val sql = """
-            UPDATE llm_mcp_user_setting lmus
-            SET lmus.setting_content = :settingContent, lmus.updated_at = :updatedAt, lmus.updated_by = :updatedBy
-            WHERE lmus.id = :id
-        """.trimIndent()
-        val executor = createSqlExecutor()
-            .withSql(sql)
-            .withParamMap(paramMap)
-        return executeUpdateWithTransaction(executor)
+        val entity = findById(id) ?: return 0
+        @Suppress("UNCHECKED_CAST")
+        entity.settingContent = settingContent as Map<String, String>
+        // @PreUpdate 自動設定 updatedAt / updatedBy
+        update(entity)
+        return 1
     }
 }

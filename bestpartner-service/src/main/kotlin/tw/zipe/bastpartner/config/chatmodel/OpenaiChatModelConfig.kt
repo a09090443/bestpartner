@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.config.chatmodel
 
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.bastpartner.builder.llm.OpenaiModelBuilder
 import tw.zipe.bastpartner.properties.AIPlatformOpenaiConfig
@@ -13,12 +13,12 @@ import tw.zipe.bastpartner.properties.AIPlatformOpenaiConfig
 @ApplicationScoped
 class OpenaiChatModelConfig(var aiPlatformOpenaiConfig: AIPlatformOpenaiConfig) : ChatModelConfig() {
 
-    override fun buildChatModel(): ChatLanguageModel? {
+    override fun buildChatModel(): ChatModel? {
         val llmConfig = aiPlatformOpenaiConfig.defaultConfig().map { convertChatModelSetting(it) }.orElse(null)
         return llmConfig?.let { OpenaiModelBuilder().chatModel(it) }
     }
 
-    override fun buildStreamingChatModel(): StreamingChatLanguageModel? {
+    override fun buildStreamingChatModel(): StreamingChatModel? {
         val llmConfig = aiPlatformOpenaiConfig.defaultConfig().map { convertChatModelSetting(it) }.orElse(null)
         return llmConfig?.let { OpenaiModelBuilder().chatModelStreaming(it) }
     }

@@ -18,7 +18,7 @@ repositories {
     mavenCentral()
 }
 
-extra["springAiVersion"] = "1.0.0-M6"
+val springAiVersion: String by project
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -35,7 +35,7 @@ dependencies {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
+        mavenBom("org.springframework.ai:spring-ai-bom:${springAiVersion}")
     }
 }
 

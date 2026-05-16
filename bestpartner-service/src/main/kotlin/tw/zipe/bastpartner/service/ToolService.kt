@@ -17,6 +17,7 @@ import tw.zipe.bastpartner.dto.ToolDTO
 import tw.zipe.bastpartner.entity.LLMToolCategoryEntity
 import tw.zipe.bastpartner.entity.LLMToolEntity
 import tw.zipe.bastpartner.entity.LLMToolUserSettingEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.ToolsType
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMToolCategoryRepository
@@ -50,7 +51,7 @@ class ToolService(
      * 取得工具
      */
     fun getTool(toolId: String): ToolDTO {
-        val tool = llmToolRepository.findByToolId(toolId) ?: throw ServiceException("找不到工具")
+        val tool = llmToolRepository.findByToolId(toolId) ?: throw ServiceException(AppMessage.TOOL_NOT_FOUND)
         tool.configObjectPath?.let {
             val clazz = Class.forName(it)
             val kClass = clazz.kotlin
@@ -102,7 +103,7 @@ class ToolService(
                 llmToolUserSettingRepository.persist(this)
                 toolDTO.settingId = id
             }
-        } ?: throw ServiceException("找不到工具")
+        } ?: throw ServiceException(AppMessage.TOOL_NOT_FOUND)
     }
 
     /**
@@ -126,9 +127,10 @@ class ToolService(
     /**
      * 刪除工具群組
      */
+    @Transactional
     fun deleteCategory(toolDTO: ToolDTO): Boolean {
         llmToolRepository.findByCategoryId(toolDTO.groupId.orEmpty()).takeIf { it.isEmpty() }
-            ?: throw ServiceException("請先移除群組下的工具")
+            ?: throw ServiceException(AppMessage.TOOL_CATEGORY_HAS_TOOLS)
         return llmToolCategoryRepository.deleteById(toolDTO.groupId.orEmpty())
     }
 
@@ -161,7 +163,10 @@ class ToolService(
      * 建立工具-需自定義設定值的工具
      */
     fun buildToolWithSetting(toolSettingId: String): Any? {
-        val tool = llmToolUserSettingRepository.findById(toolSettingId) ?: throw ServiceException("找不到使用者工具設定值")
+        val tool = llmToolUserSettingRepository.findSettingByUserIdAndToolId(
+            securityValidator.validateLoggedInUser(),
+            toolSettingId
+        ) ?: throw ServiceException(AppMessage.TOOL_SETTING_NOT_FOUND)
 
         return buildTool(tool.toolId);
     }
@@ -220,7 +225,7 @@ class ToolService(
                     "Long" -> jsonObjectSchema.addIntegerProperty(key, description)
                     "Double" -> jsonObjectSchema.addNumberProperty(key, description)
                     "Boolean" -> jsonObjectSchema.addBooleanProperty(key, description)
-                    else -> throw ServiceException("型態不正確: $key")
+                    else -> throw ServiceException(AppMessage.TOOL_PARAM_TYPE_INVALID, key)
                 }
             }
         }
@@ -244,11 +249,11 @@ class ToolService(
                 val actualValue = value[0]
 
                 if (actualValue !is String) {
-                    throw ServiceException("function params 欄位格式錯誤 (應為 [value, type])，value 應為 String")
+                    throw ServiceException(AppMessage.TOOL_FUNCTION_PARAM_FORMAT_INVALID_VALUE)
                 }
 
             } else {
-                throw ServiceException("function params 欄位格式錯誤 (應為 [value, type])")
+                throw ServiceException(AppMessage.TOOL_FUNCTION_PARAM_FORMAT_INVALID)
             }
         }
     }

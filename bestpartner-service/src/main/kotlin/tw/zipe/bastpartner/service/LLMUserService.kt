@@ -8,6 +8,7 @@ import javax.naming.AuthenticationException
 import tw.zipe.bastpartner.dto.UserDTO
 import tw.zipe.bastpartner.entity.LLMUserEntity
 import tw.zipe.bastpartner.entity.LLMUserRoleEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMUserRepository
@@ -37,7 +38,7 @@ class LLMUserService(
         }
         llmUserRepository.saveOrUpdate(userEntity).also {
             userDTO.id = userEntity.id
-            userDTO.status = userEntity.status.toInt()
+            userDTO.status = UserStatus.fromOrdinal(userEntity.status.toInt())
         }
 
         val userRole = LLMUserRoleEntity().apply {
@@ -47,7 +48,7 @@ class LLMUserService(
         llmUserRoleRepository.saveOrUpdate(userRole)
     }
 
-    fun findUserById(userId: String) = llmUserRepository.findUserInfo(userId) ?: UserDTO()
+    fun findUserById(userId: String) = llmUserRepository.findUserInfo(userId) ?: throw ServiceException(AppMessage.LLM_USER_NOT_FOUND)
 
     fun findUserByName(username: String) = llmUserRepository.findUserByUsername(username)
 
@@ -56,7 +57,7 @@ class LLMUserService(
 
         user?.let {
             if (it.status != UserStatus.ACTIVE.ordinal.toString()) {
-                throw ServiceException("帳號已停用")
+                throw ServiceException(AppMessage.AUTH_ACCOUNT_DISABLED)
             } else if (it.password != CryptoUtils.sha512(password)) {
                 throw AuthenticationException("密碼錯誤")
             }
@@ -73,9 +74,10 @@ class LLMUserService(
             "nickname" to userDTO.nickname.orEmpty(),
             "phone" to userDTO.phone.orEmpty(),
             "avatar" to userDTO.avatar.orEmpty(),
-            "status" to userDTO.status!!
+            "status" to userDTO.status!!.ordinal.toString()
         )
-        llmUserRepository.updateUserByNativeSQL(userDTO.id!!, paramMap)
+        val affected = llmUserRepository.updateUserByNativeSQL(userDTO.id!!, paramMap)
+        if (affected == 0) throw ServiceException(AppMessage.LLM_USER_NOT_FOUND)
     }
 
     @Transactional(rollbackOn = [Exception::class])

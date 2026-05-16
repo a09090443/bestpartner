@@ -39,3 +39,7 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# Git worktrees
+.worktrees/
+/bestpartner-service/.kotlin/

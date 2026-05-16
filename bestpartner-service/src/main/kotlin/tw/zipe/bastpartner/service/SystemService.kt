@@ -57,5 +57,5 @@ class SystemService(
     }
 
     @Transactional
-    fun deleteSystemSetting(key: String) = systemSettingRepository.delete(key)
+    fun deleteSystemSetting(key: String) = systemSettingRepository.deleteByKey(key)
 }

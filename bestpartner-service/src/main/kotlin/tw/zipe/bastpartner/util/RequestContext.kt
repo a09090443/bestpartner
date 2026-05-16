@@ -1,4 +1,4 @@
-package tw.zipe.bastpartner.tw.zipe.bastpartner.util
+package tw.zipe.bastpartner.util
 
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap

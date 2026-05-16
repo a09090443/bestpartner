@@ -5,7 +5,7 @@ import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser
 import dev.langchain4j.data.document.splitter.DocumentSplitters
 import dev.langchain4j.data.embedding.Embedding
 import dev.langchain4j.data.segment.TextSegment
-import dev.langchain4j.model.chat.ChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.DefaultRetrievalAugmentor
 import dev.langchain4j.rag.RetrievalAugmentor
@@ -25,10 +25,12 @@ import tw.zipe.bastpartner.constant.KNOWLEDGE
 import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.LLMDocDTO
 import tw.zipe.bastpartner.dto.VectorStoreDTO
+import tw.zipe.bastpartner.model.VectorStoreModel
 import tw.zipe.bastpartner.entity.LLMDocEntity
 import tw.zipe.bastpartner.entity.LLMDocSliceEntity
 import tw.zipe.bastpartner.entity.LLMKnowledgeEntity
 import tw.zipe.bastpartner.entity.VectorStoreSettingEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.form.FilesFromRequest
@@ -59,37 +61,55 @@ class EmbeddingService(
             userId = securityValidator.validateLoggedInUser()
             alias = vectorStoreDTO.alias
             type = vectorStoreDTO.vectorStoreType
-            vectorSetting = vectorStoreDTO.vectorStore
+            url = vectorStoreDTO.vectorStore.url
+            username = vectorStoreDTO.vectorStore.username
+            password = vectorStoreDTO.vectorStore.password
+            collectionName = vectorStoreDTO.vectorStore.collectionName
+            dimension = vectorStoreDTO.vectorStore.dimension
+            requestLog = vectorStoreDTO.vectorStore.requestLog
+            responseLog = vectorStoreDTO.vectorStore.responseLog
             vectorStoreSettingRepository.saveOrUpdate(this).also { vectorStoreDTO.id = this.id }
         }
     }
 
     /**
      * 更新向量資料庫設定
+     * 使用 entity-based 更新以確保 JPA AttributeConverter（如 PasswordEncryptConverter）正確套用
      */
     fun updateVectorStore(vectorStoreDTO: VectorStoreDTO): Int {
-        return mapOf(
-            "id" to vectorStoreDTO.id.orEmpty(),
-            "alias" to vectorStoreDTO.alias,
-            "type" to vectorStoreDTO.vectorStoreType?.name.orEmpty(),
-            "vectorSetting" to vectorStoreDTO.vectorStore
-        ).let {
-            vectorStoreSettingRepository.updateSetting(it)
-        }
+        val entity = vectorStoreSettingRepository.findById(vectorStoreDTO.id.orEmpty()) ?: return 0
+        entity.alias = vectorStoreDTO.alias
+        entity.type = vectorStoreDTO.vectorStoreType
+        entity.url = vectorStoreDTO.vectorStore.url
+        entity.username = vectorStoreDTO.vectorStore.username
+        entity.password = vectorStoreDTO.vectorStore.password
+        entity.collectionName = vectorStoreDTO.vectorStore.collectionName
+        entity.dimension = vectorStoreDTO.vectorStore.dimension
+        entity.requestLog = vectorStoreDTO.vectorStore.requestLog
+        entity.responseLog = vectorStoreDTO.vectorStore.responseLog
+        vectorStoreSettingRepository.update(entity)
+        return 1
     }
 
     /**
      * 取得向量資料庫設定
      */
     fun getVectorStoreSetting(id: String): VectorStoreDTO? {
-        val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
-        return vectorStoreSettingEntity?.let {
-            val vectorStoreDTO = VectorStoreDTO()
-            vectorStoreDTO.id = it.id
-            vectorStoreDTO.vectorStoreType = it.type
-            vectorStoreDTO.alias = it.alias
-            vectorStoreDTO.vectorStore = it.vectorSetting
-            return vectorStoreDTO
+        return vectorStoreSettingRepository.findById(id)?.let {
+            VectorStoreDTO().apply {
+                this.id = it.id
+                vectorStoreType = it.type
+                alias = it.alias
+                vectorStore = VectorStoreModel().apply {
+                    url = it.url
+                    username = it.username
+                    password = it.password
+                    collectionName = it.collectionName
+                    dimension = it.dimension
+                    requestLog = it.requestLog
+                    responseLog = it.responseLog
+                }
+            }
         }
     }
 
@@ -97,10 +117,19 @@ class EmbeddingService(
      * 建立向量資料庫
      */
     fun buildVectorStore(id: String): EmbeddingStore<TextSegment> {
-        val vectorStoreSettingEntity = vectorStoreSettingRepository.findById(id)
-        return vectorStoreSettingEntity?.let {
-            it.type?.getVectorStore()?.embeddingStore(it.vectorSetting)
-        } ?: throw ServiceException("無向量資料庫設定資料: id = $id")
+        val entity = vectorStoreSettingRepository.findById(id)
+            ?: throw ServiceException(AppMessage.EMBEDDING_VECTOR_STORE_NOT_FOUND, id)
+        val model = VectorStoreModel().apply {
+            url = entity.url
+            username = entity.username
+            password = entity.password
+            collectionName = entity.collectionName
+            dimension = entity.dimension
+            requestLog = entity.requestLog
+            responseLog = entity.responseLog
+        }
+        return entity.type?.getVectorStore()?.embeddingStore(model)
+            ?: throw ServiceException(AppMessage.EMBEDDING_VECTOR_STORE_NOT_FOUND, id)
     }
 
     /**
@@ -112,7 +141,7 @@ class EmbeddingService(
     ): Map<String, Map<String, String>> {
         files.forEach {
             llmDocRepository.findByKnowledgeIdAndName(filesForm.knowledgeId, it.fileName())?.run {
-                throw ServiceException("檔案名稱: ${it.fileName()} 已存在")
+                throw ServiceException(AppMessage.EMBEDDING_DOC_ALREADY_EXISTS, it.fileName())
             }
         }
 
@@ -190,7 +219,7 @@ class EmbeddingService(
                     this.buildVectorStore(filesForm.embeddingStoreId).removeAll(map.keys.toList())
                 }
             }
-            throw ServiceException("儲存文件資訊失敗")
+            throw ServiceException(AppMessage.EMBEDDING_SAVE_KNOWLEDGE_FAILED)
         }
 
         return filesForm.knowledgeId
@@ -288,7 +317,7 @@ class EmbeddingService(
         embeddingDocIds: List<String>,
         embeddingStoreId: String,
         embeddingModelId: String,
-        chatModel: ChatLanguageModel
+        chatModel: ChatModel
     ): RetrievalAugmentor {
 
         val embeddingStore = this.buildVectorStore(embeddingStoreId)

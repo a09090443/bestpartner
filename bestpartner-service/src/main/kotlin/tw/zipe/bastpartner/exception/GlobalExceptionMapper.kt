@@ -18,6 +18,9 @@ import javax.naming.AuthenticationException
 import org.apache.http.HttpStatus
 import org.hibernate.exception.ConstraintViolationException
 import tw.zipe.bastpartner.dto.ApiResponse
+import tw.zipe.bastpartner.enumerate.AppMessage
+import tw.zipe.bastpartner.exception.LLMException
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -38,87 +41,91 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
         val response = when (exception) {
             is ServiceException -> ApiResponse<Nothing>(
                 code = 400,
-                message = exception.message ?: "Service exception"
+                message = exception.message ?: MessageUtil.get(AppMessage.HTTP_SERVICE_EXCEPTION)
+            )
+            is LLMException -> ApiResponse<Nothing>(
+                code = 400,
+                message = exception.message ?: MessageUtil.get(AppMessage.HTTP_LLM_SERVICE_ERROR)
             )
             // 保留原有的異常處理
             is NotFoundException -> ApiResponse<Nothing>(
                 code = 404,
-                message = "Resource not found"
+                message = MessageUtil.get(AppMessage.HTTP_NOT_FOUND)
             )
             is IllegalArgumentException -> ApiResponse<Nothing>(
                 code = 400,
-                message = exception.message ?: "Invalid request"
+                message = exception.message ?: MessageUtil.get(AppMessage.HTTP_INVALID_REQUEST)
             )
             is ValidationException -> ApiResponse<Nothing>(
                 code = 400,
-                message = exception.message ?: "DTO validation failed"
+                message = exception.message ?: MessageUtil.get(AppMessage.HTTP_VALIDATION_FAILED)
             )
             is JwtValidationException -> {
                 ApiResponse<String>(
                     code = 401,
-                    message = exception.message ?: "Jwt validation failed",
+                    message = exception.message ?: MessageUtil.get(AppMessage.HTTP_JWT_VALIDATION_FAILED),
                     data = exception.newToken
                 )
             }
             is JwtException -> ApiResponse<Nothing>(
                 code = 403,
-                message = exception.message ?: "Jwt validation failed"
+                message = exception.message ?: MessageUtil.get(AppMessage.HTTP_JWT_VALIDATION_FAILED)
             )
             is ForbiddenException -> ApiResponse<Nothing>(
                 code = 403,
-                message = exception.message ?: "Forbidden"
+                message = exception.message ?: MessageUtil.get(AppMessage.HTTP_FORBIDDEN)
             )
             // 新增更詳細的權限相關異常處理
             is SecurityException -> {
                 ApiResponse<Nothing>(
                     code = 403,
                     message = when (exception) {
-                        is UnauthorizedException -> "Authentication failed"
-                        is AccessDeniedException -> "Access denied"
-                        is AuthenticationException -> "Authentication required"
-                        else -> exception.message ?: "Security validation failed"
+                        is UnauthorizedException -> MessageUtil.get(AppMessage.HTTP_AUTHENTICATION_FAILED)
+                        is AccessDeniedException -> MessageUtil.get(AppMessage.HTTP_ACCESS_DENIED)
+                        is AuthenticationException -> MessageUtil.get(AppMessage.HTTP_AUTHENTICATION_REQUIRED)
+                        else -> exception.message ?: MessageUtil.get(AppMessage.HTTP_SECURITY_VALIDATION_FAILED)
                     }
                 )
             }
             is AccessDeniedException -> {
                 ApiResponse<Nothing>(
                     code = 403,
-                    message = exception.message ?: "Access denied"
+                    message = exception.message ?: MessageUtil.get(AppMessage.HTTP_ACCESS_DENIED)
                 )
             }
             is AuthenticationException -> {
                 ApiResponse<Nothing>(
                     code = HttpStatus.SC_UNAUTHORIZED,
-                    message = exception.message ?: "Authentication failed"
+                    message = exception.message ?: MessageUtil.get(AppMessage.HTTP_AUTHENTICATION_FAILED)
                 )
             }
             is ConstraintViolationException -> ApiResponse<Nothing>(
                 code = 400,
-                message = "Duplicate data"
+                message = MessageUtil.get(AppMessage.HTTP_DUPLICATE_DATA)
             )
             is RollbackException -> ApiResponse<Nothing>(
                 code = 400,
-                message = "Database processing error"
+                message = MessageUtil.get(AppMessage.HTTP_DATABASE_ERROR)
             )
             is NotAllowedException -> ApiResponse<Nothing>(
                 code = 405,
-                message = "Method not allowed"
+                message = MessageUtil.get(AppMessage.HTTP_METHOD_NOT_ALLOWED)
             )
             is WebApplicationException -> {
                 val status = exception.response.status
                 ApiResponse<Nothing>(
                     code = 403,
                     message = when (status) {
-                        403 -> "Forbidden"
-                        401 -> "Unauthorized"
-                        404 -> "Resource not found"
-                        else -> "Web application exception"
+                        403 -> MessageUtil.get(AppMessage.HTTP_FORBIDDEN)
+                        401 -> MessageUtil.get(AppMessage.HTTP_UNAUTHORIZED)
+                        404 -> MessageUtil.get(AppMessage.HTTP_NOT_FOUND)
+                        else -> MessageUtil.get(AppMessage.HTTP_WEB_APP_EXCEPTION)
                     }
                 )
             }
             else -> ApiResponse<Nothing>(
                 code = 500,
-                message = "Internal server error"
+                message = MessageUtil.get(AppMessage.HTTP_INTERNAL_SERVER_ERROR)
             )
         }
 
