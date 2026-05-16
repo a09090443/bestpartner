@@ -14,4 +14,5 @@ class LLMSettingDTO {
     val alias: String = StringUtil.EMPTY_STRING
     val modelSetting: String = StringUtil.EMPTY_STRING
     val platformName: String = StringUtil.EMPTY_STRING
+    val apiKey: String = StringUtil.EMPTY_STRING
 }

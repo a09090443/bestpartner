@@ -9,10 +9,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 class VectorStoreModel {
     var url: String? = null
-    val username: String? = null
-    val password: String? = null
+    var username: String? = null
+    var password: String? = null
     var collectionName: String? = null
     var dimension: Int? = null
-    val requestLog: Boolean = false
-    val responseLog: Boolean = false
+    var requestLog: Boolean = false
+    var responseLog: Boolean = false
 }

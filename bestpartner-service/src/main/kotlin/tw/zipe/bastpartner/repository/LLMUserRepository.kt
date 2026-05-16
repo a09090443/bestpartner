@@ -51,8 +51,8 @@ class LLMUserRepository : BaseRepository<LLMUserEntity, String>() {
                    lu.email AS email,
                    lu.avatar AS avatar,
                    lu.status AS status,
-                   lur.role_num AS `role.roleNum`,
-                   lr.name AS `role.roleName`
+                   lur.role_num AS "role.roleNum",
+                   lr.name AS "role.roleName"
             FROM llm_user lu
                      inner join llm_user_role lur on lu.id = lur.user_id
                      inner join llm_role lr on lur.role_num = lr.num

@@ -29,6 +29,9 @@ interface BaseAIPlatform {
     @WithName("top-k")
     fun topK(): Optional<Int>
 
+    @WithName("max-tokens")
+    fun maxTokens(): Optional<Int>
+
     @WithName("embedding-model-name")
     fun embeddingModelName(): Optional<String>
 

@@ -18,9 +18,9 @@ class SystemSettingRepository : BaseRepository<SystemSettingEntity, String>() {
         val paramMap =
             mapOf("id" to id, "settingKey" to settingKey, "settingValue" to settingValue, "description" to description)
         val sql = """
-            UPDATE system_setting ss
-            SET ss.setting_key = :settingKey, setting_value = :settingValue, description = :description
-            WHERE ss.id = :id
+            UPDATE system_setting
+            SET setting_key = :settingKey, setting_value = :settingValue, description = :description
+            WHERE id = :id
         """.trimIndent()
         val executor = createSqlExecutor()
             .withSql(sql)

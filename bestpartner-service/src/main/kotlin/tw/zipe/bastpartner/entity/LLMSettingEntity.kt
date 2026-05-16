@@ -2,6 +2,7 @@ package tw.zipe.bastpartner.entity
 
 import io.netty.util.internal.StringUtil
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -9,6 +10,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import tw.zipe.bastpartner.converter.PasswordEncryptConverter
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import tw.zipe.bastpartner.enumerate.ModelType
@@ -60,5 +62,9 @@ class LLMSettingEntity : BaseEntity() {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "model_setting", columnDefinition = "json", nullable = true)
     var modelSetting: LLModel = LLModel()
+
+    @Convert(converter = PasswordEncryptConverter::class)
+    @Column(name = "api_key", nullable = true, length = 500)
+    var apiKey: String? = null
 
 }

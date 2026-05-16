@@ -9,6 +9,8 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import tw.zipe.bastpartner.enumerate.ToolsType
 
 /**
@@ -72,7 +74,8 @@ class LLMToolEntity : BaseEntity() {
     /**
      * 功能描述
      */
-    @Column(name = "function_params", nullable = true)
+    @Column(name = "function_params", nullable = true, columnDefinition = "json")
+    @JdbcTypeCode(SqlTypes.JSON)
     var functionParams: String? = null
 
     /**

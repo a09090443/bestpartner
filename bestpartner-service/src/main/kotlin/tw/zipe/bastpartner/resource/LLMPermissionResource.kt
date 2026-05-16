@@ -21,7 +21,7 @@ import tw.zipe.bastpartner.util.DTOValidator
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed("all")
+@RolesAllowed("admin")
 class LLMPermissionResource(
     private val llmPermissionService: LLMPermissionService
 ) {

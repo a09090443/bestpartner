@@ -12,7 +12,6 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.UserDTO
-import tw.zipe.bastpartner.enumerate.UserStatus
 import tw.zipe.bastpartner.service.LLMUserService
 import tw.zipe.bastpartner.util.DTOValidator
 
@@ -36,9 +35,7 @@ class LLMUserResource(
             requireNotEmpty("username")
             requireNotEmpty("password")
             requireNotEmpty("email")
-            userDTO.status?.let {
-                UserStatus.fromOrdinal(it)
-            }
+            validateEmail("email")
             throwOnInvalid()
         }
         llmUserService.register(userDTO)
@@ -54,8 +51,11 @@ class LLMUserResource(
 
     @POST
     @Path("/switchStatus")
-    @RolesAllowed("all")
+    @RolesAllowed("admin")
     fun switchStatus(userDTO: UserDTO): ApiResponse<UserDTO> {
+        if (userDTO.id == null || userDTO.status == null) {
+            throw IllegalArgumentException("id and status are required")
+        }
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")
             requireNotEmpty("status")
@@ -85,7 +85,7 @@ class LLMUserResource(
 
     @DELETE
     @Path("/delete")
-    @RolesAllowed("all")
+    @RolesAllowed("admin")
     fun delete(userDTO: UserDTO): ApiResponse<Boolean> {
         DTOValidator.validate(userDTO) {
             requireNotEmpty("id")

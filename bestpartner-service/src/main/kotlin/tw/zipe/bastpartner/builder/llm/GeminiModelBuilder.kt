@@ -1,7 +1,7 @@
 package tw.zipe.bastpartner.builder.llm
 
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
@@ -15,7 +15,7 @@ import tw.zipe.bastpartner.provider.ModelProvider
  * @created 2025/3/23
  */
 class GeminiModelBuilder : ModelProvider {
-    override fun chatModel(llModel: LLModel): ChatLanguageModel =
+    override fun chatModel(llModel: LLModel): ChatModel =
         GoogleAiGeminiChatModel.builder()
             .apiKey(llModel.apiKey)
             .modelName(llModel.modelName)
@@ -26,7 +26,7 @@ class GeminiModelBuilder : ModelProvider {
             .logRequestsAndResponses(llModel.logRequestsAndResponses)
             .build()
 
-    override fun chatModelStreaming(llModel: LLModel): StreamingChatLanguageModel=
+    override fun chatModelStreaming(llModel: LLModel): StreamingChatModel =
         GoogleAiGeminiStreamingChatModel.builder()
             .apiKey(llModel.apiKey)
             .modelName(llModel.modelName)

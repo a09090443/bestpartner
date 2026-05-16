@@ -1,8 +1,8 @@
 package tw.zipe.bastpartner.resource
 
 import dev.langchain4j.data.message.AiMessage
-import dev.langchain4j.model.chat.ChatLanguageModel
-import dev.langchain4j.model.chat.StreamingChatLanguageModel
+import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.chat.StreamingChatModel
 import dev.langchain4j.model.output.Response
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.TokenStream
@@ -25,20 +25,20 @@ abstract class BaseLLMResource {
     @Inject
     protected lateinit var identity: SecurityIdentity
 
-    fun baseChat(llm: ChatLanguageModel, message: String): String {
+    fun baseChat(llm: ChatModel, message: String): String {
         val assistant = AiServices.builder(AIAssistant::class.java)
-            .chatLanguageModel(llm)
+            .chatModel(llm)
             .build()
         val response: Response<AiMessage> = assistant.chat(message)
         logger.info("token counting: ${response.tokenUsage()}")
         return response.content().text()
     }
 
-    fun baseStreamingChat(llm: StreamingChatLanguageModel, message: String): Multi<String?> {
+    fun baseStreamingChat(llm: StreamingChatModel, message: String): Multi<String?> {
         // 使用 lazy 初始化 assistant，確保資源不會過早創建
         val assistant by lazy {
             AiServices.builder(AIAssistant::class.java)
-                .streamingChatLanguageModel(llm)
+                .streamingChatModel(llm)
                 .build()
         }
 

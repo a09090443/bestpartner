@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration
 class McpConfiguration {
 
     @Bean
-    fun bitcoinTools(realName: RealName): ToolCallbackProvider {
-        return MethodToolCallbackProvider.builder().toolObjects(realName).build()
+    fun bitcoinTools(chineseName: ChineseName): ToolCallbackProvider {
+        return MethodToolCallbackProvider.builder().toolObjects(chineseName).build()
     }
 }

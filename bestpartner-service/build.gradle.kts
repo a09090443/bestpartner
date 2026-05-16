@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "2.1.0"
@@ -8,22 +6,39 @@ plugins {
 }
 
 repositories {
+    maven {
+        url = uri("https://repo1.maven.org/maven2/")
+    }
     mavenCentral()
     mavenLocal()
+    gradlePluginPortal()
 }
 
+val kotlinVersion: String by project
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
-val langchain4jVersion = "1.0.0-beta3"
-val bouncycastleVersion = "1.79"
-val okhttp3Version = "4.12.0"
-val kotlinSerializationVersion = "1.7.3"
+val langchain4jVersion: String by project
+val bouncycastleVersion: String by project
+val okhttp3Version: String by project
+val kotlinSerializationVersion: String by project
+val kotlinxCoroutinesVersion: String by project
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    }
+}
 
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
+    implementation(enforcedPlatform("dev.langchain4j:langchain4j-bom:${langchain4jVersion}"))
 
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinxCoroutinesVersion")
     implementation("io.quarkus:quarkus-rest")
     implementation("io.quarkus:quarkus-rest-jackson")
     implementation("io.quarkus:quarkus-rest-kotlin")
@@ -40,23 +55,24 @@ dependencies {
     implementation("io.quarkus:quarkus-smallrye-jwt")
     implementation("io.quarkus:quarkus-smallrye-jwt-build")
     implementation("io.quarkus:quarkus-security")
+    implementation("io.quarkus:quarkus-smallrye-openapi")
 
-    implementation("dev.langchain4j:langchain4j:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-core:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-ollama:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-open-ai:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-google-ai-gemini:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-anthropic:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-chroma:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-milvus:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-web-search-engine-tavily:$langchain4jVersion")
-    implementation("dev.langchain4j:langchain4j-mcp:$langchain4jVersion")
+    implementation("dev.langchain4j:langchain4j")
+    implementation("dev.langchain4j:langchain4j-core")
+    implementation("dev.langchain4j:langchain4j-ollama")
+    implementation("dev.langchain4j:langchain4j-open-ai")
+    implementation("dev.langchain4j:langchain4j-google-ai-gemini")
+    implementation("dev.langchain4j:langchain4j-anthropic")
+    implementation("dev.langchain4j:langchain4j-chroma")
+    implementation("dev.langchain4j:langchain4j-milvus")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-pdfbox")
+    implementation("dev.langchain4j:langchain4j-document-parser-apache-tika")
+    implementation("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15-q")
+    implementation("dev.langchain4j:langchain4j-web-search-engine-google-custom")
+    implementation("dev.langchain4j:langchain4j-web-search-engine-tavily")
+    implementation("dev.langchain4j:langchain4j-mcp")
+    implementation("dev.langchain4j:langchain4j-skills")
 
-    implementation("me.kpavlov.langchain4j.kotlin:langchain4j-kotlin:0.1.8")
     implementation("com.github.jsqlparser:jsqlparser:5.1")
 
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
@@ -71,7 +87,7 @@ dependencies {
 }
 
 group = "tw.zipe.basepartner"
-version = "0.1.6-SNAPSHOT"
+version = "0.1.7-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -91,8 +107,8 @@ allOpen {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 // 使用 JvmTarget.fromTarget 轉換字串
-        javaParameters = true // 啟用參數名稱保留
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+        javaParameters = true
     }
 }
 

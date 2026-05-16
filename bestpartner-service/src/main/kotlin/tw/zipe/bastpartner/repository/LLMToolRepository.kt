@@ -29,7 +29,7 @@ class LLMToolRepository : BaseRepository<LLMToolEntity, String>() {
                    lt.function_description AS functionDescription,
                    lt.function_params      AS functionParams,
                    lt.description          AS description,
-                   ltc.name                AS `group`,
+                   ltc.name                AS "group",
                    ltc.description         AS groupDescription
             FROM llm_tool lt
                      LEFT JOIN llm_tool_category ltc ON lt.category_id = ltc.id

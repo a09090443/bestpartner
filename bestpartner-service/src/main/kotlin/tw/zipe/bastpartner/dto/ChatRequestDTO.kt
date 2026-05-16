@@ -20,4 +20,5 @@ class ChatRequestDTO(
     val mcpIds: List<String>? = null,
     val mcpSettingIds: List<String>? = null,
     val files: List<String>? = null,
+    val skillIds: List<String>? = null,
 ) : BaseDTO()

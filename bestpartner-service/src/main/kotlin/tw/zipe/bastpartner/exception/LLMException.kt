@@ -1,4 +1,4 @@
-package tw.zipe.bastpartner.tw.zipe.bastpartner.exception
+package tw.zipe.bastpartner.exception
 
 /**
  * @author Gary

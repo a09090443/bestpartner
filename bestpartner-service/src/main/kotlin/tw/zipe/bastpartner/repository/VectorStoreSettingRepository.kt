@@ -37,11 +37,17 @@ class VectorStoreSettingRepository : BaseRepository<VectorStoreSettingEntity, St
 
     fun updateSetting(parasMap: Map<String, Any>): Int {
         val sql = """
-            UPDATE vector_store_setting vss 
-            SET vss.alias = :alias,
-                vss.type = :type,
-                vss.vector_setting = :vectorSetting
-            WHERE vss.id = :id
+            UPDATE vector_store_setting
+            SET alias = :alias,
+                type = :type,
+                url = :url,
+                username = :username,
+                password = :password,
+                collection_name = :collectionName,
+                dimension = :dimension,
+                request_log = :requestLog,
+                response_log = :responseLog
+            WHERE id = :id
         """.trimIndent()
         val executor = createSqlExecutor().withSql(sql).withParamMap(parasMap)
         return executeUpdateWithTransaction(executor)

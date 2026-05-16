@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.MediaType
 import tw.zipe.bastpartner.config.LLMStore
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.ChatRequestDTO
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
 
 /**
@@ -30,7 +31,7 @@ class LLMAdminResource(
     @Path("/chat")
     fun chat(chatRequestDTO: ChatRequestDTO): ApiResponse<String> {
         val llm =
-            llmStore.chatModelMap[chatRequestDTO.platform?.name] ?: throw ServiceException("Did not find the LLM model")
+            llmStore.chatModelMap[chatRequestDTO.platform?.name] ?: throw ServiceException(AppMessage.LLM_MODEL_NOT_FOUND)
         return ApiResponse.success(baseChat(llm, chatRequestDTO.message!!))
     }
 
@@ -39,7 +40,7 @@ class LLMAdminResource(
     fun customAssistantChat(chatRequestDTO: ChatRequestDTO): Multi<String?> {
         val llm =
             llmStore.streamingChatModelMap[chatRequestDTO.platform?.name]
-                ?: throw ServiceException("Did not find the LLM model")
+                ?: throw ServiceException(AppMessage.LLM_MODEL_NOT_FOUND)
         return baseStreamingChat(llm, chatRequestDTO.message!!)
     }
 }
