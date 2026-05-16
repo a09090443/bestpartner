@@ -42,3 +42,4 @@ nb-configuration.xml
 
 # Git worktrees
 .worktrees/
+/bestpartner-service/.kotlin/
