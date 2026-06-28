@@ -98,6 +98,20 @@ if (-not ($findings | Where-Object Rule -like 'CDI*')) {
     Add-Finding 'CDI 標註' 'OK' 'service/repository 皆已標註' '—'
 }
 
+# 規則 6：SQL 測試資料不得含真實 API 金鑰（必須遮罩，見 documentation-update-policy.md）
+# 無基線——真實金鑰任何時候都應為 0，於本機 commit 前即攔下，補 GitHub push protection 的事後把關。
+$sqlDir = Join-Path $root 'docs/sql'
+$secretPattern = 'sk-or-v1-[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{40,}'
+$secretHit = $false
+foreach ($f in (Get-ChildItem $sqlDir -Filter *.sql -ErrorAction SilentlyContinue)) {
+    $hits = Select-String -Path $f.FullName -Pattern $secretPattern -AllMatches
+    if ($hits) {
+        $secretHit = $true
+        Add-Finding '金鑰外洩' 'NEW' "$($f.Name)（$(@($hits).Count) 行）" '改用佔位符 sk-or-v1-xxx／sk-proj-xxx，勿提交真實金鑰'
+    }
+}
+if (-not $secretHit) { Add-Finding '金鑰外洩' 'OK' 'SQL 無真實金鑰' '—' }
+
 # ---- 輸出 ----
 Write-Host ''
 Write-Host '=== BestPartner Harness 漂移掃描 ===' -ForegroundColor Cyan
