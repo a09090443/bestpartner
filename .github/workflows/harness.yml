@@ -1,0 +1,52 @@
+name: Harness Checks
+
+# Harness 原則 3/6 的自動化把關：
+#   - ArchUnit 結構不變量（分層依賴、命名、@Entity 位置）
+#   - 漂移掃描（i18n 寫死字串、版本硬編碼、套件拼字、CDI 標註）
+# 任一失敗即擋下，讓違規在 CI 階段就紅，而非靠人工 review 或 agent 自律。
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+# 同分支新推送時取消尚在跑的舊流程
+concurrency:
+  group: harness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    name: ArchUnit + 漂移掃描
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: 機械化強制 — ArchitectureTest（ArchUnit）
+        working-directory: bestpartner-service
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test --tests "tw.zipe.bastpartner.architecture.ArchitectureTest" \
+            -Dorg.gradle.daemon=false --no-daemon
+
+      - name: 漂移掃描 — harness-drift-scan
+        shell: pwsh
+        run: ./harness-drift-scan.ps1
+
+      - name: 上傳測試報告（失敗時）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-test-report
+          path: bestpartner-service/build/reports/tests/
+          if-no-files-found: ignore
