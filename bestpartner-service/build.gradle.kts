@@ -23,6 +23,7 @@ val bouncycastleVersion: String by project
 val okhttp3Version: String by project
 val kotlinSerializationVersion: String by project
 val kotlinxCoroutinesVersion: String by project
+val archunitVersion: String by project
 
 configurations.all {
     resolutionStrategy {
@@ -84,6 +85,7 @@ dependencies {
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-test-security")
     testImplementation("io.rest-assured:rest-assured")
+    testImplementation("com.tngtech.archunit:archunit-junit5:$archunitVersion")
 }
 
 group = "tw.zipe.basepartner"
