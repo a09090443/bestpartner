@@ -83,6 +83,17 @@ enum class AppMessage(val key: String) {
     HTTP_WEB_APP_EXCEPTION("http.web.app.exception"),
     HTTP_INTERNAL_SERVER_ERROR("http.internal.server.error"),
 
+    // WORKFLOW
+    WORKFLOW_NOT_FOUND("workflow.not.found"),
+    WORKFLOW_FORBIDDEN("workflow.forbidden"),
+    WORKFLOW_VERSION_CONFLICT("workflow.version.conflict"),
+    WORKFLOW_NODE_KEY_DUPLICATED("workflow.node.key.duplicated"),
+    WORKFLOW_EDGE_NODE_NOT_FOUND("workflow.edge.node.not.found"),
+    WORKFLOW_GRAPH_HAS_CYCLE("workflow.graph.has.cycle"),
+    WORKFLOW_TRIGGER_NODE_REQUIRED("workflow.trigger.node.required"),
+    WORKFLOW_DELETE_WHILE_RUNNING("workflow.delete.while.running"),
+    WORKFLOW_NODE_LIMIT_EXCEEDED("workflow.node.limit.exceeded"),
+
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),
     SUCCESS_LLM_SETTING_UPDATED("success.llm.setting.updated"),
