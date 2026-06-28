@@ -3,6 +3,7 @@ package tw.zipe.bastpartner.repository
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import java.util.UUID
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -15,6 +16,11 @@ import tw.zipe.bastpartner.enumerate.WorkflowStatus
 
 /**
  * Workflow / Node / Edge repository 整合測試
+ *
+ * 注意（JSON 型別漂移）：canvasMeta / config / condition 三個欄位以 SqlTypes.JSON 儲存，
+ * 經 JSON round-trip 後數值會回為 Integer（即使寫入時為 Int/Double），巢狀物件會回為
+ * LinkedHashMap。因此本測試一律以「key 存在 + 值字串化」做寬鬆斷言；Task 7 service 層
+ * 取值時亦勿假設為 Int/Double 或特定 Map 實作，應做型別轉換。
  *
  * @author Gary
  * @created 2026/6/28
@@ -31,13 +37,32 @@ class WorkflowRepositoryTest {
     @Inject
     lateinit var workflowEdgeRepository: WorkflowEdgeRepository
 
+    // 追蹤本測試類建立的資料，於 @AfterEach 統一清理，避免整合測試殘留
+    private val createdUserIds = mutableListOf<String>()
+    private val touchedWorkflowIdsForNodeEdge = mutableListOf<String>()
+
+    @AfterEach
+    fun cleanup() {
+        touchedWorkflowIdsForNodeEdge.forEach { workflowId ->
+            workflowNodeRepository.deleteByWorkflowId(workflowId)
+            workflowEdgeRepository.deleteByWorkflowId(workflowId)
+        }
+        touchedWorkflowIdsForNodeEdge.clear()
+
+        // workflow 以唯一隨機 userId 建立，依 userId 精準刪除
+        createdUserIds.forEach { userId -> workflowRepository.deleteByUserId(userId) }
+        createdUserIds.clear()
+    }
+
     /**
      * (a) persist WorkflowEntity 後可由 findOptionalById 取回，id 非空
      */
     @Test
     fun testSaveAndFindWorkflow() {
+        val userId = UUID.randomUUID().toString()
+        createdUserIds.add(userId)
         val workflow = WorkflowEntity().apply {
-            userId = UUID.randomUUID().toString()
+            this.userId = userId
             name = "測試工作流"
             description = "整合測試用"
             status = WorkflowStatus.DRAFT
@@ -57,11 +82,33 @@ class WorkflowRepositoryTest {
     }
 
     /**
+     * Minor #4：覆蓋 WorkflowRepository.findByUserId
+     */
+    @Test
+    fun testFindByUserId() {
+        val userId = UUID.randomUUID().toString()
+        createdUserIds.add(userId)
+        val workflow = WorkflowEntity().apply {
+            this.userId = userId
+            name = "依用戶查詢測試"
+            status = WorkflowStatus.ACTIVE
+        }
+        val saved = workflowRepository.saveOrUpdate(workflow)
+        assertNotNull(saved.id)
+
+        val result = workflowRepository.findByUserId(userId)
+        assertEquals(1, result.size, "應依 userId 查得 1 筆 workflow")
+        assertEquals(saved.id, result.first().id)
+        assertEquals(userId, result.first().userId)
+    }
+
+    /**
      * (b) persist WorkflowNodeEntity（config 帶巢狀物件與數值）後 round-trip
      */
     @Test
     fun testNodeConfigJsonRoundTrip() {
         val workflowId = UUID.randomUUID().toString()
+        touchedWorkflowIdsForNodeEdge.add(workflowId)
         val node = WorkflowNodeEntity().apply {
             this.workflowId = workflowId
             nodeKey = "node-1"
@@ -82,7 +129,8 @@ class WorkflowRepositoryTest {
         val found = workflowNodeRepository.findOptionalById(saved.id!!)
         assertNotNull(found, "應能取回 node")
         val cfg = found!!.config
-        // 寬鬆斷言：key 可取回、值字串化比對（避免 Integer/Double 型別差異）
+        // 寬鬆斷言：JSON round-trip 後數值回為 Integer、巢狀回為 LinkedHashMap，
+        // 故逐鍵存在 + 值字串化比對（避免 Integer/Double 型別差異）
         assertTrue(cfg.containsKey("llmId"))
         assertEquals("x", cfg["llmId"])
         assertTrue(cfg.containsKey("retry"))
@@ -91,8 +139,6 @@ class WorkflowRepositoryTest {
         @Suppress("UNCHECKED_CAST")
         val nested = cfg["nested"] as Map<String, Any?>
         assertEquals("1", nested["a"].toString())
-
-        workflowNodeRepository.deleteByWorkflowId(workflowId)
     }
 
     /**
@@ -102,6 +148,7 @@ class WorkflowRepositoryTest {
     @Test
     fun testEdgeConditionReservedWordRoundTrip() {
         val workflowId = UUID.randomUUID().toString()
+        touchedWorkflowIdsForNodeEdge.add(workflowId)
         val edge = WorkflowEdgeEntity().apply {
             this.workflowId = workflowId
             sourceNodeKey = "node-1"
@@ -119,9 +166,8 @@ class WorkflowRepositoryTest {
         assertNotNull(cond, "condition 應可正確讀回（保留字欄位 round-trip）")
         assertTrue(cond!!.containsKey("op"))
         assertEquals("eq", cond["op"])
+        // value 寫入時為 Int 1，round-trip 後回為 Integer，故以字串化比對
         assertEquals("1", cond["value"].toString())
-
-        workflowEdgeRepository.deleteByWorkflowId(workflowId)
     }
 
     /**
@@ -130,6 +176,7 @@ class WorkflowRepositoryTest {
     @Test
     fun testFindAndDeleteByWorkflowId() {
         val workflowId = UUID.randomUUID().toString()
+        touchedWorkflowIdsForNodeEdge.add(workflowId)
 
         workflowNodeRepository.saveOrUpdate(WorkflowNodeEntity().apply {
             this.workflowId = workflowId
