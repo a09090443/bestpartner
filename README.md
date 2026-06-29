@@ -69,6 +69,7 @@ BestPartner project
 - 可由資料庫設定 LLM 模型並動態切換
 - 支援 MCP Server 整合（[MCP Server 範例](https://github.com/a09090443/mcp-servers)）
 - 支援 RAG（檢索增強生成）
+- 視覺化 Workflow 引擎（n8n-like，節點＋連線自訂流程；定義 CRUD 與畫布驗證已完成）
 - RBAC 權限管理
 - Swagger UI（dev / sit 環境）
 

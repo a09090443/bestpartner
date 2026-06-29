@@ -85,3 +85,18 @@ AI 模型決定需要調用工具
               └─→ 工具結果回傳給 AI 模型
                     └─→ AI 整合結果後回應
 ```
+
+## Workflow 引擎資料模型
+
+視覺化 Workflow 引擎以 6 張 `llm_workflow*` 資料表落地（Phase 1 已建立定義相關表）：
+
+| 資料表 | 說明 |
+|--------|------|
+| `llm_workflow` | Workflow 定義主檔（名稱、擁有者、狀態、版本、畫布視口）|
+| `llm_workflow_node` | 節點（類型、座標、節點專屬設定 `config`）|
+| `llm_workflow_edge` | 連線（來源/目標節點、連接點、條件）|
+| `llm_workflow_trigger` | 觸發器（manual/webhook/cron）※後續階段啟用 |
+| `llm_workflow_execution` | 執行紀錄主檔 ※後續階段啟用 |
+| `llm_workflow_node_execution` | 各節點執行明細 ※後續階段啟用 |
+
+> 詳見 [視覺化 Workflow](../features/workflow.md)。

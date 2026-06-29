@@ -3287,6 +3287,183 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "workflow",
+      "item": [
+        {
+          "name": "create",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const d = pm.response.json();",
+                  "if (d && d.data && d.data.id) { pm.globals.set('workflowId', d.data.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"我的工作流\",\n    \"description\": \"demo\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/create",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "create" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "save",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const d = pm.response.json();",
+                  "if (d && d.data && d.data.id) { pm.globals.set('workflowId', d.data.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"{{workflowId}}\",\n    \"version\": 1,\n    \"name\": \"我的工作流\",\n    \"nodes\": [\n        { \"nodeKey\": \"a\", \"type\": \"TRIGGER\", \"positionX\": 0, \"positionY\": 0, \"config\": {} },\n        { \"nodeKey\": \"b\", \"type\": \"TOOL\", \"positionX\": 200, \"positionY\": 0, \"config\": {} }\n    ],\n    \"edges\": [\n        { \"sourceNodeKey\": \"a\", \"targetNodeKey\": \"b\" }\n    ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/save",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "save" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"{{workflowId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/get",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "get" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/list",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "list" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"{{workflowId}}\",\n    \"name\": \"更新後的工作流名稱\",\n    \"description\": \"updated\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/update",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "update" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "switchStatus",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"{{workflowId}}\",\n    \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/switchStatus",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "switchStatus" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"{{workflowId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/delete",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "delete" ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

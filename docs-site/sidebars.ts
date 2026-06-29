@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
         'features/rag',
         'features/tools',
         'features/mcp-servers',
+        'features/workflow',
       ],
     },
     {
@@ -40,6 +41,7 @@ const sidebars: SidebarsConfig = {
         'api/assistant',
         'api/knowledge-base',
         'api/skills',
+        'api/workflow',
         'api/swagger',
       ],
     },

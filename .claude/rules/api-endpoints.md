@@ -1,6 +1,6 @@
 # API Endpoints 說明
 
-> 共 12 個模組、59 個 endpoint。
+> 共 13 個模組、66 個 endpoint。
 > 權限標示：無標示 = 公開或依類別預設；括號內為額外限制。
 
 ---
@@ -141,6 +141,22 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/permission/add` | 新增權限定義（須傳入 name + num） |
 | POST | `/llm/permission/update` | 更新權限定義（須傳入 id + name + num） |
 | DELETE | `/llm/permission/delete` | 刪除權限（須傳入 id） |
+
+---
+
+## WORKFLOW - `/llm/workflow`
+
+> 類別層級：`@Authenticated`（所有 endpoint 皆需登入）。擁有權與 admin 例外於 service 層檢核。
+
+| HTTP | 路徑 | 說明 |
+|------|------|------|
+| POST | `/llm/workflow/create` | 建立空白 workflow（狀態 DRAFT、版本 1），須傳入 name |
+| POST | `/llm/workflow/save` | 新增或整張覆寫 workflow（含 nodes/edges）；更新時以 version 樂觀鎖檢核；存檔前驗證畫布（nodeKey 唯一、edge 端點存在、節點數上限、無環） |
+| POST | `/llm/workflow/get` | 取得單一 workflow 完整定義（含 nodes/edges），須傳入 id |
+| GET | `/llm/workflow/list` | 列出當前使用者擁有的 workflow 摘要清單 |
+| POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta），須傳入 id |
+| POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge），須傳入 id |
+| POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow（啟用前須具備 Trigger 節點且圖無環），須傳入 id + active |
 
 ---
 

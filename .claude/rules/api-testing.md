@@ -35,6 +35,7 @@
 | TOOL | `/llm/tool` |
 | MCP SERVER | `/llm/mcpServer` |
 | PERMISSION | `/llm/permission` |
+| WORKFLOW | `/llm/workflow` |
 | SYSTEM SETTING | `/systemSetting` |
 | VIEW | `/view` |
 
