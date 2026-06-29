@@ -130,6 +130,18 @@ class WorkflowSaveRequestDTO {
 }
 
 /**
+ * Workflow 啟用 / 停用請求 DTO。
+ */
+@Serializable
+class WorkflowSwitchStatusRequestDTO {
+    /** 主鍵 */
+    var id: String? = null
+
+    /** true = 啟用（ACTIVE）、false = 停用（INACTIVE） */
+    var active: Boolean = false
+}
+
+/**
  * Workflow 摘要 DTO（清單列表用）。
  *
  * updatedAt 採 String 而非 LocalDateTime：kotlinx.serialization 無法原生序列化
