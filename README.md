@@ -118,6 +118,18 @@ bestpartner/
 ├── bestpartner-mcp-servers/                # MCP Server 範例
 │   ├── quarkus-example/                    # Quarkus MCP Server 範例
 │   └── spring-example/                     # Spring Boot MCP Server 範例
+├── bestpartner-ui/                         # 前端 (Vue 3 + Vite + TS)
+│   └── src/
+│       ├── api/                            # 後端 API client（axios 攔截器、workflow）
+│       ├── components/
+│       │   ├── canvas/                     # Vue Flow 節點面板與自訂節點
+│       │   └── inspector/                  # 屬性面板與 JSON 設定編輯器
+│       ├── composables/                    # nodeKey、畫布↔DTO 轉換、畫布驗證
+│       ├── constants/                      # 節點型別顯示 meta
+│       ├── router/                         # 路由與登入守衛
+│       ├── stores/                         # Pinia（auth、workflow）
+│       ├── types/                          # 對應後端 DTO 的 TS 型別
+│       └── views/                          # 登入、列表、Workflow 編輯器
 ├── docs/
 │   ├── docker/                             # Docker Compose 設定
 │   ├── postman/                            # Postman Collection
@@ -232,6 +244,38 @@ npm run build
 ```bash
 cd docs-site
 npm run serve
+```
+
+---
+
+## 前端應用（bestpartner-ui）
+
+BestPartner 提供基於 Vue 3 的前端應用，位於 `bestpartner-ui/` 目錄，提供登入、Workflow 列表與 n8n-like 視覺化 Workflow 編輯器（Vue Flow 畫布、拖放節點、屬性面板）。
+
+### 環境需求
+
+| 類別 | 版本 |
+|------|------|
+| Node.js | >= 20.0 |
+| 建置工具 | Vite |
+| 框架 | Vue 3 + TypeScript + Pinia + Vue Router + Element Plus + Vue Flow |
+
+### 啟動開發伺服器
+
+```bash
+cd bestpartner-ui
+npm install
+npm run dev
+```
+
+開發伺服器透過 Vite proxy 將 API 請求轉發至後端（預設 port 80）。
+
+### 測試與建置
+
+```bash
+cd bestpartner-ui
+npm run test     # Vitest 單元測試
+npm run build    # vue-tsc 型別檢查 + production 建置
 ```
 
 ---

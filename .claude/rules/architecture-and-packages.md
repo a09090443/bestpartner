@@ -8,6 +8,8 @@ bestpartner/
 ├── bestpartner-mcp-servers/      # MCP server 範例
 │   ├── quarkus-example/          # Quarkus MCP server 範例
 │   └── spring-example/           # Spring MCP server 範例
+├── bestpartner-ui/               # 前端應用 (Vue 3 + Vite + TS)
+│   └── src/                      # api / components(canvas,inspector) / composables / stores / views
 └── docs/                         # 文件資料
     ├── docker/                   # Docker Compose 設定 (chroma, milvus, mysql, ollama)
     ├── postman/                  # Postman Collection

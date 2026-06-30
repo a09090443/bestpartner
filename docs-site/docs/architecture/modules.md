@@ -8,11 +8,30 @@ sidebar_position: 2
 
 ```
 bestpartner/
-├── bestpartner-service/       # 主服務
-└── bestpartner-mcp-servers/   # MCP Server 範例
-    ├── quarkus-example/       # Quarkus MCP Server 範例
-    └── spring-example/        # Spring MCP Server 範例
+├── bestpartner-service/       # 主服務 (Quarkus)
+├── bestpartner-mcp-servers/   # MCP Server 範例
+│   ├── quarkus-example/       # Quarkus MCP Server 範例
+│   └── spring-example/        # Spring MCP Server 範例
+└── bestpartner-ui/            # 前端應用 (Vue 3 + Vite + TS)
 ```
+
+## bestpartner-ui 前端模組
+
+基於 Vue 3 + Vite + TypeScript，提供登入、Workflow 列表與 n8n-like 視覺化 Workflow 編輯器。
+
+| 目錄 | 職責 |
+|------|------|
+| `api/` | 後端 API client（axios 實例與認證攔截器、workflow 端點封裝） |
+| `components/canvas/` | Vue Flow 節點面板（NodePalette）與自訂節點（WorkflowNode） |
+| `components/inspector/` | 屬性面板（InspectorPanel）與通用 JSON 設定編輯器（JsonConfigEditor） |
+| `composables/` | nodeKey 產生、畫布↔DTO 雙向轉換、輕量畫布驗證 |
+| `constants/` | 節點型別顯示 meta（label/color/icon） |
+| `router/` | 路由定義與登入守衛 |
+| `stores/` | Pinia 狀態（auth、workflow） |
+| `types/` | 對應後端 DTO 的 TypeScript 型別 |
+| `views/` | 登入頁、Workflow 列表頁、Workflow 編輯器 |
+
+技術棧：Pinia、Vue Router、Element Plus、Vue Flow（`@vue-flow/core`）、axios、nanoid；測試使用 Vitest + `@vue/test-utils`。
 
 ## bestpartner-service 核心 Package
 
