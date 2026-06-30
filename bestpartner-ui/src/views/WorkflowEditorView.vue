@@ -39,6 +39,18 @@ const {
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
 
+// edge 視覺與互動預設：smoothstep 路由、加粗線、加大可點擊範圍（interactionWidth）。
+// 這些僅為畫布呈現用，存檔時 flowToSaveRequest 不會帶入這些欄位。
+const EDGE_DEFAULTS = {
+  type: 'smoothstep',
+  interactionWidth: 28,
+  style: { strokeWidth: 2.5 },
+}
+
+function decorateEdge<T extends object>(edge: T): T & typeof EDGE_DEFAULTS {
+  return { ...EDGE_DEFAULTS, ...edge }
+}
+
 function currentId(): string | undefined {
   const idParam = route.params.id
   return Array.isArray(idParam) ? idParam[0] : idParam
@@ -48,7 +60,7 @@ async function loadIntoCanvas(id: string) {
   await store.load(id)
   if (store.current) {
     setNodes(store.current.nodes as unknown as Node[])
-    setEdges(store.current.edges)
+    setEdges(store.current.edges.map(decorateEdge))
   }
 }
 
@@ -91,7 +103,7 @@ onMounted(() => window.addEventListener('beforeunload', beforeUnloadHandler))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadHandler))
 
 onConnect((connection: Connection) => {
-  addEdges([{ ...connection, id: `e-${connection.source}-${connection.target}` }])
+  addEdges([decorateEdge({ ...connection, id: `e-${connection.source}-${connection.target}` })])
   store.setDirty(true)
 })
 
@@ -213,7 +225,12 @@ async function handleSave() {
       </div>
 
       <div class="canvas" @drop="onDrop" @dragover="onDragOver">
-        <VueFlow :node-types="nodeTypes" delete-key-code="Delete" fit-view-on-init />
+        <VueFlow
+          :node-types="nodeTypes"
+          :default-edge-options="EDGE_DEFAULTS"
+          delete-key-code="Delete"
+          fit-view-on-init
+        />
       </div>
     </div>
 
@@ -277,5 +294,21 @@ async function handleSave() {
   background: #fafafa;
   padding: 12px;
   overflow-y: auto;
+}
+
+/* 連線：hover 與選取時加粗變色，提升可點擊回饋 */
+.canvas :deep(.vue-flow__edge-path) {
+  stroke: #b1b3b8;
+  transition: stroke 0.15s, stroke-width 0.15s;
+}
+
+.canvas :deep(.vue-flow__edge:hover .vue-flow__edge-path) {
+  stroke: #409eff;
+  stroke-width: 3.5;
+}
+
+.canvas :deep(.vue-flow__edge.selected .vue-flow__edge-path) {
+  stroke: #409eff;
+  stroke-width: 4;
 }
 </style>
