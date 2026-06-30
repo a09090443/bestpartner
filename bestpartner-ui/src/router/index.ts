@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/editor/:id?',
     name: 'editor',
-    component: () => import('../views/WorkflowListView.vue'),
+    component: () => import('../views/WorkflowEditorView.vue'),
     meta: { requiresAuth: true },
   },
 ]
