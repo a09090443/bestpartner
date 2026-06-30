@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { markRaw, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { markRaw, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Connection, Node, NodeTypesObject } from '@vue-flow/core'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -10,6 +10,8 @@ import InspectorPanel from '../components/inspector/InspectorPanel.vue'
 import { DRAG_NODE_TYPE_KEY } from '../components/canvas/dragKeys'
 import { generateNodeKey } from '../composables/useNodeKey'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
+import { flowToSaveRequest } from '../composables/useWorkflowSync'
+import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
 import type { NodeType } from '../types/workflow'
@@ -62,6 +64,31 @@ onMounted(async () => {
 // 畫布變更 → 標記未存
 onNodesChange(() => store.setDirty(true))
 onEdgesChange(() => store.setDirty(true))
+
+// 離頁攔截：有未存變更時提示確認
+onBeforeRouteLeave(async () => {
+  if (!store.dirty) return true
+  try {
+    await ElMessageBox.confirm('有未存變更，確定要離開嗎？', '尚未存檔', {
+      type: 'warning',
+      confirmButtonText: '離開',
+      cancelButtonText: '留下',
+    })
+    return true
+  } catch {
+    return false
+  }
+})
+
+// 重新整理/關閉分頁時的原生提示
+function beforeUnloadHandler(event: BeforeUnloadEvent) {
+  if (store.dirty) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+onMounted(() => window.addEventListener('beforeunload', beforeUnloadHandler))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadHandler))
 
 onConnect((connection: Connection) => {
   addEdges([{ ...connection, id: `e-${connection.source}-${connection.target}` }])
@@ -133,9 +160,21 @@ async function handleSave() {
     ElMessage.error('節點設定 JSON 格式錯誤，請修正後再存檔')
     return
   }
-  const { nodes, edges } = toObject()
+  const flowNodes = toObject().nodes as unknown as FlowNode[]
+  const flowEdges = toObject().edges as unknown as FlowEdge[]
+
+  // 存檔前先跑與後端同義的輕量驗證，有錯則擋下
+  const req = flowToSaveRequest(flowNodes, flowEdges, {
+    name: store.current?.name ?? '未命名流程',
+  })
+  const graphErrors = validateGraph(req.nodes, req.edges)
+  if (graphErrors.length > 0) {
+    ElMessage.error(graphErrors[0].message)
+    return
+  }
+
   try {
-    await store.save(nodes as unknown as FlowNode[], edges as unknown as FlowEdge[])
+    await store.save(flowNodes, flowEdges)
     ElMessage.success('已存檔')
   } catch (err) {
     if (err instanceof WorkflowVersionConflictError) {
