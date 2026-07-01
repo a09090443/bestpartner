@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, onBeforeUnmount, onMounted, ref } from 'vue'
+import { markRaw, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Connection, Node, NodeTypesObject } from '@vue-flow/core'
@@ -14,6 +14,7 @@ import { DRAG_NODE_TYPE_KEY } from '../components/canvas/dragKeys'
 import { generateNodeKey } from '../composables/useNodeKey'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
 import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
+import { layoutGraph } from '../composables/useCanvasLayout'
 import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
@@ -37,6 +38,7 @@ const {
   setNodes,
   setEdges,
   toObject,
+  fitView,
 } = useVueFlow()
 
 const selectedNode = ref<FlowNode | null>(null)
@@ -182,6 +184,18 @@ function onWorkflowDescriptionUpdate(description: string) {
   }
 }
 
+// 整理版面：以 dagre 重排節點位置，更新畫布並置中檢視
+function handleTidyUp() {
+  const obj = toObject()
+  const laidOut = layoutGraph(
+    obj.nodes as unknown as FlowNode[],
+    obj.edges as unknown as FlowEdge[],
+  )
+  setNodes(laidOut as unknown as Node[])
+  store.setDirty(true)
+  nextTick(() => fitView())
+}
+
 async function handleSave() {
   if (!configValid.value) {
     ElMessage.error('節點設定 JSON 格式錯誤，請修正後再存檔')
@@ -241,6 +255,7 @@ async function handleSave() {
           <span class="version">v{{ store.current?.version ?? '-' }}</span>
           <el-tag v-if="store.dirty" size="small" type="warning">未存</el-tag>
         </span>
+        <el-button data-test="tidy-button" @click="handleTidyUp">整理版面</el-button>
         <el-button type="primary" data-test="save-button" @click="handleSave">存檔</el-button>
       </div>
 

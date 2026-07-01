@@ -8,6 +8,7 @@ const {
   setNodesMock,
   setEdgesMock,
   toObjectMock,
+  fitViewMock,
   routeParams,
   confirmMock,
   successMock,
@@ -15,7 +16,8 @@ const {
 } = vi.hoisted(() => ({
   setNodesMock: vi.fn(),
   setEdgesMock: vi.fn(),
-  toObjectMock: vi.fn(() => ({ nodes: [], edges: [] })),
+  toObjectMock: vi.fn((): { nodes: unknown[]; edges: unknown[] } => ({ nodes: [], edges: [] })),
+  fitViewMock: vi.fn(),
   routeParams: { id: 'wf-1' } as { id?: string },
   confirmMock: vi.fn(() => Promise.resolve('confirm')),
   successMock: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock('@vue-flow/core', () => ({
     setNodes: setNodesMock,
     setEdges: setEdgesMock,
     toObject: toObjectMock,
+    fitView: fitViewMock,
   }),
 }))
 
@@ -106,6 +109,32 @@ describe('WorkflowEditorView', () => {
     expect(setNodesMock).toHaveBeenCalled()
     const pushedNodes = setNodesMock.mock.calls.at(-1)![0]
     expect(pushedNodes[0].id).toBe('n1')
+  })
+
+  it('點整理版面應以 dagre 重排節點（x 遞增）並更新畫布、標記未存', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    toObjectMock.mockReturnValue({
+      nodes: [
+        { id: 'a', type: 'workflow', position: { x: 500, y: 0 }, data: { type: 'TOOL', config: {} } },
+        { id: 'b', type: 'workflow', position: { x: 0, y: 0 }, data: { type: 'TOOL', config: {} } },
+      ],
+      edges: [{ id: 'e-a-b', source: 'a', target: 'b' }],
+    })
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="tidy-button"]').trigger('click')
+
+    expect(setNodesMock).toHaveBeenCalled()
+    const laidOut = setNodesMock.mock.calls.at(-1)![0] as Array<{
+      id: string
+      position: { x: number }
+    }>
+    const ax = laidOut.find((n) => n.id === 'a')!.position.x
+    const bx = laidOut.find((n) => n.id === 'b')!.position.x
+    expect(ax).toBeLessThan(bx)
+    expect(fitViewMock).toHaveBeenCalled()
   })
 
   it('點存檔成功應呼叫 store.save 並顯示成功提示', async () => {
