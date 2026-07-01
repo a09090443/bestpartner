@@ -41,6 +41,19 @@ export interface SaveMeta {
 const FLOW_NODE_TYPE = 'workflow'
 
 /**
+ * 產生 edge id，帶入來源/目標 handle 以避免同一對節點的多分支撞 id。
+ * handle 為空時以 'main' 佔位，例：e-c1:out:true-t1:in:main。
+ */
+export function makeEdgeId(
+  source: string,
+  target: string,
+  sourceHandle?: string | null,
+  targetHandle?: string | null,
+): string {
+  return `e-${source}:${sourceHandle ?? 'main'}-${target}:${targetHandle ?? 'main'}`
+}
+
+/**
  * WorkflowDTO → Vue Flow 的 { nodes, edges }。
  * node.id 取 nodeKey、position 取 positionX/Y、data 帶 name/type/config。
  */
@@ -57,7 +70,7 @@ export function dtoToFlow(workflow: WorkflowDTO): { nodes: FlowNode[]; edges: Fl
   }))
 
   const edges: FlowEdge[] = workflow.edges.map((e) => ({
-    id: `e-${e.sourceNodeKey}-${e.targetNodeKey}`,
+    id: makeEdgeId(e.sourceNodeKey, e.targetNodeKey, e.sourceHandle, e.targetHandle),
     source: e.sourceNodeKey,
     target: e.targetNodeKey,
     sourceHandle: e.sourceHandle ?? null,

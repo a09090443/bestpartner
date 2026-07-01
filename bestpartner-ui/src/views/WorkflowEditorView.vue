@@ -10,7 +10,7 @@ import InspectorPanel from '../components/inspector/InspectorPanel.vue'
 import { DRAG_NODE_TYPE_KEY } from '../components/canvas/dragKeys'
 import { generateNodeKey } from '../composables/useNodeKey'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
-import { flowToSaveRequest } from '../composables/useWorkflowSync'
+import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
 import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
@@ -103,7 +103,13 @@ onMounted(() => window.addEventListener('beforeunload', beforeUnloadHandler))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadHandler))
 
 onConnect((connection: Connection) => {
-  addEdges([decorateEdge({ ...connection, id: `e-${connection.source}-${connection.target}` })])
+  const id = makeEdgeId(
+    connection.source,
+    connection.target,
+    connection.sourceHandle,
+    connection.targetHandle,
+  )
+  addEdges([decorateEdge({ ...connection, id })])
   store.setDirty(true)
 })
 
@@ -175,14 +181,19 @@ async function handleSave() {
   const flowNodes = toObject().nodes as unknown as FlowNode[]
   const flowEdges = toObject().edges as unknown as FlowEdge[]
 
-  // 存檔前先跑與後端同義的輕量驗證，有錯則擋下
+  // 存檔前先跑與後端同義的輕量驗證。error 擋存檔；warning 提示但放行（啟用時再擋）
   const req = flowToSaveRequest(flowNodes, flowEdges, {
     name: store.current?.name ?? '未命名流程',
   })
-  const graphErrors = validateGraph(req.nodes, req.edges)
-  if (graphErrors.length > 0) {
-    ElMessage.error(graphErrors[0].message)
+  const results = validateGraph(req.nodes, req.edges)
+  const blocking = results.find((r) => r.severity === 'error')
+  if (blocking) {
+    ElMessage.error(blocking.message)
     return
+  }
+  const warning = results.find((r) => r.severity === 'warning')
+  if (warning) {
+    ElMessage.warning(warning.message)
   }
 
   try {

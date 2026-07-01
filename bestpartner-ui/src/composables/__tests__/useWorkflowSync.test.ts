@@ -66,6 +66,39 @@ describe('dtoToFlow', () => {
   })
 })
 
+describe('edge id 帶 handle（避免多分支撞 id）', () => {
+  it('同一對節點的不同 handle 分支產生不同 edge id', () => {
+    const branching: WorkflowDTO = {
+      name: '分支',
+      nodes: [
+        { nodeKey: 'c1', type: 'CONDITION', positionX: 0, positionY: 0, config: {} },
+        { nodeKey: 't1', type: 'TOOL', positionX: 0, positionY: 0, config: {} },
+      ],
+      edges: [
+        { sourceNodeKey: 'c1', targetNodeKey: 't1', sourceHandle: 'out:true', targetHandle: 'in:main' },
+        { sourceNodeKey: 'c1', targetNodeKey: 't1', sourceHandle: 'out:false', targetHandle: 'in:main' },
+      ],
+    }
+    const { edges } = dtoToFlow(branching)
+    expect(edges[0].id).not.toBe(edges[1].id)
+    expect(edges[0].id).toContain('out:true')
+    expect(edges[1].id).toContain('out:false')
+  })
+
+  it('handle 為空時 edge id 以 main 佔位', () => {
+    const wf: WorkflowDTO = {
+      name: 'x',
+      nodes: [
+        { nodeKey: 'a', type: 'TRIGGER', positionX: 0, positionY: 0, config: {} },
+        { nodeKey: 'b', type: 'TOOL', positionX: 0, positionY: 0, config: {} },
+      ],
+      edges: [{ sourceNodeKey: 'a', targetNodeKey: 'b' }],
+    }
+    const { edges } = dtoToFlow(wf)
+    expect(edges[0].id).toBe('e-a:main-b:main')
+  })
+})
+
 describe('flowToSaveRequest', () => {
   it('反向對應 node/edge 並帶入 meta', () => {
     const { nodes, edges } = dtoToFlow(sampleWorkflow)

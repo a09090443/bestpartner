@@ -21,12 +21,28 @@ const displayName = computed(() => props.data.name?.trim() || label.value)
 const color = computed(() => meta.value?.color ?? '#909399')
 const icon = computed(() => meta.value?.icon ?? '⬜')
 const isTrigger = computed(() => meta.value?.isTrigger ?? false)
+
+// 埠依 meta 資料驅動渲染。單埠節點退回預設 in:main / out:main。
+const inputs = computed(() => meta.value?.inputs ?? [{ id: 'in:main' }])
+const outputs = computed(() => meta.value?.outputs ?? [{ id: 'out:main' }])
+
+/** 多埠時沿該側邊緣平均分布：第 index 個埠（共 total 個）的垂直位置（%） */
+function portTop(index: number, total: number): string {
+  return `${((index + 1) / (total + 1)) * 100}%`
+}
 </script>
 
 <template>
   <div class="workflow-node" :class="{ 'is-trigger': isTrigger }" :style="{ borderColor: color }">
-    <!-- 觸發節點無輸入 handle -->
-    <Handle v-if="!isTrigger" type="target" :position="Position.Left" />
+    <!-- 輸入埠（左緣）；TRIGGER 的 inputs 為空故不渲染 -->
+    <Handle
+      v-for="(port, i) in inputs"
+      :key="port.id"
+      :id="port.id"
+      type="target"
+      :position="Position.Left"
+      :style="{ top: portTop(i, inputs.length) }"
+    />
 
     <div class="node-header" :style="{ backgroundColor: color }">
       <span class="node-icon">{{ icon }}</span>
@@ -36,7 +52,20 @@ const isTrigger = computed(() => meta.value?.isTrigger ?? false)
       <span class="node-name">{{ displayName }}</span>
     </div>
 
-    <Handle type="source" :position="Position.Right" />
+    <!-- 輸出埠（右緣）；CONDITION / LOOP 為多埠並顯示 label -->
+    <template v-for="(port, i) in outputs" :key="port.id">
+      <Handle
+        :id="port.id"
+        type="source"
+        :position="Position.Right"
+        :style="{ top: portTop(i, outputs.length) }"
+      />
+      <span
+        v-if="port.label"
+        class="port-label"
+        :style="{ top: portTop(i, outputs.length) }"
+      >{{ port.label }}</span>
+    </template>
   </div>
 </template>
 
@@ -74,5 +103,16 @@ const isTrigger = computed(() => meta.value?.isTrigger ?? false)
 .node-name {
   color: #303133;
   word-break: break-all;
+}
+
+/* 多輸出埠的文字標示，貼齊右緣埠旁 */
+.port-label {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: #909399;
+  pointer-events: none;
+  white-space: nowrap;
 }
 </style>

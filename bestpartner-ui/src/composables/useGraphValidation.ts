@@ -1,11 +1,21 @@
 import type { WorkflowNodeDTO, WorkflowEdgeDTO } from '../types/workflow'
+import { getNodeTypeMeta } from '../constants/nodeTypes'
 
-/** 驗證錯誤型別（與後端 validateGraph 規則同義） */
-export type GraphErrorType = 'DUPLICATE_NODE_KEY' | 'EDGE_NODE_NOT_FOUND' | 'CYCLE'
+/** 驗證錯誤型別 */
+export type GraphErrorType =
+  | 'DUPLICATE_NODE_KEY'
+  | 'EDGE_NODE_NOT_FOUND'
+  | 'CYCLE'
+  | 'UNKNOWN_HANDLE'
+  | 'BRANCH_INCOMPLETE'
 
-/** 單一驗證錯誤 */
+/** 驗證嚴重度：error 擋存檔；warning 可存檔、啟用時再擋 */
+export type GraphErrorSeverity = 'error' | 'warning'
+
+/** 單一驗證結果 */
 export interface GraphValidationError {
   type: GraphErrorType
+  severity: GraphErrorSeverity
   message: string
   /** 相關 nodeKey（環錯誤無對應單一 key） */
   key?: string
@@ -55,16 +65,19 @@ export function validateGraph(
   // nodeKey 唯一
   const keys = new Set<string>()
   const seen = new Set<string>()
+  const nodeByKey = new Map<string, WorkflowNodeDTO>()
   nodes.forEach((n) => {
     if (keys.has(n.nodeKey) && !seen.has(n.nodeKey)) {
       seen.add(n.nodeKey)
       errors.push({
         type: 'DUPLICATE_NODE_KEY',
+        severity: 'error',
         key: n.nodeKey,
         message: `節點 key 重複：${n.nodeKey}`,
       })
     }
     keys.add(n.nodeKey)
+    nodeByKey.set(n.nodeKey, n)
   })
 
   // edge 端點存在
@@ -72,6 +85,7 @@ export function validateGraph(
     if (!keys.has(e.sourceNodeKey)) {
       errors.push({
         type: 'EDGE_NODE_NOT_FOUND',
+        severity: 'error',
         key: e.sourceNodeKey,
         message: `連線來源節點不存在：${e.sourceNodeKey}`,
       })
@@ -79,17 +93,65 @@ export function validateGraph(
     if (!keys.has(e.targetNodeKey)) {
       errors.push({
         type: 'EDGE_NODE_NOT_FOUND',
+        severity: 'error',
         key: e.targetNodeKey,
         message: `連線目標節點不存在：${e.targetNodeKey}`,
       })
     }
   })
 
+  // 未知 handle：edge 帶的 handle 須存在於對應節點 meta 定義的埠內（error）
+  edges.forEach((e) => {
+    const source = nodeByKey.get(e.sourceNodeKey)
+    if (e.sourceHandle && source) {
+      const outputs = getNodeTypeMeta(source.type)?.outputs ?? []
+      if (!outputs.some((p) => p.id === e.sourceHandle)) {
+        errors.push({
+          type: 'UNKNOWN_HANDLE',
+          severity: 'error',
+          key: e.sourceNodeKey,
+          message: `未知的輸出埠：${e.sourceHandle}（節點 ${e.sourceNodeKey}）`,
+        })
+      }
+    }
+    const target = nodeByKey.get(e.targetNodeKey)
+    if (e.targetHandle && target) {
+      const inputs = getNodeTypeMeta(target.type)?.inputs ?? []
+      if (!inputs.some((p) => p.id === e.targetHandle)) {
+        errors.push({
+          type: 'UNKNOWN_HANDLE',
+          severity: 'error',
+          key: e.targetNodeKey,
+          message: `未知的輸入埠：${e.targetHandle}（節點 ${e.targetNodeKey}）`,
+        })
+      }
+    }
+  })
+
+  // 分支未接完：CONDITION 的任一輸出埠未接（warning）
+  nodes
+    .filter((n) => n.type === 'CONDITION')
+    .forEach((n) => {
+      const outputs = getNodeTypeMeta(n.type)?.outputs ?? []
+      const connected = new Set(
+        edges.filter((e) => e.sourceNodeKey === n.nodeKey).map((e) => e.sourceHandle),
+      )
+      const missing = outputs.some((p) => !connected.has(p.id))
+      if (missing) {
+        errors.push({
+          type: 'BRANCH_INCOMPLETE',
+          severity: 'warning',
+          key: n.nodeKey,
+          message: `條件節點分支未接完：${n.nodeKey}`,
+        })
+      }
+    })
+
   // 有向環
   const nodeKeys = nodes.map((n) => n.nodeKey)
   const edgePairs: Array<[string, string]> = edges.map((e) => [e.sourceNodeKey, e.targetNodeKey])
   if (hasCycle(nodeKeys, edgePairs)) {
-    errors.push({ type: 'CYCLE', message: '畫布存在有向環，請移除循環連線' })
+    errors.push({ type: 'CYCLE', severity: 'error', message: '畫布存在有向環，請移除循環連線' })
   }
 
   return errors
