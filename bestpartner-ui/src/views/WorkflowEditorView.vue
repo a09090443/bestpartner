@@ -3,6 +3,9 @@ import { markRaw, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Connection, Node, NodeTypesObject } from '@vue-flow/core'
+import { Background } from '@vue-flow/background'
+import { Controls } from '@vue-flow/controls'
+import { MiniMap } from '@vue-flow/minimap'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import NodePalette from '../components/canvas/NodePalette.vue'
 import WorkflowNode from '../components/canvas/WorkflowNode.vue'
@@ -49,6 +52,12 @@ const EDGE_DEFAULTS = {
 
 function decorateEdge<T extends object>(edge: T): T & typeof EDGE_DEFAULTS {
   return { ...EDGE_DEFAULTS, ...edge }
+}
+
+/** MiniMap 節點著色：沿用節點型別代表色 */
+function minimapNodeColor(node: Node): string {
+  const type = (node.data as { type?: NodeType } | undefined)?.type
+  return (type && getNodeTypeMeta(type)?.color) || '#909399'
 }
 
 function currentId(): string | undefined {
@@ -241,7 +250,11 @@ async function handleSave() {
           :default-edge-options="EDGE_DEFAULTS"
           delete-key-code="Delete"
           fit-view-on-init
-        />
+        >
+          <Background :gap="16" pattern-color="#dcdfe6" />
+          <MiniMap :node-color="minimapNodeColor" pannable zoomable />
+          <Controls position="bottom-left" />
+        </VueFlow>
       </div>
     </div>
 
