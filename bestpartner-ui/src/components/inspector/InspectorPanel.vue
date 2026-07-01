@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { computed, markRaw, watch } from 'vue'
 import JsonConfigEditor from './JsonConfigEditor.vue'
+import LlmAssistantForm from './forms/LlmAssistantForm.vue'
+import ToolForm from './forms/ToolForm.vue'
+import McpServerForm from './forms/McpServerForm.vue'
+import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
 import { getNodeTypeMeta } from '../../constants/nodeTypes'
 import type { FlowNode } from '../../composables/useWorkflowSync'
 
@@ -17,8 +22,34 @@ const emit = defineEmits<{
   'config-validity': [valid: boolean]
 }>()
 
+/** 型別化表單分派表；其餘型別退回 JsonConfigEditor */
+const TYPED_FORMS = markRaw({
+  LLM_ASSISTANT: LlmAssistantForm,
+  TOOL: ToolForm,
+  MCP_SERVER: McpServerForm,
+  KNOWLEDGE_RAG: KnowledgeRagForm,
+})
+
+const typedForm = computed(() => {
+  const type = props.selectedNode?.data.type
+  return (type && TYPED_FORMS[type as keyof typeof TYPED_FORMS]) || null
+})
+
+// 型別化表單為結構化輸入，永遠有效；選中時通知 config 有效，清除先前 JSON 無效狀態
+watch(
+  typedForm,
+  (form) => {
+    if (form) emit('config-validity', true)
+  },
+  { immediate: true },
+)
+
 function nodeTypeLabel(node: FlowNode): string {
   return getNodeTypeMeta(node.data.type)?.label ?? node.data.type
+}
+
+function onFormConfig(config: Record<string, unknown>) {
+  emit('update:node-config', config)
 }
 </script>
 
@@ -43,7 +74,16 @@ function nodeTypeLabel(node: FlowNode): string {
       </div>
       <div class="field">
         <label>設定（config）</label>
+        <!-- 型別化表單；其餘型別退回 JSON 編輯器 -->
+        <component
+          :is="typedForm"
+          v-if="typedForm"
+          :key="props.selectedNode.id"
+          :config="props.selectedNode.data.config ?? {}"
+          @update:config="onFormConfig"
+        />
         <JsonConfigEditor
+          v-else
           :model-value="props.selectedNode.data.config"
           @update:model-value="emit('update:node-config', $event)"
           @validity-change="emit('config-validity', $event)"
