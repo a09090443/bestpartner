@@ -63,16 +63,30 @@ function emitConfig() {
 }
 
 .field label {
-  font-size: 12px;
-  color: #606266;
+  font-size: 11px;
+  color: var(--wf-text-dim, #8a8a95);
 }
 
 .text-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 4px 6px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12.5px;
   font-family: inherit;
+  color: var(--wf-text, #e7e7ec);
+  background: var(--wf-input, #0f0f13);
+  border: 1px solid var(--wf-border, #29292f);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.text-input:focus {
+  border-color: var(--wf-accent, #ff6a54);
+}
+
+select.text-input option {
+  background: var(--wf-input, #0f0f13);
+  color: var(--wf-text, #e7e7ec);
 }
 </style>

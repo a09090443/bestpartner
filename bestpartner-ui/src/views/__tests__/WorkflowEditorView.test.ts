@@ -43,11 +43,14 @@ vi.mock('@vue-flow/core', () => ({
     onEdgesChange: vi.fn(),
     addEdges: vi.fn(),
     addNodes: vi.fn(),
+    removeNodes: vi.fn(),
     screenToFlowCoordinate: vi.fn(() => ({ x: 0, y: 0 })),
     setNodes: setNodesMock,
     setEdges: setEdgesMock,
     toObject: toObjectMock,
     fitView: fitViewMock,
+    nodes: { value: [] },
+    edges: { value: [] },
   }),
 }))
 
@@ -149,6 +152,25 @@ describe('WorkflowEditorView', () => {
 
     expect(workflowApi.save).toHaveBeenCalled()
     expect(successMock).toHaveBeenCalled()
+  })
+
+  it('工具列名稱 inline input 應改寫 store.current.name 並標記未存', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    const input = wrapper.find('[data-test="toolbar-name-input"]')
+    expect((input.element as HTMLInputElement).value).toBe('流程')
+
+    await input.setValue('新流程名')
+
+    const { useWorkflowStore } = await import('../../stores/workflow')
+    const store = useWorkflowStore()
+    expect(store.current?.name).toBe('新流程名')
+    expect(store.dirty).toBe(true)
+    // dirty 徽章顯示未存
+    expect(wrapper.find('[data-test="dirty-badge"]').exists()).toBe(true)
   })
 
   it('存檔遇版本衝突應彈出重新載入對話框，確認後再次 load', async () => {

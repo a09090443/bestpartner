@@ -1,0 +1,64 @@
+/**
+ * Workflow 編輯器深色主題（n8n 風格）
+ * Token 作用域限定於 .wf-editor，避免污染 Login / WorkflowList 等淺色頁面。
+ * 字型（Manrope / IBM Plex Mono）由 index.html <link> 引入 Google Fonts。
+ */
+
+.wf-editor {
+  /* 背景層次 */
+  --wf-bg: #131316; /* 畫布最底層背景 */
+  --wf-surface: #17171c; /* 左右側欄背景 */
+  --wf-surface-2: #1a1a20; /* 頂部工具列 */
+  --wf-card: #1e1e26; /* 節點卡片背景 */
+  --wf-input: #0f0f13; /* 輸入框背景 */
+
+  /* 邊框 */
+  --wf-border: #29292f; /* 分隔線／欄框 */
+  --wf-border-2: #31313c; /* 節點邊框 */
+
+  /* 文字 */
+  --wf-text: #e7e7ec; /* 主文字 */
+  --wf-text-dim: #8a8a95; /* 次要文字（副標） */
+  --wf-text-mute: #5c5c67; /* 分類標題 */
+
+  /* 強調色 */
+  --wf-accent: #ff6a54; /* 選取環、主要按鈕、暫時連線 */
+  --wf-success: #3ecf8e; /* 已存／完成狀態 */
+
+  /* 畫布 */
+  --wf-grid-dot: #2b2b34; /* 點陣格線 */
+  --wf-edge: #4a4a55; /* 邊線預設色 */
+
+  /* 字型 */
+  --wf-font: 'Manrope', 'Helvetica Neue', Arial, 'Microsoft JhengHei', sans-serif;
+  --wf-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  font-family: var(--wf-font);
+  color: var(--wf-text);
+  background: var(--wf-bg);
+}
+
+/* ---- Vue Flow 節點：選取狀態（Vue Flow 於外層 wrapper 掛 .selected） ---- */
+.wf-editor .vue-flow__node.selected .workflow-node {
+  border-color: var(--node-color, var(--wf-accent));
+  box-shadow: 0 0 0 2px var(--node-ring, rgba(255, 106, 84, 0.55));
+}
+
+/* ---- Vue Flow 埠（handle）：13px 圓、卡片底色 ---- */
+.wf-editor .vue-flow__handle {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--wf-card);
+  border: 2px solid var(--wf-text-mute); /* 輸入埠：灰邊 */
+}
+
+.wf-editor .vue-flow__handle.source {
+  border-color: var(--node-color, var(--wf-text-mute)); /* 輸出埠：型別色邊 */
+}
+
+/* 連線中的暫時線用 accent */
+.wf-editor .vue-flow__connection-path {
+  stroke: var(--wf-accent);
+  stroke-width: 2;
+}

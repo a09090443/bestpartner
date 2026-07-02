@@ -82,4 +82,32 @@ describe('WorkflowNode', () => {
       'out:done',
     ])
   })
+
+  it('根元素以 --node-color CSS 變數帶出型別色（供選取外環／輸出埠使用）', () => {
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'n1', data: { type: 'LLM_ASSISTANT' } },
+      global: globalConfig,
+    })
+    const style = wrapper.find('.workflow-node').attributes('style') ?? ''
+    expect(style).toContain('--node-color: #409eff')
+  })
+
+  it('副標顯示 config 首個原始值；無 config 時退回型別小寫', () => {
+    const withConfig = mount(WorkflowNode, {
+      props: {
+        id: 'n1',
+        data: { type: 'HTTP_REQUEST', config: { url: 'https://api.example.com' } },
+      },
+      global: globalConfig,
+    })
+    expect(withConfig.find('[data-test="node-subtitle"]').text()).toContain(
+      'https://api.example.com',
+    )
+
+    const noConfig = mount(WorkflowNode, {
+      props: { id: 'n2', data: { type: 'CODE' } },
+      global: globalConfig,
+    })
+    expect(noConfig.find('[data-test="node-subtitle"]').text()).toBe('code')
+  })
 })

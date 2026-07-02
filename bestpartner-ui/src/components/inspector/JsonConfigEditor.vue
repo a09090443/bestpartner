@@ -123,11 +123,12 @@ function onRawInput(text: string) {
 
 .mode-btn {
   font-size: 12px;
-  color: #409eff;
+  color: var(--wf-accent, #ff6a54);
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
+  font-family: inherit;
 }
 
 .kv-table {
@@ -137,8 +138,9 @@ function onRawInput(text: string) {
 
 .kv-key {
   padding: 4px;
-  color: #606266;
-  font-size: 13px;
+  color: var(--wf-text-dim, #8a8a95);
+  font-size: 12.5px;
+  font-family: var(--wf-font-mono, ui-monospace, monospace);
   white-space: nowrap;
   vertical-align: top;
 }
@@ -151,19 +153,36 @@ function onRawInput(text: string) {
 .kv-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 4px 6px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  color: var(--wf-text, #e7e7ec);
+  background: var(--wf-input, #0f0f13);
+  border: 1px solid var(--wf-border, #29292f);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.kv-input:focus {
+  border-color: var(--wf-accent, #ff6a54);
 }
 
 .raw-input {
   width: 100%;
   box-sizing: border-box;
-  font-family: monospace;
+  font-family: var(--wf-font-mono, ui-monospace, monospace);
   font-size: 12px;
-  padding: 6px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  padding: 8px;
+  color: var(--wf-text, #e7e7ec);
+  background: var(--wf-input, #0f0f13);
+  border: 1px solid var(--wf-border, #29292f);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.raw-input:focus {
+  border-color: var(--wf-accent, #ff6a54);
 }
 
 .json-error {
@@ -173,7 +192,7 @@ function onRawInput(text: string) {
 }
 
 .empty {
-  color: #c0c4cc;
+  color: var(--wf-text-mute, #5c5c67);
   font-size: 12px;
   margin: 0;
 }

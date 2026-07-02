@@ -35,10 +35,14 @@ vi.mock('@vue-flow/core', () => ({
     onEdgesChange: vi.fn(),
     addEdges: vi.fn(),
     addNodes: vi.fn(),
+    removeNodes: vi.fn(),
     screenToFlowCoordinate: vi.fn(() => ({ x: 0, y: 0 })),
     setNodes: vi.fn(),
     setEdges: vi.fn(),
     toObject: h.toObjectMock,
+    fitView: vi.fn(),
+    nodes: { value: [] },
+    edges: { value: [] },
   }),
 }))
 

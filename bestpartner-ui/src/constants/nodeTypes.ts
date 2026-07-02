@@ -1,6 +1,12 @@
 import type { NodeType } from '../types/workflow'
 import { IN_MAIN, OUT_MAIN } from './handles'
 
+/** 節點分類（palette 分組／overview 圖例用），固定四類 */
+export type NodeCategory = 'Trigger' | 'Action' | 'AI' | 'Logic'
+
+/** 分類固定顯示順序 */
+export const NODE_CATEGORIES: NodeCategory[] = ['Trigger', 'Action', 'AI', 'Logic']
+
 /** 單一連接點（handle）定義 */
 export interface PortMeta {
   /** handle id，如 'in:main' / 'out:true'，直接作為 Vue Flow Handle 的 id */
@@ -18,6 +24,8 @@ export interface NodeTypeMeta {
   color: string
   /** 圖示（emoji，避免額外圖示依賴） */
   icon: string
+  /** 所屬分類（palette 分組顯示） */
+  category: NodeCategory
   /** 是否為觸發節點（畫布上特別標示，啟用 workflow 的必要節點） */
   isTrigger?: boolean
   /** 輸入埠（左緣）；TRIGGER 為空 */
@@ -38,6 +46,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '觸發',
     color: '#f56c6c',
     icon: '⚡',
+    category: 'Trigger',
     isTrigger: true,
     inputs: [],
     outputs: DEFAULT_OUTPUTS,
@@ -47,6 +56,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: 'LLM 助手',
     color: '#409eff',
     icon: '🤖',
+    category: 'AI',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -55,6 +65,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '工具',
     color: '#67c23a',
     icon: '🔧',
+    category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -63,6 +74,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: 'MCP 伺服器',
     color: '#9254de',
     icon: '🔌',
+    category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -71,6 +83,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '知識庫 RAG',
     color: '#13c2c2',
     icon: '📚',
+    category: 'AI',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -79,6 +92,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '條件判斷',
     color: '#e6a23c',
     icon: '🔀',
+    category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: [
       { id: 'out:true', label: 'True' },
@@ -90,6 +104,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '迴圈',
     color: '#fa8c16',
     icon: '🔁',
+    category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: [
       { id: 'out:loop', label: '迴圈' },
@@ -101,6 +116,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '程式碼',
     color: '#606266',
     icon: '📝',
+    category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -109,6 +125,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: 'HTTP 請求',
     color: '#2f54eb',
     icon: '🌐',
+    category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -117,6 +134,7 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     label: '資料轉換',
     color: '#eb2f96',
     icon: '🔄',
+    category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
@@ -134,4 +152,9 @@ export const NODE_TYPE_META_MAP: Record<NodeType, NodeTypeMeta> = NODE_TYPE_META
 /** 取得指定型別的中繼資料（找不到回傳 undefined） */
 export function getNodeTypeMeta(type: NodeType): NodeTypeMeta | undefined {
   return NODE_TYPE_META_MAP[type]
+}
+
+/** 取得指定分類下的節點型別（維持 NODE_TYPE_METAS 順序） */
+export function getNodesByCategory(category: NodeCategory): NodeTypeMeta[] {
+  return NODE_TYPE_METAS.filter((meta) => meta.category === category)
 }

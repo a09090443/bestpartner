@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Connection, Node, NodeTypesObject } from '@vue-flow/core'
@@ -19,6 +19,7 @@ import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
 import type { NodeType } from '../types/workflow'
+import '../styles/workflow-theme.css'
 
 // 單一 Vue Flow 自訂節點型別，語意型別放於 node.data.type
 const nodeTypes = { workflow: markRaw(WorkflowNode) } as unknown as NodeTypesObject
@@ -34,15 +35,30 @@ const {
   onEdgesChange,
   addEdges,
   addNodes,
+  removeNodes,
   screenToFlowCoordinate,
   setNodes,
   setEdges,
   toObject,
   fitView,
+  nodes: flowNodesRef,
+  edges: flowEdgesRef,
 } = useVueFlow()
 
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
+
+// Inspector overview 統計：取畫布的響應式 nodes/edges 計算（測試 mock 可能未提供，需防禦）
+const nodeCount = computed(() => flowNodesRef?.value?.length ?? 0)
+const connectionCount = computed(() => flowEdgesRef?.value?.length ?? 0)
+const triggerCount = computed(
+  () =>
+    (flowNodesRef?.value ?? []).filter(
+      (n) => (n.data as { type?: NodeType } | undefined)?.type === 'TRIGGER',
+    ).length,
+)
+
+const isActive = computed(() => store.current?.status === 'ACTIVE')
 
 // edge 視覺與互動預設：smoothstep 路由、加粗線、加大可點擊範圍（interactionWidth）。
 // 這些僅為畫布呈現用，存檔時 flowToSaveRequest 不會帶入這些欄位。
@@ -169,7 +185,30 @@ function onNodeConfigUpdate(config: Record<string, unknown>) {
   }
 }
 
-// Inspector：流程 meta 編輯
+// Inspector：複製選取節點（偏移放置，config 淺拷貝避免共用參考）
+function onDuplicateNode() {
+  const node = selectedNode.value
+  if (!node) return
+  const copy: Node = {
+    id: generateNodeKey(),
+    type: 'workflow',
+    position: { x: node.position.x + 48, y: node.position.y + 48 },
+    data: { ...node.data, config: { ...(node.data.config ?? {}) } },
+  }
+  addNodes([copy])
+  store.setDirty(true)
+}
+
+// Inspector：刪除選取節點
+function onDeleteNode() {
+  const node = selectedNode.value
+  if (!node) return
+  removeNodes([node.id])
+  selectedNode.value = null
+  store.setDirty(true)
+}
+
+// 流程 meta 編輯（工具列 inline input 與 Inspector overview 共用）
 function onWorkflowNameUpdate(name: string) {
   if (store.current) {
     store.current.name = name
@@ -181,6 +220,25 @@ function onWorkflowDescriptionUpdate(description: string) {
   if (store.current) {
     store.current.description = description
     store.setDirty(true)
+  }
+}
+
+// Active 切換：已存檔（有 id）才呼叫後端 switchStatus
+async function handleActiveToggle(value: string | number | boolean) {
+  const active = value === true
+  if (!store.current) return
+  const id = store.current.id
+  if (!id) {
+    ElMessage.warning('請先存檔後再啟用流程')
+    return
+  }
+  try {
+    await store.switchStatus(id, active)
+    store.current.status = active ? 'ACTIVE' : 'INACTIVE'
+    ElMessage.success(active ? '流程已啟用' : '流程已停用')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '切換狀態失敗'
+    ElMessage.error(message)
   }
 }
 
@@ -244,20 +302,51 @@ async function handleSave() {
 </script>
 
 <template>
-  <div class="editor-layout">
-    <NodePalette />
-
-    <div class="center">
-      <div class="toolbar">
-        <span class="wf-name">{{ store.current?.name ?? '未命名流程' }}</span>
-        <span class="wf-meta">
-          <el-tag size="small">{{ store.current?.status ?? 'DRAFT' }}</el-tag>
-          <span class="version">v{{ store.current?.version ?? '-' }}</span>
-          <el-tag v-if="store.dirty" size="small" type="warning">未存</el-tag>
-        </span>
-        <el-button data-test="tidy-button" @click="handleTidyUp">整理版面</el-button>
-        <el-button type="primary" data-test="save-button" @click="handleSave">存檔</el-button>
+  <div class="wf-editor editor-layout">
+    <!-- 頂部工具列 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="logo-box" aria-hidden="true">⚡</div>
+        <span class="breadcrumb">Personal <span class="breadcrumb-sep">/</span></span>
+        <input
+          class="wf-name-input"
+          data-test="toolbar-name-input"
+          :value="store.current?.name ?? ''"
+          placeholder="未命名流程"
+          @input="onWorkflowNameUpdate(($event.target as HTMLInputElement).value)"
+        />
+        <span v-if="store.dirty" class="save-badge dirty" data-test="dirty-badge">● 未存</span>
+        <span v-else class="save-badge saved" data-test="saved-badge">● Saved</span>
+        <span class="version">v{{ store.current?.version ?? '-' }}</span>
       </div>
+
+      <div class="toolbar-right">
+        <div class="tabs">
+          <button type="button" class="tab active">Editor</button>
+          <button type="button" class="tab" disabled title="即將推出">Executions</button>
+        </div>
+
+        <div class="active-toggle">
+          <span class="toggle-label">Active</span>
+          <el-switch
+            data-test="active-toggle"
+            :model-value="isActive"
+            size="small"
+            @change="handleActiveToggle"
+          />
+        </div>
+
+        <button type="button" class="btn ghost" data-test="tidy-button" @click="handleTidyUp">
+          整理版面
+        </button>
+        <button type="button" class="btn primary" data-test="save-button" @click="handleSave">
+          存檔
+        </button>
+      </div>
+    </div>
+
+    <div class="editor-body">
+      <NodePalette />
 
       <div class="canvas" @drop="onDrop" @dragover="onDragOver">
         <VueFlow
@@ -266,24 +355,30 @@ async function handleSave() {
           delete-key-code="Delete"
           fit-view-on-init
         >
-          <Background :gap="16" pattern-color="#dcdfe6" />
+          <Background variant="dots" :gap="20" :size="1.4" color="#2b2b34" />
           <MiniMap :node-color="minimapNodeColor" pannable zoomable />
           <Controls position="bottom-left" />
         </VueFlow>
       </div>
-    </div>
 
-    <div class="inspector">
-      <InspectorPanel
-        :selected-node="selectedNode"
-        :workflow-name="store.current?.name ?? ''"
-        :workflow-description="store.current?.description"
-        @update:node-name="onNodeNameUpdate"
-        @update:node-config="onNodeConfigUpdate"
-        @update:workflow-name="onWorkflowNameUpdate"
-        @update:workflow-description="onWorkflowDescriptionUpdate"
-        @config-validity="configValid = $event"
-      />
+      <div class="inspector">
+        <InspectorPanel
+          :selected-node="selectedNode"
+          :workflow-name="store.current?.name ?? ''"
+          :workflow-description="store.current?.description"
+          :node-count="nodeCount"
+          :connection-count="connectionCount"
+          :trigger-count="triggerCount"
+          :workflow-status="store.current?.status"
+          @update:node-name="onNodeNameUpdate"
+          @update:node-config="onNodeConfigUpdate"
+          @update:workflow-name="onWorkflowNameUpdate"
+          @update:workflow-description="onWorkflowDescriptionUpdate"
+          @duplicate-node="onDuplicateNode"
+          @delete-node="onDeleteNode"
+          @config-validity="configValid = $event"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -291,63 +386,242 @@ async function handleSave() {
 <style scoped>
 .editor-layout {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100%;
 }
 
-.center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
+/* ---- 工具列 ---- */
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #e4e7ed;
+  height: 54px;
+  flex-shrink: 0;
+  padding: 0 14px;
+  box-sizing: border-box;
+  background: var(--wf-surface-2);
+  border-bottom: 1px solid var(--wf-border);
 }
 
-.wf-name {
-  font-weight: 600;
-}
-
-.wf-meta {
+.toolbar-left,
+.toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  color: #909399;
-  font-size: 13px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.logo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  font-size: 14px;
+  background: var(--wf-accent);
+  border-radius: 8px;
+}
+
+.breadcrumb {
+  font-size: 12.5px;
+  color: var(--wf-text-dim);
+  white-space: nowrap;
+}
+
+.breadcrumb-sep {
+  color: var(--wf-text-mute);
+  margin-left: 2px;
+}
+
+.wf-name-input {
+  min-width: 120px;
+  max-width: 280px;
+  padding: 5px 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--wf-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.wf-name-input:hover {
+  border-color: var(--wf-border);
+}
+
+.wf-name-input:focus {
+  border-color: var(--wf-accent);
+  background: var(--wf-input);
+}
+
+.save-badge {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.save-badge.saved {
+  color: var(--wf-success);
+}
+
+.save-badge.dirty {
+  color: var(--wf-accent);
+}
+
+.version {
+  font-size: 11px;
+  font-family: var(--wf-font-mono);
+  color: var(--wf-text-mute);
+  white-space: nowrap;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--wf-input);
+  border: 1px solid var(--wf-border);
+  border-radius: 9px;
+}
+
+.tab {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--wf-text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--wf-text);
+  background: var(--wf-card);
+}
+
+.tab:disabled {
+  color: var(--wf-text-mute);
+  cursor: not-allowed;
+}
+
+.active-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toggle-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wf-text-dim);
+}
+
+.btn {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s, border-color 0.12s;
+}
+
+.btn.ghost {
+  color: var(--wf-text);
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border-2);
+}
+
+.btn.ghost:hover {
+  border-color: var(--wf-text-mute);
+}
+
+.btn.primary {
+  color: #fff;
+  background: var(--wf-accent);
+  border: 1px solid var(--wf-accent);
+}
+
+.btn.primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ---- 主體三欄 ---- */
+.editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .canvas {
   flex: 1;
   position: relative;
+  min-width: 0;
+}
+
+.canvas :deep(.vue-flow) {
+  background: var(--wf-bg);
 }
 
 .inspector {
-  width: 280px;
-  border-left: 1px solid #e4e7ed;
-  background: #fafafa;
-  padding: 12px;
+  width: 322px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--wf-border);
+  background: var(--wf-surface);
   overflow-y: auto;
 }
 
-/* 連線：hover 與選取時加粗變色，提升可點擊回饋 */
+/* ---- 連線：深色預設，hover / 選取轉 accent ---- */
 .canvas :deep(.vue-flow__edge-path) {
-  stroke: #b1b3b8;
+  stroke: var(--wf-edge);
   transition: stroke 0.15s, stroke-width 0.15s;
 }
 
 .canvas :deep(.vue-flow__edge:hover .vue-flow__edge-path) {
-  stroke: #409eff;
+  stroke: var(--wf-accent);
   stroke-width: 3.5;
 }
 
 .canvas :deep(.vue-flow__edge.selected .vue-flow__edge-path) {
-  stroke: #409eff;
+  stroke: var(--wf-accent);
   stroke-width: 4;
+}
+
+/* ---- Controls 深色覆寫 ---- */
+.canvas :deep(.vue-flow__controls) {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.canvas :deep(.vue-flow__controls-button) {
+  background: var(--wf-surface-2);
+  border-bottom: 1px solid var(--wf-border);
+  fill: var(--wf-text-dim);
+}
+
+.canvas :deep(.vue-flow__controls-button:hover) {
+  background: var(--wf-card);
+  fill: var(--wf-text);
+}
+
+/* ---- MiniMap 深色覆寫 ---- */
+.canvas :deep(.vue-flow__minimap) {
+  background: var(--wf-surface-2);
+  border: 1px solid var(--wf-border);
+  border-radius: 10px;
+}
+
+.canvas :deep(.vue-flow__minimap-mask) {
+  fill: rgba(19, 19, 22, 0.55);
 }
 </style>

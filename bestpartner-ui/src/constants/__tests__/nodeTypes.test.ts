@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_TYPE_METAS, getNodeTypeMeta } from '../nodeTypes'
+import {
+  NODE_TYPE_METAS,
+  NODE_CATEGORIES,
+  getNodeTypeMeta,
+  getNodesByCategory,
+} from '../nodeTypes'
 
 describe('nodeTypes 埠定義', () => {
   it('每個型別都有 inputs / outputs 陣列', () => {
@@ -31,5 +36,36 @@ describe('nodeTypes 埠定義', () => {
   it('LOOP 有 out:loop / out:done 兩輸出', () => {
     const meta = getNodeTypeMeta('LOOP')!
     expect(meta.outputs.map((p) => p.id)).toEqual(['out:loop', 'out:done'])
+  })
+})
+
+describe('nodeTypes 分類（category）', () => {
+  it('NODE_CATEGORIES 依固定順序 Trigger → Action → AI → Logic', () => {
+    expect(NODE_CATEGORIES).toEqual(['Trigger', 'Action', 'AI', 'Logic'])
+  })
+
+  it('每個型別都有 category 且屬於 NODE_CATEGORIES', () => {
+    for (const meta of NODE_TYPE_METAS) {
+      expect(NODE_CATEGORIES).toContain(meta.category)
+    }
+  })
+
+  it('分類對映符合規格', () => {
+    expect(getNodeTypeMeta('TRIGGER')!.category).toBe('Trigger')
+    for (const t of ['TOOL', 'MCP_SERVER', 'HTTP_REQUEST'] as const) {
+      expect(getNodeTypeMeta(t)!.category).toBe('Action')
+    }
+    for (const t of ['LLM_ASSISTANT', 'KNOWLEDGE_RAG'] as const) {
+      expect(getNodeTypeMeta(t)!.category).toBe('AI')
+    }
+    for (const t of ['CONDITION', 'LOOP', 'CODE', 'DATA_TRANSFORM'] as const) {
+      expect(getNodeTypeMeta(t)!.category).toBe('Logic')
+    }
+  })
+
+  it('getNodesByCategory 涵蓋全部 10 種型別且不重複', () => {
+    const all = NODE_CATEGORIES.flatMap((c) => getNodesByCategory(c).map((m) => m.type))
+    expect(all).toHaveLength(NODE_TYPE_METAS.length)
+    expect(new Set(all).size).toBe(NODE_TYPE_METAS.length)
   })
 })
