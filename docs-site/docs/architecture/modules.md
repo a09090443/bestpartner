@@ -22,10 +22,11 @@ bestpartner/
 | 目錄 | 職責 |
 |------|------|
 | `api/` | 後端 API client（axios 實例與認證攔截器；workflow、llmSetting、tool、mcpServer 端點封裝） |
-| `components/canvas/` | Vue Flow 節點面板（NodePalette）與自訂節點（WorkflowNode，依 meta 動態渲染多連接點） |
-| `components/inspector/` | 屬性面板（InspectorPanel）、型別化節點設定表單（`forms/`）與通用 JSON 設定編輯器（JsonConfigEditor，作為 fallback） |
+| `components/canvas/` | Vue Flow 節點面板（NodePalette，Trigger／Action／AI／Logic 分類＋搜尋）與自訂節點（WorkflowNode，依 meta 動態渲染多連接點、深色卡片） |
+| `components/inspector/` | 屬性面板（InspectorPanel，含節點複製／刪除與未選取時的 Workflow overview 統計）、型別化節點設定表單（`forms/`）與通用 JSON 設定編輯器（JsonConfigEditor，作為 fallback） |
 | `composables/` | nodeKey 產生、畫布↔DTO 雙向轉換、輕量畫布驗證、下拉選項快取（useNodeOptions）、dagre 自動排版（useCanvasLayout） |
-| `constants/` | 節點型別顯示 meta（label/color/icon 與 inputs/outputs 連接點）、handle 編碼工具 |
+| `constants/` | 節點型別顯示 meta（label/color/icon/category 與 inputs/outputs 連接點）、handle 編碼工具 |
+| `styles/` | 編輯器深色主題（`workflow-theme.css`，n8n 風格；token 以 `.wf-editor` 作用域界定） |
 | `router/` | 路由定義與登入守衛 |
 | `stores/` | Pinia 狀態（auth、workflow） |
 | `types/` | 對應後端 DTO 的 TypeScript 型別、下拉 Option 型別 |

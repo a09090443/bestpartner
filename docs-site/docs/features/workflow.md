@@ -6,7 +6,7 @@ sidebar_position: 5
 
 BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節點（Node）＋連線（Edge）」的方式，在畫布上自訂 AI 自動化流程。
 
-> **目前進度**：後端已完成 Workflow 定義的 CRUD 與畫布驗證；前端編輯器已具備多連接點節點（分支）、完整畫布操作、型別化節點設定表單與自動排版。執行引擎與觸發器將於後續階段推出。
+> **目前進度**：後端已完成 Workflow 定義的 CRUD 與畫布驗證；前端編輯器已具備多連接點節點（分支）、完整畫布操作、型別化節點設定表單、自動排版與深色 n8n 風格介面。執行引擎與觸發器將於後續階段推出。
 
 ## 核心概念
 
@@ -25,14 +25,14 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 ## 前端編輯器
 
-前端以 Vue 3 + [Vue Flow](https://vueflow.dev/) 打造 n8n-like 畫布，主要區塊：
+前端以 Vue 3 + [Vue Flow](https://vueflow.dev/) 打造 **n8n-like 深色畫布**（charcoal 深色主題、珊瑚色強調，Manrope／IBM Plex Mono 字型），主要區塊：
 
-- **節點面板（NodePalette）**：左側可拖放的節點型別清單。
-- **畫布（Canvas）**：中央繪製節點與連線，內建背景格線、縮圖（MiniMap，沿用節點型別色）與縮放控制（Controls）。
-- **屬性面板（Inspector）**：右側編輯選中節點的名稱與設定，或編輯流程 meta。
-- **工具列**：顯示流程名稱/狀態/版本、「整理版面」與「存檔」；有未存變更時顯示「未存」並攔截離頁。
+- **節點面板（NodePalette）**：左側可拖放的節點清單，依 **Trigger／Action／AI／Logic 四大分類**分組，並提供搜尋框即時過濾。
+- **畫布（Canvas）**：中央繪製節點與連線；節點以卡片呈現（型別 icon、名稱與 config 摘要副標，選取時顯示型別色外環），內建點陣背景格線、縮圖（MiniMap，沿用節點型別色）與縮放控制（Controls）。
+- **屬性面板（Inspector）**：右側；選取節點時編輯名稱與設定（型別化表單），並提供**複製（Duplicate）／刪除（Delete）**；未選取時顯示 **Workflow overview**——節點／連線／觸發數統計卡與節點型別圖例。
+- **工具列**：麵包屑、流程名稱 inline 編輯、**Saved／未存**狀態徽章、Editor·Executions 分頁、**Active 啟用切換**（接 `switchStatus`）、「整理版面」與「存檔」；有未存變更時顯示「未存」並攔截離頁。
 
-所有節點共用單一 Vue Flow 節點型別，語意型別放在 `node.data.type`；畫布資料（Vue Flow 格式）與後端 `WorkflowDTO` 之間由 `useWorkflowSync` 的 `dtoToFlow` / `flowToSaveRequest` 雙向轉換，後端 DTO 為唯一真相。
+所有節點共用單一 Vue Flow 節點型別，語意型別放在 `node.data.type`；畫布資料（Vue Flow 格式）與後端 `WorkflowDTO` 之間由 `useWorkflowSync` 的 `dtoToFlow` / `flowToSaveRequest` 雙向轉換，後端 DTO 為唯一真相。深色主題 token 以 `.wf-editor` 作用域界定，不影響登入／列表等其他頁面。
 
 ## 節點連接點與多埠 Handle 編碼
 

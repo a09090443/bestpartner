@@ -250,7 +250,7 @@ npm run serve
 
 ## 前端應用（bestpartner-ui）
 
-BestPartner 提供基於 Vue 3 的前端應用，位於 `bestpartner-ui/` 目錄，提供登入、Workflow 列表與 n8n-like 視覺化 Workflow 編輯器（Vue Flow 畫布、拖放節點、屬性面板）。
+BestPartner 提供基於 Vue 3 的前端應用，位於 `bestpartner-ui/` 目錄，提供登入、Workflow 列表與 n8n-like 視覺化 Workflow 編輯器（Vue Flow 深色畫布、分類節點庫、型別化屬性面板與自動排版）。
 
 ### 環境需求
 
