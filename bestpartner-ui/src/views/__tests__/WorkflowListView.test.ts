@@ -35,13 +35,16 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push: pushMock }),
 }))
 
+// 可斷言的 ElMessage mock（供錯誤訊息測試）
+const msg = vi.hoisted(() => ({ successMock: vi.fn(), errorMock: vi.fn() }))
+
 // ElMessageBox.confirm 直接 resolve，模擬使用者按下確認
 vi.mock('element-plus', async () => {
   const actual = await vi.importActual<typeof import('element-plus')>('element-plus')
   return {
     ...actual,
     ElMessageBox: { confirm: vi.fn(() => Promise.resolve('confirm')) },
-    ElMessage: { success: vi.fn(), error: vi.fn() },
+    ElMessage: { success: msg.successMock, error: msg.errorMock },
   }
 })
 
@@ -94,5 +97,23 @@ describe('WorkflowListView', () => {
     await wrapper.find('[data-test="delete-w1"]').trigger('click')
     await flushPromises()
     expect(removeMock).toHaveBeenCalledWith('w1')
+  })
+
+  it('updatedAt 為 null 時「更新時間」欄應顯示「—」', async () => {
+    summaries.value = [{ id: 'w1', name: 'Flow A', status: 'DRAFT', version: 1, updatedAt: null as unknown as undefined }]
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('—')
+  })
+
+  it('切換狀態失敗應顯示後端 ApiResponse.message', async () => {
+    switchStatusMock.mockRejectedValueOnce({
+      response: { data: { message: 'An active workflow must contain a Trigger node' } },
+    })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('[data-test="toggle-w1"]').trigger('click')
+    await flushPromises()
+    expect(msg.errorMock).toHaveBeenCalledWith('An active workflow must contain a Trigger node')
   })
 })

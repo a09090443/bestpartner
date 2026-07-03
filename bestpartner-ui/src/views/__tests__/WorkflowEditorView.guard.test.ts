@@ -4,7 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 
 // 捕捉元件註冊的 callback（畫布變更、離頁守衛）
 const h = vi.hoisted(() => {
-  const captured: { nodesChange?: () => void; leave?: () => unknown } = {}
+  const captured: { nodesChange?: (changes?: unknown) => void; leave?: () => unknown } = {}
   return {
     captured,
     toObjectMock: vi.fn(() => ({ nodes: [] as unknown[], edges: [] as unknown[] })),
@@ -15,7 +15,7 @@ const h = vi.hoisted(() => {
     onBeforeRouteLeaveMock: vi.fn((cb: () => unknown) => {
       captured.leave = cb
     }),
-    onNodesChangeMock: vi.fn((cb: () => void) => {
+    onNodesChangeMock: vi.fn((cb: (changes?: unknown) => void) => {
       captured.nodesChange = cb
     }),
   }
@@ -84,14 +84,27 @@ describe('WorkflowEditorView — dirty 追蹤與離頁攔截', () => {
     vi.clearAllMocks()
   })
 
-  it('畫布變更應使 store.dirty 變 true', async () => {
+  it('節點 position/add 變更應使 store.dirty 變 true', async () => {
     mountEditor()
     await flushPromises()
     const store = useWorkflowStore()
     expect(store.dirty).toBe(false)
 
-    h.captured.nodesChange?.()
+    h.captured.nodesChange?.([{ type: 'position' }])
     expect(store.dirty).toBe(true)
+  })
+
+  it('僅 dimensions/select 變更不應標記 dirty（尺寸量測、選取非使用者編輯）', async () => {
+    mountEditor()
+    await flushPromises()
+    const store = useWorkflowStore()
+    expect(store.dirty).toBe(false)
+
+    h.captured.nodesChange?.([{ type: 'dimensions' }])
+    expect(store.dirty).toBe(false)
+
+    h.captured.nodesChange?.([{ type: 'select' }])
+    expect(store.dirty).toBe(false)
   })
 
   it('dirty 為 true 時離頁守衛應觸發確認框', async () => {

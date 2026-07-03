@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // 先 import 再測試；http.ts 尚未存在時測試會直接失敗（紅）
-import { attachAuthHeader, setRedirectHandler, handleUnauthorizedResponse } from '../http'
+import {
+  attachAuthHeader,
+  setRedirectHandler,
+  handleUnauthorizedResponse,
+  extractApiMessage,
+} from '../http'
 
 describe('attachAuthHeader', () => {
   beforeEach(() => {
@@ -26,6 +31,26 @@ describe('attachAuthHeader', () => {
     const config = {} as Parameters<typeof attachAuthHeader>[0]
     const result = attachAuthHeader(config)
     expect(result.headers!['Authorization']).toBe('Bearer init-header-token')
+  })
+})
+
+describe('extractApiMessage', () => {
+  it('應優先取 axios error 的 response.data.message（後端業務訊息）', () => {
+    const err = {
+      message: 'Request failed with status code 400',
+      response: { data: { message: 'An active workflow must contain a Trigger node' } },
+    }
+    expect(extractApiMessage(err)).toBe('An active workflow must contain a Trigger node')
+  })
+
+  it('無 response.data.message 時退回 error 本身的 message', () => {
+    const err = { message: 'Network Error' }
+    expect(extractApiMessage(err)).toBe('Network Error')
+  })
+
+  it('兩者皆無時回傳 undefined', () => {
+    expect(extractApiMessage({})).toBeUndefined()
+    expect(extractApiMessage(null)).toBeUndefined()
   })
 })
 
