@@ -31,4 +31,20 @@ describe('ToolForm', () => {
     const emitted = wrapper.emitted('update:config')
     expect(emitted![emitted!.length - 1][0]).toEqual({ foo: 1, toolId: 't1' })
   })
+
+  it('編輯 toolSettingId 應 emit update:config 帶入 toolSettingId', async () => {
+    const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="tool-setting-id"]').setValue('ts-9')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ toolId: 't1', toolSettingId: 'ts-9' })
+  })
+
+  it('清空 toolSettingId 應自 config 移除該鍵', async () => {
+    const wrapper = mount(ToolForm, { props: { config: { toolId: 't1', toolSettingId: 'ts-9' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="tool-setting-id"]').setValue('')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ toolId: 't1' })
+  })
 })

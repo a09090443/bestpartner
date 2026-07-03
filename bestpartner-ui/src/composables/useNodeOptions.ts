@@ -2,16 +2,18 @@ import { ref } from 'vue'
 import * as llmSettingApi from '../api/llmSetting'
 import * as toolApi from '../api/tool'
 import * as mcpServerApi from '../api/mcpServer'
+import * as vectorApi from '../api/vector'
 import type { Option } from '../types/options'
 
 /**
  * 節點表單下拉選項的載入與快取。
- * 三種清單以模組級 ref 快取，一個 session 只抓一次；表單掛載時 await 對應 loader。
+ * 四種清單以模組級 ref 快取，一個 session 只抓一次；表單掛載時 await 對應 loader。
  */
 
 const llmOptions = ref<Option[] | null>(null)
 const toolOptions = ref<Option[] | null>(null)
 const mcpOptions = ref<Option[] | null>(null)
+const knowledgeOptions = ref<Option[] | null>(null)
 
 export function useNodeOptions() {
   async function loadLlmOptions(): Promise<Option[]> {
@@ -29,5 +31,10 @@ export function useNodeOptions() {
     return mcpOptions.value
   }
 
-  return { loadLlmOptions, loadToolOptions, loadMcpOptions }
+  async function loadKnowledgeOptions(): Promise<Option[]> {
+    if (!knowledgeOptions.value) knowledgeOptions.value = await vectorApi.listKnowledgeStores()
+    return knowledgeOptions.value
+  }
+
+  return { loadLlmOptions, loadToolOptions, loadMcpOptions, loadKnowledgeOptions }
 }

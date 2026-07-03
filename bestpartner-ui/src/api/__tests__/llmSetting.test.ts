@@ -21,7 +21,7 @@ describe('llmSetting API client', () => {
     getMock.mockReset()
   })
 
-  it('getSettings() 應 POST /llm/setting/get（空 body）並轉為 Option[]', async () => {
+  it('getSettings() 應 POST /llm/setting/get（空 body）並轉為 Option[]，label 標示 modelType', async () => {
     postMock.mockResolvedValueOnce(
       apiOk([
         { id: 's1', alias: 'GPT-4o', modelType: 'CHAT' },
@@ -33,13 +33,26 @@ describe('llmSetting API client', () => {
 
     expect(postMock).toHaveBeenCalledWith('/llm/setting/get', {})
     expect(result).toEqual([
-      { value: 's1', label: 'GPT-4o' },
-      { value: 's2', label: 'Claude' },
+      { value: 's1', label: 'GPT-4o（CHAT）' },
+      { value: 's2', label: 'Claude（STREAMING_CHAT）' },
     ])
   })
 
-  it('alias 缺失時以 id 作為 label', async () => {
-    postMock.mockResolvedValueOnce(apiOk([{ id: 's3', modelType: 'CHAT' }]))
+  it('過濾掉 EMBEDDING 型別的設定（無法用於對話節點）', async () => {
+    postMock.mockResolvedValueOnce(
+      apiOk([
+        { id: 's1', alias: 'GPT-4o', modelType: 'CHAT' },
+        { id: 's9', alias: 'text-embedding', modelType: 'EMBEDDING' },
+      ]),
+    )
+
+    const result = await llmSettingApi.getSettings()
+
+    expect(result).toEqual([{ value: 's1', label: 'GPT-4o（CHAT）' }])
+  })
+
+  it('alias 缺失時以 id 作為 label；modelType 缺失時不加註記', async () => {
+    postMock.mockResolvedValueOnce(apiOk([{ id: 's3' }]))
 
     const result = await llmSettingApi.getSettings()
 

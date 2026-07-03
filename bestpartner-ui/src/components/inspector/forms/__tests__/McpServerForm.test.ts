@@ -31,4 +31,20 @@ describe('McpServerForm', () => {
     const emitted = wrapper.emitted('update:config')
     expect(emitted![emitted!.length - 1][0]).toEqual({ foo: 1, mcpId: 'm2' })
   })
+
+  it('編輯 mcpSettingId 應 emit update:config 帶入 mcpSettingId', async () => {
+    const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="mcp-setting-id"]').setValue('ms-7')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1', mcpSettingId: 'ms-7' })
+  })
+
+  it('清空 mcpSettingId 應自 config 移除該鍵', async () => {
+    const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1', mcpSettingId: 'ms-7' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="mcp-setting-id"]').setValue('')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1' })
+  })
 })

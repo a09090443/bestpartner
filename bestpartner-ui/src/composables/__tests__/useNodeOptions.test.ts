@@ -3,10 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const getSettings = vi.fn()
 const listTools = vi.fn()
 const listMcpServers = vi.fn()
+const listKnowledgeStores = vi.fn()
 
 vi.mock('../../api/llmSetting', () => ({ getSettings: (...a: unknown[]) => getSettings(...a) }))
 vi.mock('../../api/tool', () => ({ listTools: (...a: unknown[]) => listTools(...a) }))
 vi.mock('../../api/mcpServer', () => ({ listMcpServers: (...a: unknown[]) => listMcpServers(...a) }))
+vi.mock('../../api/vector', () => ({
+  listKnowledgeStores: (...a: unknown[]) => listKnowledgeStores(...a),
+}))
 
 describe('useNodeOptions', () => {
   beforeEach(() => {
@@ -14,6 +18,7 @@ describe('useNodeOptions', () => {
     getSettings.mockReset()
     listTools.mockReset()
     listMcpServers.mockReset()
+    listKnowledgeStores.mockReset()
   })
 
   it('loadLlmOptions 首次載入回傳 api 結果', async () => {
@@ -41,5 +46,16 @@ describe('useNodeOptions', () => {
     const opts = useNodeOptions()
     expect(await opts.loadToolOptions()).toEqual([{ value: 't1', label: 'Tool' }])
     expect(await opts.loadMcpOptions()).toEqual([{ value: 'm1', label: 'Mcp' }])
+  })
+
+  it('loadKnowledgeOptions 委派 vector api 並快取', async () => {
+    listKnowledgeStores.mockResolvedValue([{ value: 'k1', label: '知識庫' }])
+    const { useNodeOptions } = await import('../useNodeOptions')
+    const { loadKnowledgeOptions } = useNodeOptions()
+    const first = await loadKnowledgeOptions()
+    const second = await loadKnowledgeOptions()
+    expect(first).toEqual([{ value: 'k1', label: '知識庫' }])
+    expect(listKnowledgeStores).toHaveBeenCalledTimes(1)
+    expect(second).toBe(first)
   })
 })

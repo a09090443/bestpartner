@@ -1,11 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useNodeOptions } from '../../../composables/useNodeOptions'
+import type { Option } from '../../../types/options'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
 
+const options = ref<Option[]>([])
 const knowledgeId = ref<string>((props.config.knowledgeId as string) ?? '')
 const topK = ref<number>((props.config.topK as number) ?? 4)
+
+onMounted(async () => {
+  try {
+    options.value = await useNodeOptions().loadKnowledgeOptions()
+  } catch {
+    options.value = []
+  }
+})
 
 function emitConfig() {
   emit('update:config', { ...props.config, knowledgeId: knowledgeId.value, topK: topK.value })
@@ -15,13 +26,16 @@ function emitConfig() {
 <template>
   <div class="form">
     <div class="field">
-      <label>知識庫 ID</label>
-      <input
+      <label>知識庫</label>
+      <select
         v-model="knowledgeId"
         data-test="knowledge-id"
         class="text-input"
-        @input="emitConfig"
-      />
+        @change="emitConfig"
+      >
+        <option value="">請選擇</option>
+        <option v-for="opt in options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+      </select>
     </div>
     <div class="field">
       <label>取回筆數（topK）</label>

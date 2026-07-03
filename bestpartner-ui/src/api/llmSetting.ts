@@ -12,11 +12,16 @@ interface LLMSettingDTO {
 /**
  * 查詢當前用戶的 LLM 設定，轉為下拉 Option[]。
  * 空 body 取全部；value = 設定 id（即 chat 端點使用的 llmId），label = alias。
+ * EMBEDDING 型別無法用於對話端點，直接濾除；其餘型別（CHAT / STREAMING_CHAT）
+ * 於 label 加註型別，因執行期端點與模型型別不符會直接失敗，須讓使用者可辨識。
  */
 export async function getSettings(): Promise<Option[]> {
   const res = await http.post<ApiResponse<LLMSettingDTO[]>>('/llm/setting/get', {})
   const list = res.data.data ?? []
   return list
-    .filter((s): s is LLMSettingDTO & { id: string } => !!s.id)
-    .map((s) => ({ value: s.id, label: s.alias || s.id }))
+    .filter((s): s is LLMSettingDTO & { id: string } => !!s.id && s.modelType !== 'EMBEDDING')
+    .map((s) => ({
+      value: s.id,
+      label: (s.alias || s.id) + (s.modelType ? `（${s.modelType}）` : ''),
+    }))
 }
