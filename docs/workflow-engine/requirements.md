@@ -45,6 +45,7 @@ BestPartner 為類似 Dify / Coze 的 AI 應用平台。本需求新增 **n8n-li
 | N7 | **節點重試（retry）/ 斷點續跑（resume）** | 失敗即整體 FAILED，不自動重試、不從失敗節點續跑。 |
 | N8 | **跨 workflow 子流程呼叫（sub-workflow）** | 不支援節點呼叫另一個 workflow。 |
 | N9 | **即時推播執行進度（SSE / WebSocket）** | v1 以輪詢執行紀錄查詢進度；不開即時串流。 |
+| N10 | **LLM 節點 token 串流輸出（StreamingChatModel）** | workflow 為同步引擎，LLM 節點一律走同步 `ChatModel` 取完整回覆；聊天串流場景仍走既有 `/llm/customAssistantChatStreaming` 端點，不經 workflow。 |
 
 ---
 
@@ -86,7 +87,8 @@ BestPartner 為類似 Dify / Coze 的 AI 應用平台。本需求新增 **n8n-li
 
 ### Epic D — 節點能力整合
 
-- **US-D1**：身為使用者，我要放置「LLM / 自定義助手」節點並設定 llmId、prompt、是否啟用 Memory / Tool / MCP / Skill，使其呼叫既有 customAssistant 能力。
+- **US-D1**：身為使用者，我要放置「LLM / 自定義助手」節點並設定 llmId、prompt、是否啟用 Memory / Tool（含需 API key 的使用者設定版工具）/ MCP（含個人 MCP 設定）/ Skill / RAG 知識庫（knowledgeId 自動增強）/ 多模態檔案，使其呼叫既有 customAssistant 能力，且能力不弱於 `/llm/customAssistantChat` 端點。
+- **US-D1a**：身為使用者，我要讓 LLM 節點以 JSON Schema 回傳結構化輸出（responseFormat=JSON + outputSchema），以便下游 Condition / Data Transform 節點對欄位做精準取值與分支判斷。
 - **US-D2**：身為使用者，我要放置「Tool 節點」呼叫內建工具（Google / Tavily / Date / Text2SQL）。
 - **US-D3**：身為使用者，我要放置「MCP Server 節點」呼叫已註冊的 MCP server。
 - **US-D4**：身為使用者，我要放置「Knowledge / RAG 節點」依 knowledgeId + query 檢索向量資料。
@@ -189,9 +191,14 @@ BestPartner 為類似 Dify / Coze 的 AI 應用平台。本需求新增 **n8n-li
 
 ### AC-D1 — LLM / 助手節點
 
-- **成功**：Given 節點 config 含合法 `llmId` 與 `prompt`（可含 `{{變數}}` 引用上游輸出）；When 執行該節點；Then 呼叫既有 customAssistant 能力（依 config 啟用 Memory / Tool / MCP / Skill），output 寫入 node_execution。
+- **成功**：Given 節點 config 含合法 `llmId` 與 `prompt`（可含 `{{變數}}` 引用上游輸出）；When 執行該節點；Then 呼叫既有 customAssistant 能力（依 config 啟用 Memory / Tool / MCP / Skill / RAG / 檔案），output 寫入 node_execution。
+- **成功 — 使用者設定版工具**：Given config 含 `toolSettingIds` 指向使用者已配置 API key 的工具（如 Google / Tavily）；When 執行；Then 以 `buildToolWithSetting` 建出工具供 LLM 呼叫，行為與既有 chat 端點一致。
+- **成功 — RAG 自動增強**：Given config 含合法 `knowledgeId`；When 執行；Then LLM 呼叫掛上 retrievalAugmentor 自動檢索知識庫並參考回答（不落地中間檢索結果）。
+- **成功 — 結構化輸出**：Given `responseFormat=JSON` 且 `outputSchema` 為合法 JSON Schema；When 執行；Then output 為解析後的結構化 JSON，下游可以 `{{nodeKey.outputKey.欄位}}` 取值。
 - **失敗 — llmId 無效**：`LLM_SETTING_NOT_FOUND`，節點 FAILED。
 - **失敗 — 變數引用解析失敗**：上游無對應輸出鍵；Then `WORKFLOW_VARIABLE_RESOLVE_FAILED`，節點 FAILED。
+- **失敗 — 結構化輸出不符 schema**：模型回傳無法解析或不符 `outputSchema`；Then `WORKFLOW_LLM_OUTPUT_PARSE_FAILED`，節點 FAILED。
+- **失敗 — 引用檔案不存在**：`files` 中的檔名在使用者上傳目錄不存在；Then `WORKFLOW_LLM_FILE_NOT_FOUND`，節點 FAILED。
 
 ### AC-D5 — Condition 節點
 
@@ -242,5 +249,11 @@ BestPartner 為類似 Dify / Coze 的 AI 應用平台。本需求新增 **n8n-li
 3. **同步逾時與 Webhook 回應模式** → **統一 300 秒同步等待，逾時 TIMEOUT**。manual 與 webhook 一律同步等待結果；逾時上限 `workflow.execution.timeout-seconds`（預設 300，可設定），超時 execution 落 `TIMEOUT`。**v1 不提供 webhook 202 非同步受理模式**（移除 `responseMode=ASYNC_ACCEPTED`，列入後續版本）。
 
 ---
+
+## 8. 修訂紀錄
+
+| 日期 | 修訂內容 |
+|------|---------|
+| 2026-07-03 | 對照既有 `ChatRequestDTO` / langchain4j 能力盤點後補強：LLM 節點新增 `toolSettingIds`、`mcpSettingIds`、`knowledgeId`（自動 RAG）、`files`（多模態）、`responseFormat`/`outputSchema`（結構化輸出）；定義 `memoryId` 預設語意；新增 N10（LLM token 串流不入 workflow）與 US-D1a、AC-D1 對應情境。 |
 
 > 業務細節（資料表欄位、節點 config schema、API 契約、狀態機）以 `system-design.md` 為準。

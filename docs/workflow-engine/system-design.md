@@ -3,6 +3,7 @@
 > 對齊技術棧：Quarkus 3.21 + Kotlin 2.1 + PostgreSQL + JDK 21 ｜ 套件根：`tw.zipe.bastpartner`
 > 對齊既有風格：entity 繼承 `BaseEntity`（提供 `created_at` / `updated_at` / `created_by` / `updated_by`）、PK 為 `varchar(36)` UUID（`@GeneratedValue(strategy = GenerationType.UUID)`）、JSON 欄位以 `@JdbcTypeCode(SqlTypes.JSON)` 儲存、enum 以 `@Enumerated(EnumType.STRING)` 存字串、API 回應包 `ApiResponse<T>`、JWT 權限以 `@Authenticated` / `@RolesAllowed`。
 > 業務 AC 見同目錄 `requirements.md`。
+> 2026-07-03 修訂：§2.2 LLM_ASSISTANT config 補齊為 `ChatRequestDTO` 全集（toolSettingIds / mcpIds+mcpSettingIds / knowledgeId / files / responseFormat+outputSchema / memoryId 語意）；§2.5 補兩條 RAG 路徑取捨；§9 新增 2 個 i18n 訊息鍵。
 
 ---
 
@@ -315,7 +316,7 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 
 ### 2.2 LLM_ASSISTANT（LLM / 自定義助手）
 
-用途：呼叫既有 `LLMService` 的 customAssistant 能力（同步），支援 Memory / Tool / MCP / Skill 整合。
+用途：呼叫既有 `LLMService` 的 customAssistant 能力（同步），支援 Memory / Tool / MCP / Skill / RAG / 多模態檔案 / 結構化輸出整合。config 欄位為 `ChatRequestDTO` 的**全集**（而非子集），Phase 3 executor 可直接映射，確保 workflow 版助手能力不弱於既有 `/llm/customAssistantChat` 端點。
 
 ```json
 {
@@ -323,13 +324,32 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
   "systemPrompt": "你是客服助手",
   "userPrompt": "請回覆：{{trigger.userMessage}}",
   "enableMemory": false,
-  "memoryId": null,
+  "memoryId": "{{trigger.sessionId}}",
   "toolIds": ["tool-uuid-1"],
-  "mcpServerIds": ["mcp-uuid-1"],
+  "toolSettingIds": ["user-tool-setting-uuid-1"],
+  "mcpIds": ["mcp-uuid-1"],
+  "mcpSettingIds": ["mcp-user-setting-uuid-1"],
   "skillIds": ["skill-uuid-1"],
+  "knowledgeId": "knowledge-uuid",
+  "files": ["{{trigger.fileName}}"],
+  "responseFormat": "TEXT",
+  "outputSchema": null,
   "outputKey": "reply"
 }
 ```
+
+欄位說明（對照 `ChatRequestDTO` 與 langchain4j 能力）：
+
+| 欄位 | 對應能力 | 說明 |
+|------|---------|------|
+| `toolIds` / `toolSettingIds` | Tools | `toolIds` 為免設定即可用的工具（如 Date）；**需 API key 的工具（Google / Tavily）必須以 `toolSettingIds` 帶入使用者工具設定**（走 `ToolService.buildToolWithSetting`），兩者可並用。 |
+| `mcpIds` / `mcpSettingIds` | MCP | 對齊 `ChatRequestDTO.mcpIds` / `mcpSettingIds`；`mcpSettingIds` 走使用者個人 MCP 設定（`McpServerService.buildMcpServer(ids, userId)`）。 |
+| `knowledgeId` | RAG（自動增強） | 掛 `EmbeddingStoreContentRetriever` + `DefaultRetrievalAugmentor`（同 `LLMService.buildAIService` 既有路徑），由 langchain4j 以 LLM 實際 query 自動檢索並注入上下文。與 `KNOWLEDGE_RAG` 節點（顯式檢索）為互補的兩條路徑，取捨見 §2.5。 |
+| `enableMemory` / `memoryId` | Memory | `enableMemory=true` 且 `memoryId` 為 null 時，預設使用 `execution:{executionId}`（同一次執行內多個 LLM 節點共享、跨執行不共享）；要跨執行延續對話須顯式指定 `memoryId`（支援 `{{變數}}` 插值，例如 webhook 傳入的 sessionId）。 |
+| `files` | 多模態 | 檔案名稱清單（`/llm/uploadFile` 上傳後的檔名，或由上游輸出插值）；executor 依 MIME 型別轉為 `ImageContent` / `PdfFileContent` 等內容附加至 UserMessage，對齊 `ChatRequestDTO.files`。檔案不存在回 `WORKFLOW_LLM_FILE_NOT_FOUND`。 |
+| `responseFormat` / `outputSchema` | Structured Output | `TEXT`（預設）：output 為 `{outputKey: 純文字}`。`JSON`：以 langchain4j 的 JSON schema response format 要求模型回傳符合 `outputSchema`（JSON Schema 物件）的結構化 JSON，解析後寫入 output，供下游以 `{{llm.reply.欄位}}` 取值與 `CONDITION` 精準判斷。解析失敗回 `WORKFLOW_LLM_OUTPUT_PARSE_FAILED`，節點 FAILED。 |
+
+> ⚠️ 已知限制（v1）：LLM 節點一律走同步 `ChatModel`，不支援 `StreamingChatModel` / SSE token 串流（見 requirements.md N9 / N10）；`llmId` 必須指向 `modelType=CHAT` 的 LLM 設定。
 
 ### 2.3 TOOL（內建工具節點）
 
@@ -372,6 +392,8 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
   "outputKey": "contexts"
 }
 ```
+
+> 與 `LLM_ASSISTANT.knowledgeId`（自動 RAG）互補的兩條路徑：本節點為**顯式檢索**，檢索結果落地於 node_execution.output，可被 `CONDITION` / `DATA_TRANSFORM` / 任意下游節點引用（可觀測、可分支）；`knowledgeId` 則是 langchain4j 在 LLM 呼叫內部自動檢索注入，不落地中間結果。需要「對檢索結果做流程控制」用本節點；只需要「LLM 回答時參考知識庫」用 `knowledgeId`。
 
 ### 2.6 CONDITION（條件分支 if-else）
 
@@ -707,6 +729,8 @@ data class NodeExecutionDTO(
 | `workflow.http.request.failed` | WORKFLOW_HTTP_REQUEST_FAILED | HTTP 節點失敗 |
 | `workflow.code.node.disabled` | WORKFLOW_CODE_NODE_DISABLED | Code 節點停用 |
 | `workflow.delete.while.running` | WORKFLOW_DELETE_WHILE_RUNNING | 執行中不可刪除 |
+| `workflow.llm.output.parse.failed` | WORKFLOW_LLM_OUTPUT_PARSE_FAILED | LLM 結構化輸出不符 outputSchema |
+| `workflow.llm.file.not.found` | WORKFLOW_LLM_FILE_NOT_FOUND | LLM 節點引用的上傳檔案不存在 |
 
 ---
 
