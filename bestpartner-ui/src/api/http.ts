@@ -27,6 +27,17 @@ export function handleUnauthorizedResponse(): void {
 }
 
 /**
+ * 自任意錯誤取出後端 ApiResponse 的 message。
+ * 優先取 axios error 的 `response.data.message`（後端業務訊息），
+ * 找不到才退回 error 本身的 `message`（多為 axios 通用的 HTTP 狀態字串）。
+ * 供 store 與 view 的 catch 區塊統一顯示有意義的錯誤訊息。
+ */
+export function extractApiMessage(err: unknown): string | undefined {
+  const maybe = err as { response?: { data?: { message?: string } }; message?: string }
+  return maybe?.response?.data?.message ?? maybe?.message
+}
+
+/**
  * 為 axios request config 附加 Authorization header。
  * 從 localStorage 取得 token，有則設定 `Bearer <token>`，無則不修改。
  * 此函式為純函式（無副作用），可單獨進行單元測試。

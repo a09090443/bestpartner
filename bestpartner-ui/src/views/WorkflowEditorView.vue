@@ -17,6 +17,7 @@ import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
 import { layoutGraph } from '../composables/useCanvasLayout'
 import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
+import { extractApiMessage } from '../api/http'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
 import type { NodeType } from '../types/workflow'
 import '../styles/workflow-theme.css'
@@ -47,6 +48,10 @@ const {
 
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
+
+// 載入既有流程期間為 true：此時 setNodes/setEdges 會觸發 onNodesChange/onEdgesChange，
+// 但那是程式化還原、非使用者編輯，不應標記為未存。
+const hydrating = ref(false)
 
 // Inspector overview 統計：取畫布的響應式 nodes/edges 計算（測試 mock 可能未提供，需防禦）
 const nodeCount = computed(() => flowNodesRef?.value?.length ?? 0)
@@ -84,10 +89,18 @@ function currentId(): string | undefined {
 }
 
 async function loadIntoCanvas(id: string) {
-  await store.load(id)
-  if (store.current) {
-    setNodes(store.current.nodes as unknown as Node[])
-    setEdges(store.current.edges.map(decorateEdge))
+  hydrating.value = true
+  try {
+    await store.load(id)
+    if (store.current) {
+      setNodes(store.current.nodes as unknown as Node[])
+      setEdges(store.current.edges.map(decorateEdge))
+    }
+    // 等畫布套用完 setNodes/setEdges 觸發的變更事件後，再重置為已存狀態
+    await nextTick()
+    store.setDirty(false)
+  } finally {
+    hydrating.value = false
   }
 }
 
@@ -100,9 +113,24 @@ onMounted(async () => {
   }
 })
 
-// 畫布變更 → 標記未存
-onNodesChange(() => store.setDirty(true))
-onEdgesChange(() => store.setDirty(true))
+// 僅「使用者編輯」類變更才標記未存：
+// 節點取 add/remove/position（排除 dimensions 尺寸量測、select 選取）；
+// 連線取 add/remove。並在 hydrating 期間一律忽略（程式化還原）。
+const DIRTYING_NODE_CHANGES = new Set(['add', 'remove', 'position'])
+const DIRTYING_EDGE_CHANGES = new Set(['add', 'remove'])
+
+function markDirtyFromChanges(
+  changes: ReadonlyArray<{ type?: string }> | undefined,
+  dirtying: Set<string>,
+) {
+  if (hydrating.value) return
+  if (changes?.some((c) => c.type != null && dirtying.has(c.type))) {
+    store.setDirty(true)
+  }
+}
+
+onNodesChange((changes) => markDirtyFromChanges(changes, DIRTYING_NODE_CHANGES))
+onEdgesChange((changes) => markDirtyFromChanges(changes, DIRTYING_EDGE_CHANGES))
 
 // 離頁攔截：有未存變更時提示確認
 onBeforeRouteLeave(async () => {
@@ -237,8 +265,7 @@ async function handleActiveToggle(value: string | number | boolean) {
     store.current.status = active ? 'ACTIVE' : 'INACTIVE'
     ElMessage.success(active ? '流程已啟用' : '流程已停用')
   } catch (err) {
-    const message = err instanceof Error ? err.message : '切換狀態失敗'
-    ElMessage.error(message)
+    ElMessage.error(extractApiMessage(err) ?? '切換狀態失敗')
   }
 }
 
@@ -295,8 +322,7 @@ async function handleSave() {
       if (id) await loadIntoCanvas(id)
       return
     }
-    const message = err instanceof Error ? err.message : '存檔失敗'
-    ElMessage.error(message)
+    ElMessage.error(extractApiMessage(err) ?? '存檔失敗')
   }
 }
 </script>

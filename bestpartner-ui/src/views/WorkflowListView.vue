@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useWorkflowStore } from '../stores/workflow'
 import { useAuthStore } from '../stores/auth'
+import { extractApiMessage } from '../api/http'
 import type { WorkflowSummaryDTO } from '../types/workflow'
 
 const router = useRouter()
@@ -34,8 +35,12 @@ async function handleDelete(row: WorkflowSummaryDTO) {
     // 使用者取消
     return
   }
-  await workflowStore.remove(row.id)
-  ElMessage.success('已刪除')
+  try {
+    await workflowStore.remove(row.id)
+    ElMessage.success('已刪除')
+  } catch (err) {
+    ElMessage.error(extractApiMessage(err) ?? '刪除失敗')
+  }
 }
 
 async function handleToggle(row: WorkflowSummaryDTO) {
@@ -45,8 +50,7 @@ async function handleToggle(row: WorkflowSummaryDTO) {
     await workflowStore.switchStatus(row.id, activate)
     ElMessage.success(activate ? '已啟用' : '已停用')
   } catch (err) {
-    const message = err instanceof Error ? err.message : '操作失敗'
-    ElMessage.error(message)
+    ElMessage.error(extractApiMessage(err) ?? '操作失敗')
   }
 }
 
@@ -82,7 +86,9 @@ const statusTagType: Record<string, 'success' | 'info' | 'warning'> = {
         </template>
       </el-table-column>
       <el-table-column prop="version" label="版本" width="80" />
-      <el-table-column prop="updatedAt" label="更新時間" width="200" />
+      <el-table-column label="更新時間" width="200">
+        <template #default="{ row }">{{ row.updatedAt ?? '—' }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="240">
         <template #default="{ row }">
           <el-button size="small" :data-test="`edit-${row.id}`" @click="goEdit(row)">

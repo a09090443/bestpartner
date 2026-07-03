@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as workflowApi from '../api/workflow'
+import { extractApiMessage } from '../api/http'
 import { dtoToFlow, flowToSaveRequest } from '../composables/useWorkflowSync'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
 import type { WorkflowStatus, WorkflowSummaryDTO } from '../types/workflow'
@@ -18,12 +19,6 @@ const VERSION_CONFLICT_MESSAGES = [
   'Workflow has been modified by another session, please reload',
   '工作流程已被其他作業修改，請重新載入',
 ]
-
-/** 自任意錯誤取出後端 ApiResponse 的 message */
-function extractApiMessage(err: unknown): string | undefined {
-  const maybe = err as { response?: { data?: { message?: string } }; message?: string }
-  return maybe?.response?.data?.message ?? maybe?.message
-}
 
 /** 編輯中的 workflow（畫布以 Vue Flow 格式存放） */
 export interface EditingWorkflow {
