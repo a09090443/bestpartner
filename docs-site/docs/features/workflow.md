@@ -30,7 +30,9 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 - **節點面板（NodePalette）**：左側可拖放的節點清單，依 **Trigger／Action／AI／Logic 四大分類**分組，並提供搜尋框即時過濾。
 - **畫布（Canvas）**：中央繪製節點與連線；節點以卡片呈現（型別 icon、名稱與 config 摘要副標，選取時顯示型別色外環），內建點陣背景格線、縮圖（MiniMap，沿用節點型別色）與縮放控制（Controls）。
 - **屬性面板（Inspector）**：右側；選取節點時編輯名稱與設定（型別化表單），並提供**複製（Duplicate）／刪除（Delete）**；未選取時顯示 **Workflow overview**——節點／連線／觸發數統計卡與節點型別圖例。
-- **工具列**：麵包屑、流程名稱 inline 編輯、**Saved／未存**狀態徽章、Editor·Executions 分頁、**Active 啟用切換**（接 `switchStatus`）、「整理版面」與「存檔」；有未存變更時顯示「未存」並攔截離頁。
+- **工具列**：麵包屑、流程名稱 inline 編輯、**Saved／未存**狀態徽章、Editor·Executions 分頁、**Active 啟用切換**（接 `switchStatus`）、「整理版面」與「存檔」；開啟既有流程時起始為 **Saved**，僅「新增／刪除節點、移動節點、增刪連線」等實際編輯才標記為「未存」並攔截離頁（載入時的畫布還原與純選取、尺寸量測不會誤標）。
+
+操作失敗（如存檔、啟用、刪除）時，畫面會顯示**後端回傳的業務訊息**（例如啟用未含 Trigger 的流程時提示「須含 Trigger 節點」），而非通用的 HTTP 狀態字串，便於使用者理解原因。
 
 所有節點共用單一 Vue Flow 節點型別，語意型別放在 `node.data.type`；畫布資料（Vue Flow 格式）與後端 `WorkflowDTO` 之間由 `useWorkflowSync` 的 `dtoToFlow` / `flowToSaveRequest` 雙向轉換，後端 DTO 為唯一真相。深色主題 token 以 `.wf-editor` 作用域界定，不影響登入／列表等其他頁面。
 
