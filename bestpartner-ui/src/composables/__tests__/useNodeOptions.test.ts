@@ -4,6 +4,7 @@ const getSettings = vi.fn()
 const listTools = vi.fn()
 const listMcpServers = vi.fn()
 const listKnowledgeStores = vi.fn()
+const listSkills = vi.fn()
 
 vi.mock('../../api/llmSetting', () => ({ getSettings: (...a: unknown[]) => getSettings(...a) }))
 vi.mock('../../api/tool', () => ({ listTools: (...a: unknown[]) => listTools(...a) }))
@@ -11,6 +12,7 @@ vi.mock('../../api/mcpServer', () => ({ listMcpServers: (...a: unknown[]) => lis
 vi.mock('../../api/vector', () => ({
   listKnowledgeStores: (...a: unknown[]) => listKnowledgeStores(...a),
 }))
+vi.mock('../../api/skill', () => ({ listSkills: (...a: unknown[]) => listSkills(...a) }))
 
 describe('useNodeOptions', () => {
   beforeEach(() => {
@@ -19,6 +21,7 @@ describe('useNodeOptions', () => {
     listTools.mockReset()
     listMcpServers.mockReset()
     listKnowledgeStores.mockReset()
+    listSkills.mockReset()
   })
 
   it('loadLlmOptions 首次載入回傳 api 結果', async () => {
@@ -46,6 +49,17 @@ describe('useNodeOptions', () => {
     const opts = useNodeOptions()
     expect(await opts.loadToolOptions()).toEqual([{ value: 't1', label: 'Tool' }])
     expect(await opts.loadMcpOptions()).toEqual([{ value: 'm1', label: 'Mcp' }])
+  })
+
+  it('loadSkillOptions 委派 skill api 並快取', async () => {
+    listSkills.mockResolvedValue([{ value: 'sk1', label: 'Skill' }])
+    const { useNodeOptions } = await import('../useNodeOptions')
+    const { loadSkillOptions } = useNodeOptions()
+    const first = await loadSkillOptions()
+    const second = await loadSkillOptions()
+    expect(first).toEqual([{ value: 'sk1', label: 'Skill' }])
+    expect(listSkills).toHaveBeenCalledTimes(1)
+    expect(second).toBe(first)
   })
 
   it('loadKnowledgeOptions 委派 vector api 並快取', async () => {
