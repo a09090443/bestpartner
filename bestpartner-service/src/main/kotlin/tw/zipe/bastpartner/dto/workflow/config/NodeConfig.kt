@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import tw.zipe.bastpartner.enumerate.NodeType
+import tw.zipe.bastpartner.enumerate.TriggerType
 
 /**
  * Workflow 節點 config 的強型別契約。
@@ -15,6 +16,9 @@ import tw.zipe.bastpartner.enumerate.NodeType
  *
  * 欄位一律 nullable 以支援兩段式驗證：save（DRAFT）僅驗型別與未知欄位，
  * 必填檢核（[NodeConfig.missingRequiredFields]）於 switchStatus 啟用時執行。
+ *
+ * @author Gary
+ * @created 2026/7/4
  */
 sealed interface NodeConfig {
     /** 回傳缺席的必填欄位名稱；空清單代表滿足啟用條件 */
@@ -23,13 +27,13 @@ sealed interface NodeConfig {
 
 @Serializable
 data class TriggerNodeConfig(
-    val triggerType: String? = null,
+    val triggerType: TriggerType? = null,
     val inputSchema: JsonObject? = null,
     val webhook: JsonObject? = null,
     val cron: JsonObject? = null
 ) : NodeConfig {
     override fun missingRequiredFields() = buildList {
-        if (triggerType.isNullOrBlank()) add("triggerType")
+        if (triggerType == null) add("triggerType")
     }
 }
 
@@ -174,13 +178,17 @@ data class DataTransformNodeConfig(
 ) : NodeConfig {
     override fun missingRequiredFields() = buildList {
         // mappings 與 template 至少擇一
-        if (mappings.isNullOrEmpty() && template.isNullOrBlank()) add("mappings")
+        if (mappings.isNullOrEmpty() && template.isNullOrBlank()) add("mappings|template")
     }
 }
 
 /**
  * NodeType -> config 反序列化的映射入口。
- * 嚴格模式（ignoreUnknownKeys = false）：未知欄位與型別錯誤一律拋 [kotlinx.serialization.SerializationException]。
+ *
+ * 嚴格度說明（ignoreUnknownKeys = false）：
+ * - 拒絕未知欄位與結構性型別錯誤（如字串給 List 欄位、非法 enum 值），拋 [kotlinx.serialization.SerializationException]。
+ * - 注意：kotlinx tree decoding 對 scalar 有寬鬆轉型——數字/布林形式的字串
+ *   （如 `topK: "5"`、`enableMemory: "true"`）會被轉型接受，不會拋例外。
  */
 object NodeConfigRegistry {
 
