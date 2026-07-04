@@ -63,15 +63,17 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 
-| 節點型別 | 設定欄位 | 選項來源 |
+| 節點型別 | 主要設定欄位 | 選項來源 |
 |----------|----------|----------|
-| `LLM_ASSISTANT` | `llmId`（下拉）、`systemPrompt`（選填） | `POST /llm/setting/get` |
-| `TOOL` | `toolId`（下拉） | `GET /llm/tool/list` |
-| `MCP_SERVER` | `mcpId`（下拉） | `GET /llm/mcpServer/list` |
-| `KNOWLEDGE_RAG` | `knowledgeId`（文字）、`topK`（數字，預設 4） | 文字輸入（暫無列舉端點） |
+| `LLM_ASSISTANT` | `llmId`（下拉，必填）、`systemPrompt`／`userPrompt`、Memory、工具／MCP／Skill 多選、`knowledgeId`、附加檔案、`responseFormat`／`outputSchema`／`outputKey` | `POST /llm/setting/get`、`/llm/tool/list`、`/llm/mcpServer/list`、`/llm/skill/list`、`/llm/vector/getKnowledgeStore` |
+| `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填） | `GET /llm/tool/list` |
+| `MCP_SERVER` | `mcpId`（下拉，必填）、`mcpSettingId`（選填） | `GET /llm/mcpServer/list` |
+| `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`topK`（數字，預設 4） | `POST /llm/vector/getKnowledgeStore` |
 | 其餘 6 種 | 通用 JSON 編輯器（fallback） | — |
 
-下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料。表單為結構化輸入不會產生 JSON 錯誤，故一律視為有效；「必填未選」不擋存檔，留待 workflow 啟用驗證。
+下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料；空值鍵一律移除以維持 config 精簡。表單為結構化輸入不會產生 JSON 錯誤，故一律視為有效；「必填未選」不擋存檔，留待 workflow 啟用驗證。
+
+> 各節點 `config` 的完整欄位契約（型別、必填、預設值）見 [Workflow API — 節點 config 契約](../api/workflow.md#節點-config-契約)。
 
 ## 自動排版
 

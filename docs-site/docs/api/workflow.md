@@ -86,6 +86,88 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `workflow.not.found` | 指定 id 的 workflow 不存在 |
 | `workflow.forbidden` | 非擁有者且非 admin |
 
+## 節點 config 契約
+
+每個節點的 `config` 在後端儲存為**不透明 JSON**（`WorkflowNodeDTO.config: JsonObject`），後端目前**不對 config 做 per-type 驗證**（僅驗證圖結構與 TRIGGER 存在）。實際的欄位契約由前端型別化表單定義，並將於執行引擎（後續階段）讀取。
+
+> ⚠️ 本節描述的是**前端表單目前寫入的欄位**，作為前後端對齊的契約草案。執行引擎實作前，欄位命名以此為準；引擎設計若需調整，須同步更新前端表單與本表。
+
+下列 4 種節點具備型別化表單，config 欄位固定；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，**尚無定義 schema（待定）**。
+
+### LLM_ASSISTANT（LLM 助手）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `llmId` | string | ✓ | LLM 設定 id（對應 `llm_setting`） |
+| `systemPrompt` | string | | 系統提示 |
+| `userPrompt` | string | | 使用者提示，支援變數插值引用上游輸出 |
+| `enableMemory` | boolean | | 是否啟用對話 Memory |
+| `memoryId` | string | | Memory 識別；留空則單次執行內共享（僅 `enableMemory=true` 時寫入） |
+| `toolIds` | string[] | | 綁定的工具 id 清單 |
+| `toolSettingIds` | string[] | | 對應工具的使用者設定 id（需 API key 的工具用此欄） |
+| `mcpIds` | string[] | | 綁定的 MCP 伺服器 id 清單 |
+| `mcpSettingIds` | string[] | | 對應 MCP 的使用者設定 id |
+| `skillIds` | string[] | | 綁定的 Skill id 清單 |
+| `knowledgeId` | string | | RAG 知識庫 id（自動增強） |
+| `files` | string[] | | 附加的已上傳檔名，支援插值 |
+| `responseFormat` | `"TEXT"` \| `"JSON"` | | 回應格式，預設 `TEXT` |
+| `outputSchema` | object | | `responseFormat=JSON` 時的輸出 JSON Schema |
+| `outputKey` | string | | 輸出鍵名，預設 `reply` |
+
+**範例**
+
+```json
+{
+  "nodeKey": "assistant-1",
+  "type": "LLM_ASSISTANT",
+  "name": "客服助手",
+  "positionX": 200,
+  "positionY": 0,
+  "config": {
+    "llmId": "3f2a...",
+    "systemPrompt": "你是專業客服",
+    "userPrompt": "請回覆：{{trigger.message}}",
+    "toolIds": ["tool-google"],
+    "responseFormat": "TEXT",
+    "outputKey": "reply"
+  }
+}
+```
+
+### TOOL（工具）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `toolId` | string | ✓ | 工具 id |
+| `toolSettingId` | string | | 執行期使用者設定 id |
+
+### MCP_SERVER（MCP 伺服器）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `mcpId` | string | ✓ | MCP 伺服器 id |
+| `mcpSettingId` | string | | 執行期使用者設定 id |
+
+### KNOWLEDGE_RAG（知識庫 RAG）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `knowledgeId` | string | ✓ | 知識庫 id |
+| `topK` | number | | 取回筆數，預設 `4` |
+
+### 尚未定義 schema 的節點（待定）
+
+| NodeType | 說明 | config 現況 |
+|----------|------|------------|
+| `TRIGGER` | 觸發節點 | 純 JSON，無定義欄位（通常為 `{}`） |
+| `CONDITION` | 條件判斷 | 純 JSON，待定 |
+| `LOOP` | 迴圈 | 純 JSON，待定 |
+| `CODE` | 程式碼 | 純 JSON，待定 |
+| `HTTP_REQUEST` | HTTP 請求 | 純 JSON，待定 |
+| `DATA_TRANSFORM` | 資料轉換 | 純 JSON，待定 |
+
+> 上表節點在前端以 `JsonConfigEditor` 自由編輯，尚無固定 schema。待執行引擎設計時再定義並回填本節。
+
 ## 取得 Workflow
 
 `POST /llm/workflow/get`
