@@ -14,6 +14,7 @@ import tw.zipe.bastpartner.dto.WorkflowEdgeDTO
 import tw.zipe.bastpartner.dto.WorkflowNodeDTO
 import tw.zipe.bastpartner.dto.WorkflowSaveRequestDTO
 import tw.zipe.bastpartner.dto.WorkflowSummaryDTO
+import tw.zipe.bastpartner.dto.workflow.config.NodeConfigRegistry
 import tw.zipe.bastpartner.entity.WorkflowEdgeEntity
 import tw.zipe.bastpartner.entity.WorkflowEntity
 import tw.zipe.bastpartner.entity.WorkflowNodeEntity
@@ -70,13 +71,14 @@ class WorkflowService(
     /**
      * 新增或整張覆寫 workflow（含 nodes / edges）。
      *
-     * 流程：① 畫布驗證 → ② 既有則檢核擁有權與樂觀鎖 → ③ 清舊 node/edge 後寫入新集合
+     * 流程：① 畫布驗證與節點 config 型別驗證 → ② 既有則檢核擁有權與樂觀鎖 → ③ 清舊 node/edge 後寫入新集合
      * → ④ version++ 後更新。全程 [Transactional]，任一步失敗整筆 rollback。
      */
     @Transactional
     fun save(req: WorkflowSaveRequestDTO): WorkflowDTO {
         val userId = securityValidator.validateLoggedInUser()
         validateGraph(req.nodes, req.edges)
+        validateNodeConfigs(req.nodes)
 
         val entity: WorkflowEntity
         if (!req.id.isNullOrEmpty()) {
@@ -191,7 +193,7 @@ class WorkflowService(
     }
 
     /**
-     * 啟用 / 停用 workflow。啟用前須具備 Trigger 節點且圖無環。
+     * 啟用 / 停用 workflow。啟用前須具備 Trigger 節點、圖無環，且各節點 config 型別合法、必填欄位齊備。
      */
     @Transactional
     fun switchStatus(id: String, active: Boolean): WorkflowDTO {
@@ -206,6 +208,18 @@ class WorkflowService(
             val edges = workflowEdgeRepository.findByWorkflowId(id)
             if (detectCycle(nodes.map { it.nodeKey }, edges.map { it.sourceNodeKey to it.targetNodeKey })) {
                 throw ServiceException(AppMessage.WORKFLOW_GRAPH_HAS_CYCLE)
+            }
+            // 啟用前逐節點驗證 config：型別須合法且必填欄位不得缺席
+            nodes.forEach { n ->
+                val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
+                val parsed = runCatching { NodeConfigRegistry.parse(n.type, configObj) }
+                    .getOrElse { e ->
+                        throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty())
+                    }
+                val missing = parsed.missingRequiredFields()
+                if (missing.isNotEmpty()) {
+                    throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
+                }
             }
         }
         entity.status = if (active) WorkflowStatus.ACTIVE else WorkflowStatus.INACTIVE
@@ -236,6 +250,20 @@ class WorkflowService(
         }
         if (detectCycle(nodes.map { it.nodeKey }, edges.map { it.sourceNodeKey to it.targetNodeKey })) {
             throw ServiceException(AppMessage.WORKFLOW_GRAPH_HAS_CYCLE)
+        }
+    }
+
+    /**
+     * 節點 config 型別驗證（DRAFT 亦執行）：依 NodeType 嚴格反序列化，
+     * 結構性型別錯誤或未知欄位一律拒絕；必填缺席放行（啟用時才驗，見 [switchStatus]）。
+     */
+    private fun validateNodeConfigs(nodes: List<WorkflowNodeDTO>) {
+        nodes.forEach { n ->
+            val type = n.type ?: return@forEach // type 缺席由既有 save 流程處理
+            runCatching { NodeConfigRegistry.parse(type, n.config) }
+                .onFailure { e ->
+                    throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty())
+                }
         }
     }
 

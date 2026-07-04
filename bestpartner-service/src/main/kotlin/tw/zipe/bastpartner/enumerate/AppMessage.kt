@@ -93,6 +93,8 @@ enum class AppMessage(val key: String) {
     WORKFLOW_TRIGGER_NODE_REQUIRED("workflow.trigger.node.required"),
     WORKFLOW_DELETE_WHILE_RUNNING("workflow.delete.while.running"),
     WORKFLOW_NODE_LIMIT_EXCEEDED("workflow.node.limit.exceeded"),
+    WORKFLOW_NODE_CONFIG_INVALID("workflow.node.config.invalid"),
+    WORKFLOW_NODE_CONFIG_REQUIRED_MISSING("workflow.node.config.required.missing"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),

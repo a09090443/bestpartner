@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import jakarta.inject.Inject
 import java.util.UUID
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -19,6 +20,7 @@ import tw.zipe.bastpartner.dto.WorkflowSaveRequestDTO
 import tw.zipe.bastpartner.entity.WorkflowEntity
 import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.NodeType
+import tw.zipe.bastpartner.enumerate.WorkflowStatus
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.WorkflowEdgeRepository
 import tw.zipe.bastpartner.repository.WorkflowNodeRepository
@@ -99,8 +101,8 @@ class WorkflowServiceTest {
             description = "整合測試"
             nodes = listOf(
                 node(keyA, NodeType.TRIGGER) {
-                    put("retry", 3)
-                    putJsonObject("nested") { put("a", 1) }
+                    put("triggerType", "MANUAL")
+                    putJsonObject("inputSchema") { put("a", 1) }
                 },
                 node(keyB, NodeType.LLM_ASSISTANT) { put("llmId", "x") }
             )
@@ -116,9 +118,10 @@ class WorkflowServiceTest {
         assertEquals(1, got.edges.size, "應取回 1 條連線")
 
         val nodeA = got.nodes.first { it.nodeKey == keyA }
-        assertTrue(nodeA.config.containsKey("retry"))
-        assertEquals("3", nodeA.config["retry"].toString())
-        assertTrue(nodeA.config.containsKey("nested"))
+        assertTrue(nodeA.config.containsKey("triggerType"))
+        assertTrue(nodeA.config.containsKey("inputSchema"))
+        // 巢狀數值 round-trip：inputSchema.a 應保值為 1
+        assertEquals("1", (nodeA.config["inputSchema"] as JsonObject)["a"].toString())
 
         val gotEdge = got.edges.first()
         assertEquals(keyA, gotEdge.sourceNodeKey)
@@ -231,5 +234,79 @@ class WorkflowServiceTest {
 
         val ex = assertThrows(ServiceException::class.java) { workflowService.get(other.id!!) }
         assertEquals(MessageUtil.get(AppMessage.WORKFLOW_FORBIDDEN), ex.message)
+    }
+
+    /**
+     * 案例 8：save 拒絕含未知欄位的節點 config（DRAFT 亦驗型別），訊息須指出節點 key
+     */
+    @Test
+    fun testSaveRejectsUnknownConfigField() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "config-驗證-未知欄位"
+            nodes = listOf(node("n1", NodeType.LLM_ASSISTANT) {
+                put("llmId", "llm-1")
+                put("bogusField", "x")
+            })
+            edges = emptyList()
+        }
+
+        val ex = assertThrows(ServiceException::class.java) { workflowService.save(req) }
+        assertTrue(ex.message!!.contains("n1"), "錯誤訊息應指出節點 key：${ex.message}")
+    }
+
+    /**
+     * 案例 9：save 允許必填缺席的草稿 config（必填檢核延後至啟用時）
+     */
+    @Test
+    fun testSaveAllowsDraftConfigWithMissingRequired() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "config-驗證-草稿"
+            nodes = listOf(node("n1", NodeType.LLM_ASSISTANT) { put("systemPrompt", "hi") })
+            edges = emptyList()
+        }
+
+        val dto = workflowService.save(req) // 不應拋例外
+        touchedWorkflowIds.add(dto.id!!)
+    }
+
+    /**
+     * 案例 10：switchStatus 啟用時擋下缺必填欄位的節點，訊息須指出節點 key 與欄位名
+     */
+    @Test
+    fun testSwitchStatusRejectsMissingRequiredConfig() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "config-驗證-啟用"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("systemPrompt", "hi") } // 缺 llmId
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val dto = workflowService.save(req)
+        touchedWorkflowIds.add(dto.id!!)
+
+        val ex = assertThrows(ServiceException::class.java) { workflowService.switchStatus(dto.id!!, true) }
+        assertTrue(ex.message!!.contains("n1"), "錯誤訊息應指出節點 key：${ex.message}")
+        assertTrue(ex.message!!.contains("llmId"), "錯誤訊息應指出缺少的欄位：${ex.message}")
+    }
+
+    /**
+     * 案例 11：switchStatus 啟用時所有節點 config 完整 -> 成功轉為 ACTIVE
+     */
+    @Test
+    fun testSwitchStatusSucceedsWithCompleteConfigs() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "config-驗證-啟用成功"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("llmId", "llm-1") }
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val dto = workflowService.save(req)
+        touchedWorkflowIds.add(dto.id!!)
+
+        val activated = workflowService.switchStatus(dto.id!!, true)
+        assertEquals(WorkflowStatus.ACTIVE, activated.status)
     }
 }
