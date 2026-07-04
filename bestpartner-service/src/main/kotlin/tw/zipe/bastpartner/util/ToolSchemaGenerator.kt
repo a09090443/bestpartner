@@ -20,25 +20,28 @@ object ToolSchemaGenerator {
 
     /** class 不存在或無 primary constructor 時回傳 null（前端 fallback raw JSON editor） */
     fun generate(configObjectPath: String): JsonObject? {
-        val kClass = try {
+        // 整個方法體納入同一個 try/catch：本方法接進 /llm/tool/list 端點，
+        // kotlin-reflect 對 metadata 異常的 class 可能拋 KotlinReflectionInternalError 等例外，
+        // 任何反射失敗一律 warn + 回 null，絕不炸掉整個清單查詢
+        return try {
             // initialize = false：僅載入 metadata，避免觸發目標 class 的 static initializer
-            Class.forName(configObjectPath, false, javaClass.classLoader).kotlin
-        } catch (e: Throwable) {
-            logger().warn("無法反射工具設定類別: $configObjectPath", e)
-            return null
-        }
-        val ctor = kClass.primaryConstructor ?: return null
-        return buildJsonObject {
-            ctor.parameters.forEach { param ->
-                val name = param.name ?: return@forEach
-                val annotation = param.findAnnotation<ToolConfigField>()
-                putJsonObject(name) {
-                    put("type", jsonType(param.type))
-                    put("required", !param.type.isMarkedNullable)
-                    if (annotation?.sensitive == true) put("sensitive", true)
-                    annotation?.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
+            val kClass = Class.forName(configObjectPath, false, javaClass.classLoader).kotlin
+            val ctor = kClass.primaryConstructor ?: return null
+            buildJsonObject {
+                ctor.parameters.forEach { param ->
+                    val name = param.name ?: return@forEach
+                    val annotation = param.findAnnotation<ToolConfigField>()
+                    putJsonObject(name) {
+                        put("type", jsonType(param.type))
+                        put("required", !param.type.isMarkedNullable)
+                        if (annotation?.sensitive == true) put("sensitive", true)
+                        annotation?.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
+                    }
                 }
             }
+        } catch (e: Throwable) {
+            logger().warn("無法反射工具設定類別: $configObjectPath", e)
+            null
         }
     }
 

@@ -2,11 +2,14 @@ package tw.zipe.bastpartner.service
 
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
-import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
 import tw.zipe.bastpartner.dto.ToolDTO
@@ -43,8 +46,9 @@ class ToolServiceTest {
         assertNotNull(toolDTO.id)
     }
 
-    @Test
-    @Order(3)
+    // 依賴上方已註解的 `test register tool` 產生 toolDTO.id，單獨執行必然 NPE，比照檔內慣例註解停用
+//    @Test
+//    @Order(3)
     fun `test find tool by id`() {
         val result = toolService.findToolById(toolDTO.id!!)
         assertEquals(toolDTO.name, result?.name)
@@ -55,6 +59,26 @@ class ToolServiceTest {
     fun `test remove tool`() {
         val result = toolService.deleteTool(toolDTO.id.orEmpty())
         assert(result)
+    }
+
+    @Test
+    fun `getTool 回傳結構化 settingSchema`() {
+        // init-data 內建 Google 工具實際 name 為 GoogleSearch，configObjectPath 指向 tool.config.Google
+        val googleToolId = toolService.getTools().first { it.name == "GoogleSearch" }.id!!
+        val tool = toolService.getTool(googleToolId)
+        val schema = tool.settingSchema!!
+        assertTrue(schema.containsKey("apiKey"))
+        assertEquals("string", schema["apiKey"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `getTools 清單依 configObjectPath 有無帶 settingSchema 或 null`() {
+        val tools = toolService.getTools()
+        val google = tools.first { it.name == "GoogleSearch" }
+        assertNotNull(google.settingSchema)
+        // DateTool 無 configObjectPath，settingSchema 應為 null
+        val dateTool = tools.first { it.name == "DateTool" }
+        assertNull(dateTool.settingSchema)
     }
 
     companion object {

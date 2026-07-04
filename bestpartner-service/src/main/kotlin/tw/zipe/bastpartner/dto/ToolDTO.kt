@@ -2,6 +2,7 @@ package tw.zipe.bastpartner.dto
 
 import io.netty.util.internal.StringUtil
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 import tw.zipe.bastpartner.enumerate.ToolsType
 
 /**
@@ -21,6 +22,8 @@ class ToolDTO(
     val type: ToolsType? = null,
     var settingArgs: String? = null,
     val settingContent: String? = null,
+    /** 由 configObjectPath 反射產生的結構化設定 schema，無 config class 者為 null */
+    var settingSchema: JsonObject? = null,
     val configObjectPath: String? = null,
     val description: String = StringUtil.EMPTY_STRING,
     val functionName: String = StringUtil.EMPTY_STRING,

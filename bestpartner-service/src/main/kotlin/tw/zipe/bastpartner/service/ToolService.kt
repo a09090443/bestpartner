@@ -23,6 +23,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.LLMToolCategoryRepository
 import tw.zipe.bastpartner.repository.LLMToolRepository
 import tw.zipe.bastpartner.repository.LLMToolUserSettingRepository
+import tw.zipe.bastpartner.util.ToolSchemaGenerator
 import tw.zipe.bastpartner.util.generateFieldJson
 import tw.zipe.bastpartner.util.instantiate
 import tw.zipe.bastpartner.util.logger
@@ -43,9 +44,11 @@ class ToolService(
     private val logger = logger()
 
     /**
-     * 取得所有工具清單
+     * 取得所有工具清單（含反射產生的 settingSchema，無 config class 者為 null）
      */
-    fun getTools() = llmToolRepository.findByCondition(null)
+    fun getTools() = llmToolRepository.findByCondition(null).onEach { tool ->
+        tool.settingSchema = tool.configObjectPath?.let { ToolSchemaGenerator.generate(it) }
+    }
 
     /**
      * 取得工具
@@ -57,6 +60,8 @@ class ToolService(
             val kClass = clazz.kotlin
             tool.settingArgs = generateFieldJson(kClass)
         }
+        // settingArgs 為既有相容格式；settingSchema 為新契約（結構化、含 required/sensitive/description）
+        tool.settingSchema = tool.configObjectPath?.let { path -> ToolSchemaGenerator.generate(path) }
         return tool
     }
 
