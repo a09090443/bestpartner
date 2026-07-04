@@ -20,7 +20,13 @@ object ToolSchemaGenerator {
 
     /** class 不存在或無 primary constructor 時回傳 null（前端 fallback raw JSON editor） */
     fun generate(configObjectPath: String): JsonObject? {
-        val kClass = runCatching { Class.forName(configObjectPath).kotlin }.getOrNull() ?: return null
+        val kClass = try {
+            // initialize = false：僅載入 metadata，避免觸發目標 class 的 static initializer
+            Class.forName(configObjectPath, false, javaClass.classLoader).kotlin
+        } catch (e: Throwable) {
+            logger().warn("無法反射工具設定類別: $configObjectPath", e)
+            return null
+        }
         val ctor = kClass.primaryConstructor ?: return null
         return buildJsonObject {
             ctor.parameters.forEach { param ->
@@ -36,6 +42,7 @@ object ToolSchemaGenerator {
         }
     }
 
+    /** 未列舉的型別（含 Map、自訂 class）一律 fallback 為 "string"，由前端以文字輸入呈現 */
     private fun jsonType(type: KType): String = when (type.classifier) {
         Int::class, Long::class, Short::class -> "integer"
         Double::class, Float::class -> "number"
