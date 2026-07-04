@@ -64,8 +64,9 @@ class ToolServiceTest {
     @Test
     fun `getTool 回傳結構化 settingSchema`() {
         // init-data 內建 Google 工具實際 name 為 GoogleSearch，configObjectPath 指向 tool.config.Google
-        val googleToolId = toolService.getTools().first { it.name == "GoogleSearch" }.id!!
-        val tool = toolService.getTool(googleToolId)
+        val google = toolService.getTools().firstOrNull { it.name == "GoogleSearch" }
+        assertNotNull(google, "init-data 缺 GoogleSearch 工具（請執行 docs/sql/bestpartner-init-data.sql）")
+        val tool = toolService.getTool(google!!.id!!)
         val schema = tool.settingSchema!!
         assertTrue(schema.containsKey("apiKey"))
         assertEquals("string", schema["apiKey"]!!.jsonObject["type"]!!.jsonPrimitive.content)
@@ -74,11 +75,13 @@ class ToolServiceTest {
     @Test
     fun `getTools 清單依 configObjectPath 有無帶 settingSchema 或 null`() {
         val tools = toolService.getTools()
-        val google = tools.first { it.name == "GoogleSearch" }
-        assertNotNull(google.settingSchema)
+        val google = tools.firstOrNull { it.name == "GoogleSearch" }
+        assertNotNull(google, "init-data 缺 GoogleSearch 工具（請執行 docs/sql/bestpartner-init-data.sql）")
+        assertNotNull(google!!.settingSchema)
         // DateTool 無 configObjectPath，settingSchema 應為 null
-        val dateTool = tools.first { it.name == "DateTool" }
-        assertNull(dateTool.settingSchema)
+        val dateTool = tools.firstOrNull { it.name == "DateTool" }
+        assertNotNull(dateTool, "init-data 缺 DateTool 工具（請執行 docs/sql/bestpartner-init-data.sql）")
+        assertNull(dateTool!!.settingSchema)
     }
 
     companion object {
