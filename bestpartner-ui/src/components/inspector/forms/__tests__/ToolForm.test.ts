@@ -1,12 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import type { ToolSettingSchema } from '../../../../types/toolSchema'
 
 const loadToolOptions = vi.fn()
 vi.mock('../../../../composables/useNodeOptions', () => ({
   useNodeOptions: () => ({ loadToolOptions, loadLlmOptions: vi.fn(), loadMcpOptions: vi.fn() }),
 }))
 
+const getTool = vi.fn()
+const saveToolSetting = vi.fn()
+const updateToolSetting = vi.fn()
+vi.mock('../../../../api/tool', () => ({
+  getTool: (...args: unknown[]) => getTool(...args),
+  saveToolSetting: (...args: unknown[]) => saveToolSetting(...args),
+  updateToolSetting: (...args: unknown[]) => updateToolSetting(...args),
+}))
+
 import ToolForm from '../ToolForm.vue'
+
+const schema: ToolSettingSchema = {
+  apiKey: { type: 'string', required: true, sensitive: true },
+  timeout: { type: 'integer', required: false },
+}
 
 describe('ToolForm', () => {
   beforeEach(() => {
@@ -15,6 +30,11 @@ describe('ToolForm', () => {
       { value: 't1', label: 'Google' },
       { value: 't2', label: 'Tavily' },
     ])
+    getTool.mockReset()
+    getTool.mockResolvedValue({})
+    saveToolSetting.mockReset()
+    updateToolSetting.mockReset()
+    updateToolSetting.mockResolvedValue(undefined)
   })
 
   it('掛載後渲染工具下拉選項', async () => {
@@ -46,5 +66,175 @@ describe('ToolForm', () => {
     await wrapper.find('[data-test="tool-setting-id"]').setValue('')
     const emitted = wrapper.emitted('update:config')
     expect(emitted![emitted!.length - 1][0]).toEqual({ toolId: 't1' })
+  })
+
+  describe('工具設定建立區塊', () => {
+    it('選擇有 schema 的工具後顯示設定建立區塊', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, { props: { config: {} } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(false)
+      await wrapper.find('[data-test="tool-select"]').setValue('t1')
+      await flushPromises()
+      expect(getTool).toHaveBeenCalledWith('t1')
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="setting-alias"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="field-apiKey"]').exists()).toBe(true)
+    })
+
+    it('初始 config 已有 toolId 時掛載即載入 schema（immediate）', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      expect(getTool).toHaveBeenCalledWith('t1')
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(true)
+    })
+
+    it('選擇無 schema 的工具不顯示設定區塊（null 與空物件皆同）', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: null })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(false)
+
+      getTool.mockResolvedValue({ id: 't2', settingSchema: {} })
+      await wrapper.find('[data-test="tool-select"]').setValue('t2')
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(false)
+    })
+
+    it('getTool 失敗視同無 schema，不影響既有欄位操作', async () => {
+      getTool.mockRejectedValue(new Error('network error'))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(false)
+      // 原有 toolSettingId 手動輸入仍可運作
+      await wrapper.find('[data-test="tool-setting-id"]').setValue('ts-1')
+      const emitted = wrapper.emitted('update:config')
+      expect(emitted![emitted!.length - 1][0]).toEqual({ toolId: 't1', toolSettingId: 'ts-1' })
+    })
+
+    it('alias 未填時建立按鈕 disabled', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      const btn = wrapper.find('[data-test="setting-create"]')
+      expect(btn.attributes('disabled')).toBeDefined()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      expect(wrapper.find('[data-test="setting-create"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('建立設定成功後 toolSettingId 自動帶入並 emit config，顯示成功提示並收合表單', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      saveToolSetting.mockResolvedValue({ settingId: 'setting-1' })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      await wrapper.find('[data-test="field-timeout"]').setValue('3000')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await flushPromises()
+
+      expect(saveToolSetting).toHaveBeenCalledWith('t1', 'my-alias')
+      expect(updateToolSetting).toHaveBeenCalledWith(
+        'setting-1',
+        JSON.stringify({ apiKey: 'sk-xxx', timeout: 3000 }),
+      )
+      const emitted = wrapper.emitted('update:config')
+      expect(emitted![emitted!.length - 1][0]).toEqual({
+        toolId: 't1',
+        toolSettingId: 'setting-1',
+      })
+      expect(
+        (wrapper.find('[data-test="tool-setting-id"]').element as HTMLInputElement).value,
+      ).toBe('setting-1')
+      // 成功後顯示提示並收合表單主體（建立按鈕不再顯示）
+      expect(wrapper.find('[data-test="setting-success"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="setting-create"]').exists()).toBe(false)
+    })
+
+    it('saveToolSetting 回傳缺 settingId 時顯示錯誤且不呼叫 updateToolSetting', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      saveToolSetting.mockResolvedValue({})
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await flushPromises()
+
+      expect(updateToolSetting).not.toHaveBeenCalled()
+      expect(wrapper.find('[data-test="setting-error"]').exists()).toBe(true)
+      // 不得自動帶入 toolSettingId
+      expect(
+        (wrapper.find('[data-test="tool-setting-id"]').element as HTMLInputElement).value,
+      ).toBe('')
+    })
+
+    it('API 失敗時顯示錯誤文字且不清空使用者輸入', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      saveToolSetting.mockRejectedValue(new Error('boom'))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="setting-error"]').exists()).toBe(true)
+      expect(
+        (wrapper.find('[data-test="setting-alias"]').element as HTMLInputElement).value,
+      ).toBe('my-alias')
+      expect(
+        (wrapper.find('[data-test="field-apiKey"]').element as HTMLInputElement).value,
+      ).toBe('sk-xxx')
+    })
+
+    it('建立中按鈕 disabled 防止重複送出', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      let resolveSave: (v: unknown) => void = () => {}
+      saveToolSetting.mockReturnValue(new Promise((resolve) => (resolveSave = resolve)))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-test="setting-create"]').attributes('disabled')).toBeDefined()
+      resolveSave({ settingId: 'setting-1' })
+      await flushPromises()
+      expect(saveToolSetting).toHaveBeenCalledTimes(1)
+    })
+
+    it('切換工具時重置 alias、設定值與錯誤訊息', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      saveToolSetting.mockRejectedValue(new Error('boom'))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-error"]').exists()).toBe(true)
+
+      getTool.mockResolvedValue({ id: 't2', settingSchema: schema })
+      await wrapper.find('[data-test="tool-select"]').setValue('t2')
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-error"]').exists()).toBe(false)
+      expect(
+        (wrapper.find('[data-test="setting-alias"]').element as HTMLInputElement).value,
+      ).toBe('')
+      expect(
+        (wrapper.find('[data-test="field-apiKey"]').element as HTMLInputElement).value,
+      ).toBe('')
+    })
+
+    it('點擊摺疊標題可收合與展開表單主體', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-create"]').exists()).toBe(true)
+      await wrapper.find('[data-test="setting-toggle"]').trigger('click')
+      expect(wrapper.find('[data-test="setting-create"]').exists()).toBe(false)
+      await wrapper.find('[data-test="setting-toggle"]').trigger('click')
+      expect(wrapper.find('[data-test="setting-create"]').exists()).toBe(true)
+    })
   })
 })

@@ -10,11 +10,13 @@ const emit = defineEmits<{ 'update:modelValue': [value: Record<string, unknown>]
 
 const fields = computed(() => Object.entries(props.schema))
 
-/** 依欄位描述決定 input type：sensitive 優先 password，數字 number，布林 checkbox，其餘（含 array）text */
+/**
+ * 依欄位描述決定 input type：sensitive 優先 password，數字 number，其餘（含 array）text。
+ * boolean 已由 template 的 v-if 分流至 checkbox，不會進入此函式。
+ */
 function inputType(field: ToolSettingFieldSchema): string {
   if (field.sensitive) return 'password'
   if (field.type === 'integer' || field.type === 'number') return 'number'
-  if (field.type === 'boolean') return 'checkbox'
   return 'text'
 }
 
@@ -47,26 +49,31 @@ function onCheckbox(name: string, event: Event) {
 <template>
   <div class="form">
     <div v-for="[name, field] in fields" :key="name" class="field">
+      <!-- input 直接包在 label 內建立關聯，多實例共存不需產生唯一 id -->
       <label :data-test="`label-${name}`">
-        {{ name }}<span v-if="field.required" class="required">*</span>
-        <span v-if="field.description" class="hint">{{ field.description }}</span>
+        <span class="label-text">
+          {{ name }}<span v-if="field.required" class="required">*</span>
+          <span v-if="field.description" class="hint">{{ field.description }}</span>
+        </span>
+        <input
+          v-if="field.type === 'boolean'"
+          :data-test="`field-${name}`"
+          type="checkbox"
+          :checked="Boolean(modelValue[name])"
+          class="text-input checkbox"
+          @change="onCheckbox(name, $event)"
+        />
+        <input
+          v-else
+          :data-test="`field-${name}`"
+          :type="inputType(field)"
+          :step="field.type === 'integer' ? '1' : undefined"
+          :autocomplete="field.sensitive ? 'new-password' : undefined"
+          :value="(modelValue[name] as string | number | undefined) ?? ''"
+          class="text-input"
+          @input="onInput(name, $event)"
+        />
       </label>
-      <input
-        v-if="field.type === 'boolean'"
-        :data-test="`field-${name}`"
-        type="checkbox"
-        :checked="Boolean(modelValue[name])"
-        class="text-input checkbox"
-        @change="onCheckbox(name, $event)"
-      />
-      <input
-        v-else
-        :data-test="`field-${name}`"
-        :type="inputType(field)"
-        :value="(modelValue[name] as string | number | undefined) ?? ''"
-        class="text-input"
-        @input="onInput(name, $event)"
-      />
     </div>
   </div>
 </template>
@@ -85,6 +92,9 @@ function onCheckbox(name: string, event: Event) {
 }
 
 .field label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-size: 11px;
   color: var(--wf-text-dim, #8a8a95);
 }

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { getTool, saveToolSetting, updateToolSetting } from '../../../api/tool'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
 import type { Option } from '../../../types/options'
+import type { ToolSettingSchema } from '../../../types/toolSchema'
+import SettingSchemaForm from './SettingSchemaForm.vue'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
@@ -10,6 +13,22 @@ const options = ref<Option[]>([])
 const toolId = ref<string>((props.config.toolId as string) ?? '')
 const toolSettingId = ref<string>((props.config.toolSettingId as string) ?? '')
 
+// 工具設定建立區塊狀態
+const settingSchema = ref<ToolSettingSchema | null>(null)
+const settingValues = ref<Record<string, unknown>>({})
+const alias = ref('')
+const errorMsg = ref('')
+const successMsg = ref('')
+const isCreating = ref(false)
+const expanded = ref(true)
+
+/** schema 非 null 且至少有一個欄位才顯示建立區塊 */
+const hasSchema = computed(
+  () => !!settingSchema.value && Object.keys(settingSchema.value).length > 0,
+)
+/** 給 SettingSchemaForm 的非空 schema（hasSchema 保證非 null） */
+const schemaForForm = computed<ToolSettingSchema>(() => settingSchema.value ?? {})
+
 onMounted(async () => {
   try {
     options.value = await useNodeOptions().loadToolOptions()
@@ -17,6 +36,56 @@ onMounted(async () => {
     options.value = []
   }
 })
+
+// 切換工具（含初始已有 toolId）時載入 schema，並重置區塊狀態
+watch(
+  toolId,
+  async (id) => {
+    settingSchema.value = null
+    settingValues.value = {}
+    alias.value = ''
+    errorMsg.value = ''
+    successMsg.value = ''
+    expanded.value = true
+    if (!id) return
+    try {
+      const tool = await getTool(id)
+      // 期間使用者可能又切換了工具，避免過期回應覆寫
+      if (toolId.value !== id) return
+      settingSchema.value = tool.settingSchema ?? null
+    } catch {
+      // getTool 失敗視同無 schema，不擋原有手動輸入 toolSettingId 的功能
+      settingSchema.value = null
+    }
+  },
+  { immediate: true },
+)
+
+/** 建立工具設定：saveToolSetting 取得 settingId 後寫入 settingContent，成功即自動帶入 toolSettingId */
+async function createSetting() {
+  if (!alias.value.trim() || isCreating.value) return
+  errorMsg.value = ''
+  successMsg.value = ''
+  isCreating.value = true
+  try {
+    const result = await saveToolSetting(toolId.value, alias.value.trim())
+    const settingId = result.settingId
+    if (!settingId) {
+      // fail-fast：後端未回傳 settingId 時不得繼續寫入設定內容
+      errorMsg.value = '建立失敗：後端未回傳 settingId'
+      return
+    }
+    await updateToolSetting(settingId, JSON.stringify(settingValues.value))
+    toolSettingId.value = settingId
+    emitConfig()
+    successMsg.value = `已建立工具設定並帶入 ID：${settingId}`
+    expanded.value = false
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '建立工具設定失敗'
+  } finally {
+    isCreating.value = false
+  }
+}
 
 /** 以不可變方式合併回 config，保留未知鍵值 */
 function emitConfig() {
@@ -44,6 +113,34 @@ function emitConfig() {
         class="text-input"
         @input="emitConfig"
       />
+    </div>
+    <div v-if="hasSchema" class="setting-section" data-test="setting-section">
+      <button
+        type="button"
+        class="section-toggle"
+        data-test="setting-toggle"
+        @click="expanded = !expanded"
+      >
+        {{ expanded ? '▾' : '▸' }} 建立工具設定
+      </button>
+      <div v-if="expanded" class="section-body">
+        <div class="field">
+          <label>設定別名（alias）</label>
+          <input v-model="alias" data-test="setting-alias" class="text-input" />
+        </div>
+        <SettingSchemaForm v-model="settingValues" :schema="schemaForForm" />
+        <button
+          type="button"
+          class="create-btn"
+          data-test="setting-create"
+          :disabled="!alias.trim() || isCreating"
+          @click="createSetting"
+        >
+          {{ isCreating ? '建立中…' : '建立設定' }}
+        </button>
+      </div>
+      <p v-if="errorMsg" class="setting-error" data-test="setting-error">{{ errorMsg }}</p>
+      <p v-if="successMsg" class="setting-success" data-test="setting-success">{{ successMsg }}</p>
     </div>
   </div>
 </template>
@@ -87,5 +184,61 @@ function emitConfig() {
 select.text-input option {
   background: var(--wf-input, #0f0f13);
   color: var(--wf-text, #e7e7ec);
+}
+
+.setting-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--wf-border, #29292f);
+  border-radius: 8px;
+}
+
+.section-toggle {
+  font-size: 12px;
+  text-align: left;
+  color: var(--wf-accent, #ff6a54);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-btn {
+  align-self: flex-start;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--wf-text, #e7e7ec);
+  background: var(--wf-input, #0f0f13);
+  border: 1px solid var(--wf-accent, #ff6a54);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.create-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.setting-error {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--wf-accent, #ff6a54);
+}
+
+.setting-success {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--wf-text-dim, #8a8a95);
 }
 </style>

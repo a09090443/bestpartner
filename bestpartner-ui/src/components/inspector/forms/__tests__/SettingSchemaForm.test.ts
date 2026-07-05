@@ -78,4 +78,41 @@ describe('SettingSchemaForm', () => {
     const wrapper = mount(SettingSchemaForm, { props: { schema, modelValue: {} } })
     expect(wrapper.text()).toContain('API 金鑰')
   })
+
+  it('array 型別欄位渲染為 text 並以原樣字串傳遞', async () => {
+    const arraySchema: ToolSettingSchema = {
+      stopWords: { type: 'array', required: false, description: '停用詞清單' },
+    }
+    const wrapper = mount(SettingSchemaForm, { props: { schema: arraySchema, modelValue: {} } })
+    const input = wrapper.find('[data-test="field-stopWords"]')
+    expect(input.attributes('type')).toBe('text')
+    await input.setValue('foo, bar, baz')
+    const events = wrapper.emitted('update:modelValue')!
+    expect(events[events.length - 1][0]).toEqual({ stopWords: 'foo, bar, baz' })
+  })
+
+  it('sensitive 欄位帶 autocomplete="new-password"，一般欄位不帶', () => {
+    const wrapper = mount(SettingSchemaForm, { props: { schema, modelValue: {} } })
+    expect(wrapper.find('[data-test="field-apiKey"]').attributes('autocomplete')).toBe(
+      'new-password',
+    )
+    expect(wrapper.find('[data-test="field-timeout"]').attributes('autocomplete')).toBeUndefined()
+  })
+
+  it('integer 欄位帶 step="1"，number 欄位不帶', () => {
+    const numberSchema: ToolSettingSchema = {
+      timeout: { type: 'integer', required: false },
+      ratio: { type: 'number', required: false },
+    }
+    const wrapper = mount(SettingSchemaForm, { props: { schema: numberSchema, modelValue: {} } })
+    expect(wrapper.find('[data-test="field-timeout"]').attributes('step')).toBe('1')
+    expect(wrapper.find('[data-test="field-ratio"]').attributes('step')).toBeUndefined()
+  })
+
+  it('label 與 input 關聯（input 包在 label 內）', () => {
+    const wrapper = mount(SettingSchemaForm, { props: { schema, modelValue: {} } })
+    const label = wrapper.find('[data-test="label-apiKey"]')
+    expect(label.element.tagName).toBe('LABEL')
+    expect(label.find('input').exists()).toBe(true)
+  })
 })
