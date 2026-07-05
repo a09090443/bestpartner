@@ -67,7 +67,7 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 |----------|----------|----------|
 | `LLM_ASSISTANT` | `llmId`（下拉，必填）、`systemPrompt`／`userPrompt`、Memory、工具／MCP／Skill 多選、`knowledgeId`、附加檔案、`responseFormat`／`outputSchema`／`outputKey` | `POST /llm/setting/get`、`/llm/tool/list`、`/llm/mcpServer/list`、`/llm/skill/list`、`/llm/vector/getKnowledgeStore` |
 | `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填） | `GET /llm/tool/list` |
-| `MCP_SERVER` | `mcpId`（下拉，必填）、`mcpSettingId`（選填） | `GET /llm/mcpServer/list` |
+| `MCP_SERVER` | `mcpId`（下拉，必填）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移） | `GET /llm/mcpServer/list` |
 | `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`topK`（數字，預設 4） | `POST /llm/vector/getKnowledgeStore` |
 | 其餘 6 種 | 通用 JSON 編輯器（fallback） | — |
 
