@@ -1,7 +1,9 @@
 # 節點 config 與 Tool 設定的 JSON 契約設計
 
 日期：2026-07-04
-狀態：設計定案（brainstorming 產出）
+狀態：**已實作**（2026-07-05 完成，commits `4f66c9c`..`af82576`；實作計畫見 [2026-07-04-config-schema-contract.md](2026-07-04-config-schema-contract.md)）
+
+> 實作與本設計的偏離（以程式碼為準）：`TriggerNodeConfig.triggerType` 採 `TriggerType` enum（非 String）；DATA_TRANSFORM 必填回報字樣為 `mappings|template`；kotlinx 對 scalar 有寬鬆轉型（數字/布林字串會被接受）；MCP 節點設定欄位名為 `userSettingId`（前端已同步）。
 
 ## 問題背景
 

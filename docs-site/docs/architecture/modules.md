@@ -115,8 +115,9 @@ bestpartner/
 tool/
 ├── DateTool.kt              # 日期時間工具
 ├── config/
-│   ├── Google.kt            # Google 搜尋設定
-│   └── Tavily.kt            # Tavily 搜尋設定
+│   ├── Google.kt            # Google 搜尋設定（settingSchema 事實來源）
+│   ├── Tavily.kt            # Tavily 搜尋設定（settingSchema 事實來源）
+│   └── ToolConfigField.kt   # 設定欄位 UI 提示 annotation（description/sensitive）
 └── text2sql/
     ├── Text2SQLTool.kt      # Text2SQL 工具實作
     ├── config/
@@ -133,6 +134,7 @@ JPA Entity 對應資料庫表格，Repository 使用 Hibernate Panache 提供 CR
 ### `dto/` / `form/` / `model/` — 資料傳輸物件
 
 - `dto/`：API 回應資料物件
+  - `dto/workflow/config/`：workflow 節點 config 的強型別契約（`NodeConfig.kt`——10 種 NodeType 各一個 `@Serializable` DTO + `NodeConfigRegistry`，為節點 config schema 的唯一事實來源）
 - `form/`：API 請求參數物件
 - `model/`：業務模型物件
 

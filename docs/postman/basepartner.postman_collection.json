@@ -1753,6 +1753,7 @@
             "disableBodyPruning": true
           },
           "request": {
+            "description": "回傳每筆工具含 settingSchema（由 configObjectPath 反射產生的設定欄位結構：type/required/sensitive/description；無 config class 者為 null）",
             "method": "GET",
             "header": [
               {
@@ -1789,6 +1790,7 @@
         {
           "name": "tool_get",
           "request": {
+            "description": "回傳含 settingSchema（結構化設定欄位契約）與舊版 settingArgs（扁平欄位型別對照，相容保留）",
             "method": "POST",
             "header": [
               {

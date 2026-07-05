@@ -297,6 +297,8 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 
 ## 2. 節點類型目錄（NodeType）與 config schema
 
+> ⚠️ **事實來源**：config schema 已實作為強型別 DTO——`bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/dto/workflow/config/NodeConfig.kt`（`NodeConfigRegistry` 於 save 驗型別與未知欄位、switchStatus 啟用驗必填）。本節為對照說明文件；兩者不一致時以程式碼為準並回頭修訂本節。
+
 > `type` 存於 `llm_workflow_node.type`（enum string）；`config` 存於 `llm_workflow_node.config`（JSON 欄位，`@JdbcTypeCode(SqlTypes.JSON)`）。所有 config 內字串值支援 `{{nodeKey.outputPath}}` 變數插值（引用上游 node_execution.output）。
 
 `enum class NodeType { TRIGGER, LLM_ASSISTANT, TOOL, MCP_SERVER, KNOWLEDGE_RAG, CONDITION, LOOP, CODE, HTTP_REQUEST, DATA_TRANSFORM }`

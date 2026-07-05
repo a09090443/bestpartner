@@ -85,8 +85,8 @@
 
 | HTTP | 路徑 | 說明 | 權限 |
 |------|------|------|------|
-| GET | `/llm/tool/list` | 列出所有已註冊工具及其分類 | 公開 |
-| POST | `/llm/tool/get` | 取得特定工具詳細資訊（須傳入 id） | 公開 |
+| GET | `/llm/tool/list` | 列出所有已註冊工具及其分類（每筆含 `settingSchema`：由 configObjectPath 反射產生的設定欄位結構，無 config class 者為 null） | 公開 |
+| POST | `/llm/tool/get` | 取得特定工具詳細資訊（須傳入 id；回傳含 `settingSchema` 與舊版 `settingArgs`） | 公開 |
 | POST | `/llm/tool/register` | 註冊新工具（須傳入 name、classPath、groupId、type；CUSTOMIZE 類型須另加 functionName、functionDescription） | @RolesAllowed("admin") |
 | POST | `/llm/tool/delete` | 刪除工具（須傳入 id） | @RolesAllowed("admin") |
 | POST | `/llm/tool/saveSetting` | 儲存用戶工具設定（須傳入 id + alias） | 公開 |
@@ -151,12 +151,12 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | HTTP | 路徑 | 說明 |
 |------|------|------|
 | POST | `/llm/workflow/create` | 建立空白 workflow（狀態 DRAFT、版本 1），須傳入 name |
-| POST | `/llm/workflow/save` | 新增或整張覆寫 workflow（含 nodes/edges）；更新時以 version 樂觀鎖檢核；存檔前驗證畫布（nodeKey 唯一、edge 端點存在、節點數上限、無環） |
+| POST | `/llm/workflow/save` | 新增或整張覆寫 workflow（含 nodes/edges）；更新時以 version 樂觀鎖檢核；存檔前驗證畫布（nodeKey 唯一、edge 端點存在、節點數上限、無環）與節點 config 型別（依 NodeType 強型別反序列化，未知欄位或結構性型別錯誤回 400；必填缺席放行） |
 | POST | `/llm/workflow/get` | 取得單一 workflow 完整定義（含 nodes/edges），須傳入 id |
 | GET | `/llm/workflow/list` | 列出當前使用者擁有的 workflow 摘要清單 |
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta），須傳入 id |
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge），須傳入 id |
-| POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow（啟用前須具備 Trigger 節點且圖無環），須傳入 id + active |
+| POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow（啟用前須具備 Trigger 節點、圖無環，且逐節點驗 config 必填欄位——驗不過回報 nodeKey 與缺漏欄位），須傳入 id + active |
 
 ---
 

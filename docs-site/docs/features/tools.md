@@ -28,8 +28,8 @@ BestPartner 支援 AI 工具調用（Tool Calling），讓 AI 可以執行外部
 
 | HTTP | 路徑 | 說明 |
 |------|------|------|
-| GET | `/llm/tool/list` | 取得所有工具列表 |
-| POST | `/llm/tool/get` | 取得特定工具 |
+| GET | `/llm/tool/list` | 取得所有工具列表（每筆含 `settingSchema`） |
+| POST | `/llm/tool/get` | 取得特定工具（含 `settingSchema`） |
 | POST | `/llm/tool/register` | 註冊工具 |
 | POST | `/llm/tool/delete` | 刪除工具 |
 | POST | `/llm/tool/saveSetting` | 儲存工具自訂設定 |
@@ -37,6 +37,28 @@ BestPartner 支援 AI 工具調用（Tool Calling），讓 AI 可以執行外部
 | POST | `/llm/tool/category/save` | 建立工具分類 |
 | POST | `/llm/tool/category/update` | 更新工具分類 |
 | POST | `/llm/tool/category/delete` | 刪除工具分類 |
+
+## 設定欄位結構（settingSchema）
+
+工具的設定欄位由後端**反射自動產生**：`config_object_path` 指向的 Kotlin data class（如 `tool/config/Google.kt`）即欄位的唯一事實來源，`ToolSchemaGenerator` 反射其建構子產生結構化 schema，隨 `list`/`get` 回傳：
+
+```json
+{
+  "apiKey":  { "type": "string",  "required": true, "sensitive": true, "description": "Google Custom Search API 金鑰" },
+  "csi":     { "type": "string",  "required": true, "description": "Custom Search Engine ID" },
+  "siteRestrict": { "type": "boolean", "required": false },
+  "timeout": { "type": "integer", "required": true, "description": "逾時毫秒數" }
+}
+```
+
+- `type`：`string` / `integer` / `number` / `boolean` / `array`（由 Kotlin 型別推導）
+- `required`：nullable 欄位為 `false`（由型別推導，不需手動維護）
+- `sensitive` / `description`：由 config class 欄位上的 `@ToolConfigField` annotation 標註
+- 無 config class 的工具（如 Date）`settingSchema` 為 `null`
+
+前端 workflow 編輯器的 TOOL 節點表單依此 schema 動態渲染設定欄位（sensitive 欄位以密碼框呈現），填寫後可一鍵建立工具設定（`saveSetting` + `updateSetting`）並自動帶入節點的 `toolSettingId`。
+
+> 新增工具的 config class 欄位時，schema 自動更新，**無需改前端或文件**；下方欄位表僅為快速參考。
 
 ## Google 搜尋設定
 
@@ -48,7 +70,7 @@ Google 搜尋工具設定欄位：
 | `csi` | Custom Search Engine ID |
 | `siteRestrict` | 限制搜尋的網站（選填）|
 | `includeImages` | 是否包含圖片結果 |
-| `timeout` | 請求逾時（秒）|
+| `timeout` | 請求逾時（毫秒；純數字視為毫秒，亦接受 `5s`/`1m` 帶單位格式）|
 
 ## Tavily 搜尋設定
 

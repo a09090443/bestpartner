@@ -88,11 +88,14 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ## 節點 config 契約
 
-每個節點的 `config` 在後端儲存為**不透明 JSON**（`WorkflowNodeDTO.config: JsonObject`），後端目前**不對 config 做 per-type 驗證**（僅驗證圖結構與 TRIGGER 存在）。實際的欄位契約由前端型別化表單定義，並將於執行引擎（後續階段）讀取。
+每個節點的 `config` 在後端以**強型別 DTO** 定義契約：10 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
 
-> ⚠️ 本節描述的是**前端表單目前寫入的欄位**，作為前後端對齊的契約草案。執行引擎實作前，欄位命名以此為準；引擎設計若需調整，須同步更新前端表單與本表。
+- **save（含 DRAFT）**：依 NodeType 嚴格反序列化——**未知欄位**或**結構性型別錯誤**（如陣列欄位給字串、非法 enum 值）回 400（`workflow.node.config.invalid`，訊息含 nodeKey 與原因）；必填欄位缺席**放行**，允許存不完整草稿。數字/布林形式的字串（如 `"topK": "5"`）會被寬鬆轉型接受。
+- **switchStatus 啟用**：逐節點檢查必填欄位，驗不過回 400（`workflow.node.config.required.missing`，訊息含 nodeKey 與缺漏欄位清單）。
 
-下列 4 種節點具備型別化表單，config 欄位固定；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，**尚無定義 schema（待定）**。
+> ⚠️ 因未知欄位會被拒，前端表單寫入的欄位名必須與 DTO 完全一致；以 `JsonConfigEditor` 自由編輯的 config 若含契約外的鍵，存檔會被 400 擋下（錯誤訊息會指出節點與原因）。
+
+下列 4 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
 
 ### LLM_ASSISTANT（LLM 助手）
 
@@ -140,33 +143,37 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 |------|------|:----:|------|
 | `toolId` | string | ✓ | 工具 id |
 | `toolSettingId` | string | | 執行期使用者設定 id |
+| `arguments` | object | | 工具呼叫參數（支援插值） |
+| `outputKey` | string | | 輸出鍵名 |
 
 ### MCP_SERVER（MCP 伺服器）
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|:----:|------|
 | `mcpId` | string | ✓ | MCP 伺服器 id |
-| `mcpSettingId` | string | | 執行期使用者設定 id |
+| `userSettingId` | string | | 執行期使用者設定 id（舊欄位名 `mcpSettingId` 已淘汰，表單讀取相容並自動遷移） |
+| `toolName` | string | ✓ | 要呼叫的 MCP 工具名稱（啟用時必填） |
+| `arguments` | object | | 工具呼叫參數（支援插值） |
+| `outputKey` | string | | 輸出鍵名 |
 
 ### KNOWLEDGE_RAG（知識庫 RAG）
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|:----:|------|
 | `knowledgeId` | string | ✓ | 知識庫 id |
-| `topK` | number | | 取回筆數，預設 `4` |
+| `embeddingModelId` | string | ✓ | Embedding 模型設定 id（啟用時必填；表單欄位待補，見已知落差） |
+| `query` | string | ✓ | 檢索語句，支援插值（啟用時必填；表單欄位待補） |
+| `topK` | number | | 取回筆數 |
+| `minScore` | number | | 相似度下限 |
+| `outputKey` | string | | 輸出鍵名 |
 
-### 尚未定義 schema 的節點（待定）
+> ⚠️ 已知落差：前端 `KnowledgeRagForm` 目前僅提供 `knowledgeId`/`topK` 欄位，`embeddingModelId` 與 `query` 須先以 JSON 編輯器補上，否則啟用驗證不會通過。
 
-| NodeType | 說明 | config 現況 |
-|----------|------|------------|
-| `TRIGGER` | 觸發節點 | 純 JSON，無定義欄位（通常為 `{}`） |
-| `CONDITION` | 條件判斷 | 純 JSON，待定 |
-| `LOOP` | 迴圈 | 純 JSON，待定 |
-| `CODE` | 程式碼 | 純 JSON，待定 |
-| `HTTP_REQUEST` | HTTP 請求 | 純 JSON，待定 |
-| `DATA_TRANSFORM` | 資料轉換 | 純 JSON，待定 |
+### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
-> 上表節點在前端以 `JsonConfigEditor` 自由編輯，尚無固定 schema。待執行引擎設計時再定義並回填本節。
+`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
+
+完整欄位定義見 `docs/workflow-engine/system-design.md` §2；程式碼事實來源為 `dto/workflow/config/NodeConfig.kt`。以 JSON 編輯器輸入時，鍵名拼錯或型別不符會在存檔時被 400 擋下。
 
 ## 取得 Workflow
 
