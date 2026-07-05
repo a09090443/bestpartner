@@ -8,7 +8,10 @@ const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>
 
 const options = ref<Option[]>([])
 const mcpId = ref<string>((props.config.mcpId as string) ?? '')
-const mcpSettingId = ref<string>((props.config.mcpSettingId as string) ?? '')
+// 後端契約欄位為 userSettingId（McpServerNodeConfig）；mcpSettingId 為舊版欄位名，讀取時相容
+const userSettingId = ref<string>(
+  ((props.config.userSettingId as string) ?? (props.config.mcpSettingId as string)) ?? '',
+)
 
 onMounted(async () => {
   try {
@@ -18,11 +21,12 @@ onMounted(async () => {
   }
 })
 
-/** 以不可變方式合併回 config，保留未知鍵值 */
+/** 以不可變方式合併回 config，保留未知鍵值；舊欄位 mcpSettingId 一律移除（後端嚴格驗證會拒絕未知鍵） */
 function emitConfig() {
   const next: Record<string, unknown> = { ...props.config, mcpId: mcpId.value }
-  if (mcpSettingId.value) next.mcpSettingId = mcpSettingId.value
-  else delete next.mcpSettingId
+  delete next.mcpSettingId
+  if (userSettingId.value) next.userSettingId = userSettingId.value
+  else delete next.userSettingId
   emit('update:config', next)
 }
 </script>
@@ -39,7 +43,7 @@ function emitConfig() {
     <div class="field">
       <label>MCP 設定 ID（選填，執行期使用者設定）</label>
       <input
-        v-model="mcpSettingId"
+        v-model="userSettingId"
         data-test="mcp-setting-id"
         class="text-input"
         @input="emitConfig"
