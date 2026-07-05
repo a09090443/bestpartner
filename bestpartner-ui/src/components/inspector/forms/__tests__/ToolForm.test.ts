@@ -226,6 +226,106 @@ describe('ToolForm', () => {
       ).toBe('')
     })
 
+    it('建立 pending 中切換工具：中止流程，不寫入設定亦不帶入 toolSettingId', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      let resolveSave: (v: unknown) => void = () => {}
+      saveToolSetting.mockReturnValue(new Promise((resolve) => (resolveSave = resolve)))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      // saveToolSetting 尚未回應時切換工具
+      getTool.mockResolvedValue({ id: 't2', settingSchema: schema })
+      await wrapper.find('[data-test="tool-select"]').setValue('t2')
+      await flushPromises()
+      resolveSave({ settingId: 'setting-1' })
+      await flushPromises()
+
+      expect(updateToolSetting).not.toHaveBeenCalled()
+      expect(
+        (wrapper.find('[data-test="tool-setting-id"]').element as HTMLInputElement).value,
+      ).toBe('')
+      expect(wrapper.find('[data-test="setting-success"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="setting-error"]').exists()).toBe(false)
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({ toolId: 't2' })
+    })
+
+    it('updateToolSetting 進行中切換工具：內容為建立當下快照，且不帶入 toolSettingId', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      saveToolSetting.mockResolvedValue({ settingId: 'setting-1' })
+      let resolveUpdate: (v?: unknown) => void = () => {}
+      updateToolSetting.mockReturnValue(new Promise((resolve) => (resolveUpdate = resolve)))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await flushPromises()
+      // updateToolSetting 已以建立當下的快照內容送出（pending 中）
+      expect(updateToolSetting).toHaveBeenCalledWith(
+        'setting-1',
+        JSON.stringify({ apiKey: 'sk-xxx' }),
+      )
+      // pending 期間切換工具（watch 會重置 settingValues）
+      getTool.mockResolvedValue({ id: 't2', settingSchema: schema })
+      await wrapper.find('[data-test="tool-select"]').setValue('t2')
+      await flushPromises()
+      resolveUpdate()
+      await flushPromises()
+
+      expect(
+        (wrapper.find('[data-test="tool-setting-id"]').element as HTMLInputElement).value,
+      ).toBe('')
+      expect(wrapper.find('[data-test="setting-success"]').exists()).toBe(false)
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({ toolId: 't2' })
+    })
+
+    it('舊 getTool 請求晚到的失敗不覆寫新工具已載入的 schema', async () => {
+      let rejectFirst: (e: unknown) => void = () => {}
+      getTool.mockImplementationOnce(() => new Promise((_, reject) => (rejectFirst = reject)))
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      getTool.mockResolvedValue({ id: 't2', settingSchema: schema })
+      await wrapper.find('[data-test="tool-select"]').setValue('t2')
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(true)
+      // t1 的請求此時才失敗，不得清掉 t2 的 schema
+      rejectFirst(new Error('slow failure'))
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-section"]').exists()).toBe(true)
+    })
+
+    it('初始 immediate 載入不清空 config 既有的 toolSettingId', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, {
+        props: { config: { toolId: 't1', toolSettingId: 'ts-9' } },
+      })
+      await flushPromises()
+      expect(
+        (wrapper.find('[data-test="tool-setting-id"]').element as HTMLInputElement).value,
+      ).toBe('ts-9')
+      // 未發生任何清空動作，不應 emit config
+      expect(wrapper.emitted('update:config')).toBeUndefined()
+    })
+
+    it('實際切換工具時清空 toolSettingId 並 emit config', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, {
+        props: { config: { toolId: 't1', toolSettingId: 'ts-9' } },
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="tool-select"]').setValue('t2')
+      await flushPromises()
+      expect(
+        (wrapper.find('[data-test="tool-setting-id"]').element as HTMLInputElement).value,
+      ).toBe('')
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({ toolId: 't2' })
+    })
+
     it('點擊摺疊標題可收合與展開表單主體', async () => {
       getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
       const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })

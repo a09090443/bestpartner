@@ -40,13 +40,19 @@ onMounted(async () => {
 // 切換工具（含初始已有 toolId）時載入 schema，並重置區塊狀態
 watch(
   toolId,
-  async (id) => {
+  async (id, oldId) => {
     settingSchema.value = null
     settingValues.value = {}
     alias.value = ''
     errorMsg.value = ''
     successMsg.value = ''
     expanded.value = true
+    // settingId 語意上綁定工具，跨工具沿用必然無效；僅在使用者「實際切換」時清空，
+    // 初始 immediate 載入（oldId 為 undefined）須保留自 config 還原的 toolSettingId
+    if (oldId !== undefined && toolSettingId.value) {
+      toolSettingId.value = ''
+      emitConfig()
+    }
     if (!id) return
     try {
       const tool = await getTool(id)
@@ -54,6 +60,8 @@ watch(
       if (toolId.value !== id) return
       settingSchema.value = tool.settingSchema ?? null
     } catch {
+      // 舊請求晚到的失敗不得覆寫新工具已載入的 schema
+      if (toolId.value !== id) return
       // getTool 失敗視同無 schema，不擋原有手動輸入 toolSettingId 的功能
       settingSchema.value = null
     }
@@ -64,23 +72,30 @@ watch(
 /** 建立工具設定：saveToolSetting 取得 settingId 後寫入 settingContent，成功即自動帶入 toolSettingId */
 async function createSetting() {
   if (!alias.value.trim() || isCreating.value) return
+  // 快照建立當下的工具與設定值：pending 期間使用者可能切換工具（watch 會重置狀態），
+  // 每個 await 之後以 toolId 比對快照，一旦切換即中止且不寫任何 UI 狀態
+  const id = toolId.value
+  const values = { ...settingValues.value }
   errorMsg.value = ''
   successMsg.value = ''
   isCreating.value = true
   try {
-    const result = await saveToolSetting(toolId.value, alias.value.trim())
+    const result = await saveToolSetting(id, alias.value.trim())
+    if (toolId.value !== id) return
     const settingId = result.settingId
     if (!settingId) {
       // fail-fast：後端未回傳 settingId 時不得繼續寫入設定內容
       errorMsg.value = '建立失敗：後端未回傳 settingId'
       return
     }
-    await updateToolSetting(settingId, JSON.stringify(settingValues.value))
+    await updateToolSetting(settingId, JSON.stringify(values))
+    if (toolId.value !== id) return
     toolSettingId.value = settingId
     emitConfig()
     successMsg.value = `已建立工具設定並帶入 ID：${settingId}`
     expanded.value = false
   } catch (e) {
+    if (toolId.value !== id) return
     errorMsg.value = e instanceof Error ? e.message : '建立工具設定失敗'
   } finally {
     isCreating.value = false
