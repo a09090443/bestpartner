@@ -45,4 +45,38 @@ describe('tool API client', () => {
 
     expect(result).toEqual([{ value: 't3', label: 't3' }])
   })
+
+  it('getTool() 應 POST /llm/tool/get 並解包回傳 DTO', async () => {
+    const dto = {
+      id: 't1',
+      name: 'Google 搜尋',
+      settingSchema: { apiKey: { type: 'string', required: true, sensitive: true } },
+    }
+    postMock.mockResolvedValueOnce(apiOk(dto))
+
+    const result = await toolApi.getTool('t1')
+
+    expect(postMock).toHaveBeenCalledWith('/llm/tool/get', { id: 't1' })
+    expect(result).toEqual(dto)
+  })
+
+  it('saveToolSetting() 應 POST /llm/tool/saveSetting 並回傳含 settingId 的 DTO', async () => {
+    postMock.mockResolvedValueOnce(apiOk({ id: 't1', alias: '我的搜尋', settingId: 's9' }))
+
+    const result = await toolApi.saveToolSetting('t1', '我的搜尋')
+
+    expect(postMock).toHaveBeenCalledWith('/llm/tool/saveSetting', { id: 't1', alias: '我的搜尋' })
+    expect(result.settingId).toBe('s9')
+  })
+
+  it('updateToolSetting() 應 POST /llm/tool/updateSetting 帶 settingId 與 settingContent', async () => {
+    postMock.mockResolvedValueOnce(apiOk(null))
+
+    await toolApi.updateToolSetting('s9', '{"apiKey":"xxx"}')
+
+    expect(postMock).toHaveBeenCalledWith('/llm/tool/updateSetting', {
+      settingId: 's9',
+      settingContent: '{"apiKey":"xxx"}',
+    })
+  })
 })

@@ -7,6 +7,7 @@ import type { ToolSettingSchema } from '../types/toolSchema'
 export interface ToolDTO {
   id?: string
   name?: string
+  /** 設定欄位 schema；null 或缺席代表該工具無 config class */
   settingSchema?: ToolSettingSchema | null
   settingId?: string
   alias?: string

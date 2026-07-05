@@ -6,5 +6,5 @@ export interface ToolSettingFieldSchema {
   description?: string
 }
 
-/** 工具 settingSchema：欄位名 -> 欄位描述；null 代表該工具無 config class */
+/** 工具 settingSchema：欄位名 -> 欄位描述 */
 export type ToolSettingSchema = Record<string, ToolSettingFieldSchema>
