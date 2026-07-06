@@ -79,16 +79,54 @@ describe('SettingSchemaForm', () => {
     expect(wrapper.text()).toContain('API 金鑰')
   })
 
-  it('array 型別欄位渲染為 text 並以原樣字串傳遞', async () => {
+  it('array 型別欄位渲染為 text，emit 時以逗號切割為字串陣列', async () => {
     const arraySchema: ToolSettingSchema = {
       stopWords: { type: 'array', required: false, description: '停用詞清單' },
     }
     const wrapper = mount(SettingSchemaForm, { props: { schema: arraySchema, modelValue: {} } })
     const input = wrapper.find('[data-test="field-stopWords"]')
     expect(input.attributes('type')).toBe('text')
-    await input.setValue('foo, bar, baz')
+    // trim 每段並濾除空段（末尾多餘逗號不產生空元素）
+    await input.setValue('a.com, b.com ,')
     const events = wrapper.emitted('update:modelValue')!
-    expect(events[events.length - 1][0]).toEqual({ stopWords: 'foo, bar, baz' })
+    expect(events[events.length - 1][0]).toEqual({ stopWords: ['a.com', 'b.com'] })
+  })
+
+  it('array 欄位空輸入時刪除該鍵', async () => {
+    const arraySchema: ToolSettingSchema = {
+      stopWords: { type: 'array', required: false },
+    }
+    const wrapper = mount(SettingSchemaForm, {
+      props: { schema: arraySchema, modelValue: { stopWords: ['x'] } },
+    })
+    await wrapper.find('[data-test="field-stopWords"]').setValue('')
+    const events = wrapper.emitted('update:modelValue')!
+    expect(events[events.length - 1][0]).toEqual({})
+  })
+
+  it('array 欄位由既有陣列 modelValue 還原為逗號字串顯示', () => {
+    const arraySchema: ToolSettingSchema = {
+      stopWords: { type: 'array', required: false },
+    }
+    const wrapper = mount(SettingSchemaForm, {
+      props: { schema: arraySchema, modelValue: { stopWords: ['a.com', 'b.com'] } },
+    })
+    expect((wrapper.find('[data-test="field-stopWords"]').element as HTMLInputElement).value).toBe(
+      'a.com, b.com',
+    )
+  })
+
+  it('integer 欄位輸入小數時截斷為整數，number 欄位保留小數', async () => {
+    const numberSchema: ToolSettingSchema = {
+      timeout: { type: 'integer', required: false },
+      ratio: { type: 'number', required: false },
+    }
+    const wrapper = mount(SettingSchemaForm, { props: { schema: numberSchema, modelValue: {} } })
+    await wrapper.find('[data-test="field-timeout"]').setValue('3.7')
+    await wrapper.find('[data-test="field-ratio"]').setValue('3.5')
+    const events = wrapper.emitted('update:modelValue')!
+    expect(events[0][0]).toEqual({ timeout: 3 }) // integer 截斷
+    expect(events[1][0]).toEqual({ ratio: 3.5 }) // number 保留小數
   })
 
   it('sensitive 欄位帶 autocomplete="new-password"，一般欄位不帶', () => {

@@ -113,14 +113,46 @@ describe('ToolForm', () => {
       expect(emitted![emitted!.length - 1][0]).toEqual({ toolId: 't1', toolSettingId: 'ts-1' })
     })
 
-    it('alias 未填時建立按鈕 disabled', async () => {
+    it('alias 或必填欄位未填時建立按鈕 disabled，全部填妥後 enabled', async () => {
       getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
       const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
       await flushPromises()
-      const btn = wrapper.find('[data-test="setting-create"]')
-      expect(btn.attributes('disabled')).toBeDefined()
+      const disabled = () => wrapper.find('[data-test="setting-create"]').attributes('disabled')
+      // alias 與必填 apiKey 皆缺 → disabled
+      expect(disabled()).toBeDefined()
+      // 僅填 alias，必填 apiKey 仍缺 → 維持 disabled
       await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
-      expect(wrapper.find('[data-test="setting-create"]').attributes('disabled')).toBeUndefined()
+      expect(disabled()).toBeDefined()
+      // 補填必填 apiKey → enabled
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      expect(disabled()).toBeUndefined()
+    })
+
+    it('必填欄位被清空後建立按鈕重新 disabled', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      const disabled = () => wrapper.find('[data-test="setting-create"]').attributes('disabled')
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      expect(disabled()).toBeUndefined()
+      await wrapper.find('[data-test="field-apiKey"]').setValue('')
+      expect(disabled()).toBeDefined()
+    })
+
+    it('建立成功後手動編輯 toolSettingId 清除過時 successMsg', async () => {
+      getTool.mockResolvedValue({ id: 't1', settingSchema: schema })
+      saveToolSetting.mockResolvedValue({ settingId: 'setting-1' })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      await wrapper.find('[data-test="setting-create"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="setting-success"]').exists()).toBe(true)
+      // 手動改 ID 後，先前「已帶入 setting-1」的提示與現值不符，須清除
+      await wrapper.find('[data-test="tool-setting-id"]').setValue('manual-99')
+      expect(wrapper.find('[data-test="setting-success"]').exists()).toBe(false)
     })
 
     it('建立設定成功後 toolSettingId 自動帶入並 emit config，顯示成功提示並收合表單', async () => {
@@ -158,6 +190,8 @@ describe('ToolForm', () => {
       const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
       await flushPromises()
       await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      // 必填 apiKey 須填妥才能啟用建立按鈕
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
       await wrapper.find('[data-test="setting-create"]').trigger('click')
       await flushPromises()
 
@@ -195,6 +229,8 @@ describe('ToolForm', () => {
       const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
       await flushPromises()
       await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      // 必填 apiKey 須填妥才能啟用建立按鈕
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
       await wrapper.find('[data-test="setting-create"]').trigger('click')
       await wrapper.vm.$nextTick()
       expect(wrapper.find('[data-test="setting-create"]').attributes('disabled')).toBeDefined()

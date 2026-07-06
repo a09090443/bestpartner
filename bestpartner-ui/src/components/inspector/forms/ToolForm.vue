@@ -29,6 +29,15 @@ const hasSchema = computed(
 /** 給 SettingSchemaForm 的非空 schema（hasSchema 保證非 null） */
 const schemaForForm = computed<ToolSettingSchema>(() => settingSchema.value ?? {})
 
+/** schema 中任一 required 欄位在 settingValues 缺席或為空（空字串/undefined/空陣列）即為 true */
+const missingRequired = computed(() =>
+  Object.entries(schemaForForm.value).some(([name, field]) => {
+    if (!field.required) return false
+    const v = settingValues.value[name]
+    return v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+  }),
+)
+
 onMounted(async () => {
   try {
     options.value = await useNodeOptions().loadToolOptions()
@@ -102,6 +111,12 @@ async function createSetting() {
   }
 }
 
+/** 手動編輯 toolSettingId：先前建立成功的提示（含帶入 ID）已與現值不符，須清除 */
+function onToolSettingIdInput() {
+  successMsg.value = ''
+  emitConfig()
+}
+
 /** 以不可變方式合併回 config，保留未知鍵值 */
 function emitConfig() {
   const next: Record<string, unknown> = { ...props.config, toolId: toolId.value }
@@ -126,7 +141,7 @@ function emitConfig() {
         v-model="toolSettingId"
         data-test="tool-setting-id"
         class="text-input"
-        @input="emitConfig"
+        @input="onToolSettingIdInput"
       />
     </div>
     <div v-if="hasSchema" class="setting-section" data-test="setting-section">
@@ -148,7 +163,7 @@ function emitConfig() {
           type="button"
           class="create-btn"
           data-test="setting-create"
-          :disabled="!alias.trim() || isCreating"
+          :disabled="!alias.trim() || missingRequired || isCreating"
           @click="createSetting"
         >
           {{ isCreating ? '建立中…' : '建立設定' }}

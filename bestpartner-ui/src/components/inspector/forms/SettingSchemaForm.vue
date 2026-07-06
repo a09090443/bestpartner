@@ -28,14 +28,30 @@ function updateField(name: string, value: unknown) {
   emit('update:modelValue', next)
 }
 
+/** array 欄位顯示時把陣列 join 回逗號字串供編輯；其餘型別原樣顯示 */
+function displayValue(name: string): string | number {
+  const v = props.modelValue[name]
+  if (Array.isArray(v)) return v.join(', ')
+  return (v as string | number | undefined) ?? ''
+}
+
 function onInput(name: string, event: Event) {
   const el = event.target as HTMLInputElement
   const field = props.schema[name]
   let value: unknown
-  if (field.type === 'integer' || field.type === 'number') {
+  if (field.type === 'integer') {
+    // integer 欄位截斷小數，僅保留整數（後端對應 Int/Long）
+    value = el.value === '' ? undefined : Math.trunc(Number(el.value))
+  } else if (field.type === 'number') {
     value = el.value === '' ? undefined : Number(el.value)
+  } else if (field.type === 'array') {
+    // array 欄位以逗號切割為字串陣列（trim 每段、濾除空段），空輸入則刪鍵
+    const parts = el.value
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s !== '')
+    value = parts.length === 0 ? undefined : parts
   } else {
-    // string 與 array（v1 以原樣字串傳遞）皆為字串
     value = el.value
   }
   updateField(name, value)
@@ -69,7 +85,8 @@ function onCheckbox(name: string, event: Event) {
           :type="inputType(field)"
           :step="field.type === 'integer' ? '1' : undefined"
           :autocomplete="field.sensitive ? 'new-password' : undefined"
-          :value="(modelValue[name] as string | number | undefined) ?? ''"
+          :placeholder="field.type === 'array' ? '以逗號分隔' : undefined"
+          :value="displayValue(name)"
           class="text-input"
           @input="onInput(name, $event)"
         />
