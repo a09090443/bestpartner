@@ -8,10 +8,11 @@ import type { Option } from '../types/options'
 
 /**
  * 節點表單下拉選項的載入與快取。
- * 五種清單以模組級 ref 快取，一個 session 只抓一次；表單掛載時 await 對應 loader。
+ * 各清單以模組級 ref 快取，一個 session 只抓一次；表單掛載時 await 對應 loader。
  */
 
 const llmOptions = ref<Option[] | null>(null)
+const embeddingOptions = ref<Option[] | null>(null)
 const toolOptions = ref<Option[] | null>(null)
 const mcpOptions = ref<Option[] | null>(null)
 const knowledgeOptions = ref<Option[] | null>(null)
@@ -21,6 +22,12 @@ export function useNodeOptions() {
   async function loadLlmOptions(): Promise<Option[]> {
     if (!llmOptions.value) llmOptions.value = await llmSettingApi.getSettings()
     return llmOptions.value
+  }
+
+  /** KNOWLEDGE_RAG 節點 embeddingModelId 專用：僅列 EMBEDDING 型別的 LLM 設定 */
+  async function loadEmbeddingOptions(): Promise<Option[]> {
+    if (!embeddingOptions.value) embeddingOptions.value = await llmSettingApi.getEmbeddingSettings()
+    return embeddingOptions.value
   }
 
   async function loadToolOptions(): Promise<Option[]> {
@@ -43,5 +50,12 @@ export function useNodeOptions() {
     return skillOptions.value
   }
 
-  return { loadLlmOptions, loadToolOptions, loadMcpOptions, loadKnowledgeOptions, loadSkillOptions }
+  return {
+    loadLlmOptions,
+    loadEmbeddingOptions,
+    loadToolOptions,
+    loadMcpOptions,
+    loadKnowledgeOptions,
+    loadSkillOptions,
+  }
 }

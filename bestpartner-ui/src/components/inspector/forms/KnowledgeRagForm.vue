@@ -7,19 +7,46 @@ const props = defineProps<{ config: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
 
 const options = ref<Option[]>([])
+const embeddingOptions = ref<Option[]>([])
 const knowledgeId = ref<string>((props.config.knowledgeId as string) ?? '')
+const embeddingModelId = ref<string>((props.config.embeddingModelId as string) ?? '')
+const query = ref<string>((props.config.query as string) ?? '')
 const topK = ref<number>((props.config.topK as number) ?? 4)
+// v-model.number 清空時值為空字串，故型別為 number | ''
+const minScore = ref<number | ''>((props.config.minScore as number) ?? '')
+const outputKey = ref<string>((props.config.outputKey as string) ?? '')
 
 onMounted(async () => {
-  try {
-    options.value = await useNodeOptions().loadKnowledgeOptions()
-  } catch {
-    options.value = []
+  const loaders = useNodeOptions()
+  const load = async (fn: () => Promise<Option[]>) => {
+    try {
+      return await fn()
+    } catch {
+      return []
+    }
   }
+  ;[options.value, embeddingOptions.value] = await Promise.all([
+    load(loaders.loadKnowledgeOptions),
+    load(loaders.loadEmbeddingOptions),
+  ])
 })
 
+/** 以不可變方式合併回 config，保留未知鍵值；新欄位空值刪鍵（DRAFT 允許缺席，啟用時後端才擋） */
 function emitConfig() {
-  emit('update:config', { ...props.config, knowledgeId: knowledgeId.value, topK: topK.value })
+  const next: Record<string, unknown> = {
+    ...props.config,
+    knowledgeId: knowledgeId.value,
+    topK: topK.value,
+  }
+  if (embeddingModelId.value) next.embeddingModelId = embeddingModelId.value
+  else delete next.embeddingModelId
+  if (query.value) next.query = query.value
+  else delete next.query
+  if (typeof minScore.value === 'number') next.minScore = minScore.value
+  else delete next.minScore
+  if (outputKey.value) next.outputKey = outputKey.value
+  else delete next.outputKey
+  emit('update:config', next)
 }
 </script>
 
@@ -38,6 +65,24 @@ function emitConfig() {
       </select>
     </div>
     <div class="field">
+      <label>Embedding 模型（必填，僅列 EMBEDDING 型別的 LLM 設定）</label>
+      <select
+        v-model="embeddingModelId"
+        data-test="embedding-model-select"
+        class="text-input"
+        @change="emitConfig"
+      >
+        <option value="">請選擇</option>
+        <option v-for="opt in embeddingOptions" :key="opt.value" :value="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
+    <div class="field">
+      <label>檢索語句（必填，支援變數插值引用上游輸出）</label>
+      <textarea v-model="query" data-test="query" class="text-input" rows="3" @input="emitConfig" />
+    </div>
+    <div class="field">
       <label>取回筆數（topK）</label>
       <input
         v-model.number="topK"
@@ -47,6 +92,23 @@ function emitConfig() {
         class="text-input"
         @input="emitConfig"
       />
+    </div>
+    <div class="field">
+      <label>相似度下限（選填，0–1）</label>
+      <input
+        v-model.number="minScore"
+        data-test="min-score"
+        type="number"
+        min="0"
+        max="1"
+        step="0.05"
+        class="text-input"
+        @input="emitConfig"
+      />
+    </div>
+    <div class="field">
+      <label>輸出鍵名（選填）</label>
+      <input v-model="outputKey" data-test="output-key" class="text-input" @input="emitConfig" />
     </div>
   </div>
 </template>

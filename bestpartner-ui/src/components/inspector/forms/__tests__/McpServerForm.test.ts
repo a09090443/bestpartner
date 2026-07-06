@@ -48,6 +48,38 @@ describe('McpServerForm', () => {
     expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1' })
   })
 
+  it('編輯工具名稱應 emit update:config 帶入 toolName（啟用必填欄位）', async () => {
+    const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="tool-name"]').setValue('get_weather')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1', toolName: 'get_weather' })
+  })
+
+  it('toolName 以既有 config 值初始化', () => {
+    const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1', toolName: 'read_file' } } })
+    expect((wrapper.find('[data-test="tool-name"]').element as HTMLInputElement).value).toBe('read_file')
+  })
+
+  it('清空工具名稱應自 config 移除 toolName 鍵', async () => {
+    const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1', toolName: 'read_file' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="tool-name"]').setValue('')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1' })
+  })
+
+  it('編輯輸出鍵名應 emit update:config 帶入 outputKey，清空則移除', async () => {
+    const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="output-key"]').setValue('mcpResult')
+    let emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1', outputKey: 'mcpResult' })
+    await wrapper.find('[data-test="output-key"]').setValue('')
+    emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm1' })
+  })
+
   it('舊欄位 mcpSettingId 讀取相容且 emit 時遷移為 userSettingId', async () => {
     const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1', mcpSettingId: 'ms-legacy' } } })
     await flushPromises()

@@ -25,3 +25,15 @@ export async function getSettings(): Promise<Option[]> {
       label: (s.alias || s.id) + (s.modelType ? `（${s.modelType}）` : ''),
     }))
 }
+
+/**
+ * 查詢當前用戶的 EMBEDDING 型別 LLM 設定，轉為下拉 Option[]。
+ * 供 KNOWLEDGE_RAG 節點的 embeddingModelId 選用；與 getSettings 相反，僅保留 EMBEDDING。
+ */
+export async function getEmbeddingSettings(): Promise<Option[]> {
+  const res = await http.post<ApiResponse<LLMSettingDTO[]>>('/llm/setting/get', {})
+  const list = res.data.data ?? []
+  return list
+    .filter((s): s is LLMSettingDTO & { id: string } => !!s.id && s.modelType === 'EMBEDDING')
+    .map((s) => ({ value: s.id, label: s.alias || s.id }))
+}

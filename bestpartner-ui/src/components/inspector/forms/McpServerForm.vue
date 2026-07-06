@@ -12,6 +12,9 @@ const mcpId = ref<string>((props.config.mcpId as string) ?? '')
 const userSettingId = ref<string>(
   ((props.config.userSettingId as string) ?? (props.config.mcpSettingId as string)) ?? '',
 )
+// MCP 工具清單為執行期才能發現，後端無查詢端點，v1 以文字輸入
+const toolName = ref<string>((props.config.toolName as string) ?? '')
+const outputKey = ref<string>((props.config.outputKey as string) ?? '')
 
 onMounted(async () => {
   try {
@@ -27,6 +30,11 @@ function emitConfig() {
   delete next.mcpSettingId
   if (userSettingId.value) next.userSettingId = userSettingId.value
   else delete next.userSettingId
+  // 啟用必填欄位；空值仍刪鍵（DRAFT 允許缺席，啟用時後端才擋）
+  if (toolName.value) next.toolName = toolName.value
+  else delete next.toolName
+  if (outputKey.value) next.outputKey = outputKey.value
+  else delete next.outputKey
   emit('update:config', next)
 }
 </script>
@@ -41,6 +49,10 @@ function emitConfig() {
       </select>
     </div>
     <div class="field">
+      <label>工具名稱（必填，MCP 伺服器提供的 tool name）</label>
+      <input v-model="toolName" data-test="tool-name" class="text-input" @input="emitConfig" />
+    </div>
+    <div class="field">
       <label>MCP 設定 ID（選填，執行期使用者設定）</label>
       <input
         v-model="userSettingId"
@@ -48,6 +60,10 @@ function emitConfig() {
         class="text-input"
         @input="emitConfig"
       />
+    </div>
+    <div class="field">
+      <label>輸出鍵名（選填）</label>
+      <input v-model="outputKey" data-test="output-key" class="text-input" @input="emitConfig" />
     </div>
   </div>
 </template>
