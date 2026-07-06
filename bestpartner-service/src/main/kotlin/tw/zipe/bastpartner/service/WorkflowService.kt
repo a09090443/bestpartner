@@ -5,7 +5,10 @@ import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import tw.zipe.bastpartner.config.security.SecurityValidator
@@ -77,6 +80,7 @@ class WorkflowService(
     @Transactional
     fun save(req: WorkflowSaveRequestDTO): WorkflowDTO {
         val userId = securityValidator.validateLoggedInUser()
+        normalizeLegacyNodeConfigs(req.nodes)
         validateGraph(req.nodes, req.edges)
         validateNodeConfigs(req.nodes)
 
@@ -87,6 +91,11 @@ class WorkflowService(
             checkAccess(entity)
             if (req.version != null && entity.version != req.version) {
                 throw ServiceException(AppMessage.WORKFLOW_VERSION_CONFLICT)
+            }
+            // 維持「ACTIVE ⟺ 有效」不變式：對已啟用 workflow 重存時，套用與啟用相同的必填驗證，
+            // 避免 re-save 破壞必填欄位卻仍停留在 ACTIVE，使狀態與保證脫鉤。新建（DRAFT）不驗必填。
+            if (entity.status == WorkflowStatus.ACTIVE) {
+                validateRequiredFields(req.nodes)
             }
             entity.name = req.name
             entity.description = req.description
@@ -209,17 +218,10 @@ class WorkflowService(
             if (detectCycle(nodes.map { it.nodeKey }, edges.map { it.sourceNodeKey to it.targetNodeKey })) {
                 throw ServiceException(AppMessage.WORKFLOW_GRAPH_HAS_CYCLE)
             }
-            // 啟用前逐節點驗證 config：型別須合法且必填欄位不得缺席
+            // 啟用前逐節點驗證 config：型別須合法且必填欄位不得缺席（與 save 對 ACTIVE 重存共用底層 [validateNodeRequired]）
             nodes.forEach { n ->
                 val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
-                val parsed = runCatching { NodeConfigRegistry.parse(n.type, configObj) }
-                    .getOrElse { e ->
-                        throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty())
-                    }
-                val missing = parsed.missingRequiredFields()
-                if (missing.isNotEmpty()) {
-                    throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
-                }
+                validateNodeRequired(n.nodeKey, n.type, configObj)
             }
         }
         entity.status = if (active) WorkflowStatus.ACTIVE else WorkflowStatus.INACTIVE
@@ -264,6 +266,63 @@ class WorkflowService(
                 .onFailure { e ->
                     throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty())
                 }
+        }
+    }
+
+    /**
+     * v0.1.7 legacy 相容遷移：舊資料 / 舊前端 / 匯入來源可能於 MCP_SERVER 節點寫入舊鍵
+     * `mcpSettingId`，而契約欄位已改為 `userSettingId`。此處就地將舊鍵改名，避免其被
+     * [validateNodeConfigs] 當未知欄位以 400 拒絕。前端 emit 時雖已移除舊鍵，但後端仍需相容存量。
+     *
+     * 規則：僅處理 `mcpSettingId`；當 `userSettingId` 不存在或為空時才把舊值搬入，否則以現值為準、
+     * 僅移除舊鍵。non-MCP 節點與不含該鍵的 MCP 節點不動。
+     *
+     * TODO(未來版本)：存量資料完成遷移後可移除本方法。
+     */
+    private fun normalizeLegacyNodeConfigs(nodes: List<WorkflowNodeDTO>) {
+        nodes.forEach { n ->
+            if (n.type != NodeType.MCP_SERVER) return@forEach
+            if (!n.config.containsKey("mcpSettingId")) return@forEach
+            val map = n.config.toMutableMap()
+            val legacy = map.remove("mcpSettingId")
+            if (legacy != null && isBlankJson(map["userSettingId"])) {
+                map["userSettingId"] = legacy
+            }
+            n.config = JsonObject(map)
+        }
+    }
+
+    /**
+     * 判斷 JSON 值是否視為「空」：缺席（null）、JsonNull、或空白字串。
+     */
+    private fun isBlankJson(el: JsonElement?): Boolean {
+        if (el == null || el is JsonNull) return true
+        return el is JsonPrimitive && el.isString && el.content.isBlank()
+    }
+
+    /**
+     * 逐節點必填欄位驗證（DTO 版）：save 對 ACTIVE workflow 重存時使用。
+     * 與 [switchStatus] 啟用時的必填驗證共用底層 [validateNodeRequired]，避免兩處分叉。
+     */
+    private fun validateRequiredFields(nodes: List<WorkflowNodeDTO>) {
+        nodes.forEach { n ->
+            val type = n.type ?: return@forEach // type 缺席由既有 save 流程處理
+            validateNodeRequired(n.nodeKey, type, n.config)
+        }
+    }
+
+    /**
+     * 必填驗證底層：parse config（型別錯誤包裝為 INVALID）→ 必填缺席則拋 REQUIRED_MISSING。
+     * save（ACTIVE 重存）與 switchStatus（啟用）共用同一份必填邏輯。
+     */
+    private fun validateNodeRequired(nodeKey: String, type: NodeType, config: JsonObject) {
+        val parsed = runCatching { NodeConfigRegistry.parse(type, config) }
+            .getOrElse { e ->
+                throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, nodeKey, e.message.orEmpty())
+            }
+        val missing = parsed.missingRequiredFields()
+        if (missing.isNotEmpty()) {
+            throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, nodeKey, missing.joinToString(", "))
         }
     }
 

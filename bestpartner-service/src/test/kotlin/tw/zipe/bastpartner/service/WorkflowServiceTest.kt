@@ -6,6 +6,7 @@ import jakarta.inject.Inject
 import java.util.UUID
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.jupiter.api.AfterEach
@@ -308,5 +309,149 @@ class WorkflowServiceTest {
 
         val activated = workflowService.switchStatus(dto.id!!, true)
         assertEquals(WorkflowStatus.ACTIVE, activated.status)
+    }
+
+    /**
+     * 案例 12（任務 #15）：save 相容舊 MCP 欄位——只帶 mcpSettingId（無 userSettingId）
+     * 不應被當未知欄位拒絕，且 round-trip 後遷移為 userSettingId、移除 mcpSettingId
+     */
+    @Test
+    fun testSaveMigratesLegacyMcpSettingId() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "mcp-legacy-遷移"
+            nodes = listOf(node("m1", NodeType.MCP_SERVER) { put("mcpSettingId", "ms-1") })
+            edges = emptyList()
+        }
+
+        val dto = workflowService.save(req) // 不應因未知欄位被拒
+        touchedWorkflowIds.add(dto.id!!)
+
+        val got = workflowService.get(dto.id!!)
+        val m1 = got.nodes.first { it.nodeKey == "m1" }
+        assertTrue(m1.config.containsKey("userSettingId"), "應遷移為 userSettingId：${m1.config}")
+        assertEquals("ms-1", m1.config["userSettingId"]!!.jsonPrimitive.content)
+        assertTrue(!m1.config.containsKey("mcpSettingId"), "應移除舊鍵 mcpSettingId：${m1.config}")
+    }
+
+    /**
+     * 案例 13（任務 #15）：MCP 節點同時含 mcpSettingId 與 userSettingId ->
+     * 以現值 userSettingId 為準、僅移除 mcpSettingId
+     */
+    @Test
+    fun testSaveKeepsExistingUserSettingIdOverLegacy() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "mcp-legacy-保留現值"
+            nodes = listOf(node("m1", NodeType.MCP_SERVER) {
+                put("mcpSettingId", "old")
+                put("userSettingId", "new")
+            })
+            edges = emptyList()
+        }
+
+        val dto = workflowService.save(req)
+        touchedWorkflowIds.add(dto.id!!)
+
+        val got = workflowService.get(dto.id!!)
+        val m1 = got.nodes.first { it.nodeKey == "m1" }
+        assertEquals("new", m1.config["userSettingId"]!!.jsonPrimitive.content)
+        assertTrue(!m1.config.containsKey("mcpSettingId"), "應移除舊鍵 mcpSettingId：${m1.config}")
+    }
+
+    /**
+     * 案例 14（任務 #16）：ACTIVE workflow 重存若破壞必填欄位 ->
+     * 回 WORKFLOW_NODE_CONFIG_REQUIRED_MISSING，訊息含 nodeKey 與欄位名
+     */
+    @Test
+    fun testResaveActiveWorkflowRevalidatesRequired() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "active-resave-驗必填"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("llmId", "llm-1") }
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val saved = workflowService.save(req)
+        touchedWorkflowIds.add(saved.id!!)
+
+        val activated = workflowService.switchStatus(saved.id!!, true)
+        assertEquals(WorkflowStatus.ACTIVE, activated.status)
+
+        val resave = WorkflowSaveRequestDTO().apply {
+            id = saved.id
+            version = activated.version
+            name = "active-resave-驗必填"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("systemPrompt", "hi") } // 缺 llmId
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val ex = assertThrows(ServiceException::class.java) { workflowService.save(resave) }
+        assertTrue(ex.message!!.contains("n1"), "錯誤訊息應指出節點 key：${ex.message}")
+        assertTrue(ex.message!!.contains("llmId"), "錯誤訊息應指出缺少的欄位：${ex.message}")
+    }
+
+    /**
+     * 案例 15（任務 #16）：DRAFT workflow 重存缺必填 -> 放行（僅 ACTIVE 才驗必填）
+     */
+    @Test
+    fun testResaveDraftWorkflowAllowsMissingRequired() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "draft-resave-放行"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("llmId", "llm-1") }
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val saved = workflowService.save(req)
+        touchedWorkflowIds.add(saved.id!!)
+
+        val resave = WorkflowSaveRequestDTO().apply {
+            id = saved.id
+            version = saved.version
+            name = "draft-resave-放行"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("systemPrompt", "hi") } // 缺 llmId
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val dto = workflowService.save(resave) // DRAFT 允許不完整
+        assertEquals(WorkflowStatus.DRAFT, dto.status)
+    }
+
+    /**
+     * 案例 16（任務 #16）：ACTIVE workflow 重存且必填完整 -> 成功維持 ACTIVE
+     */
+    @Test
+    fun testResaveActiveWorkflowWithCompleteRequiredSucceeds() {
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "active-resave-完整"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("llmId", "llm-1") }
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val saved = workflowService.save(req)
+        touchedWorkflowIds.add(saved.id!!)
+
+        val activated = workflowService.switchStatus(saved.id!!, true)
+        assertEquals(WorkflowStatus.ACTIVE, activated.status)
+
+        val resave = WorkflowSaveRequestDTO().apply {
+            id = saved.id
+            version = activated.version
+            name = "active-resave-完整"
+            nodes = listOf(
+                node("t1", NodeType.TRIGGER) { put("triggerType", "MANUAL") },
+                node("n1", NodeType.LLM_ASSISTANT) { put("llmId", "llm-2") }
+            )
+            edges = listOf(edge("t1", "n1"))
+        }
+        val dto = workflowService.save(resave)
+        assertEquals(WorkflowStatus.ACTIVE, dto.status)
     }
 }
