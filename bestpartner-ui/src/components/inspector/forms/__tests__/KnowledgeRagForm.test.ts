@@ -65,6 +65,14 @@ describe('KnowledgeRagForm', () => {
     expect(emitted![emitted!.length - 1][0]).toEqual({ foo: 1, knowledgeId: 'k2', topK: 6 })
   })
 
+  it('清空 topK 應刪鍵，不送出空字串（避免後端 Int? 解析失敗）', async () => {
+    const wrapper = mount(KnowledgeRagForm, { props: { config: { knowledgeId: 'k1', topK: 6 } } })
+    await flushPromises()
+    await wrapper.find('[data-test="topk"]').setValue('')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ knowledgeId: 'k1' })
+  })
+
   it('掛載後以載入的 Embedding 模型渲染下拉選項', async () => {
     const wrapper = mount(KnowledgeRagForm, { props: { config: {} } })
     await flushPromises()

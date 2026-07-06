@@ -66,4 +66,19 @@ describe('llmSetting API client', () => {
 
     expect(result).toEqual([])
   })
+
+  it('getEmbeddingSettings() 僅保留 EMBEDDING 型別、濾除 CHAT', async () => {
+    postMock.mockResolvedValueOnce(
+      apiOk([
+        { id: 's1', alias: 'GPT-4o', modelType: 'CHAT' },
+        { id: 's9', alias: 'text-embedding', modelType: 'EMBEDDING' },
+        { id: 's2', alias: 'Claude', modelType: 'STREAMING_CHAT' },
+      ]),
+    )
+
+    const result = await llmSettingApi.getEmbeddingSettings()
+
+    expect(postMock).toHaveBeenCalledWith('/llm/setting/get', {})
+    expect(result).toEqual([{ value: 's9', label: 'text-embedding' }])
+  })
 })

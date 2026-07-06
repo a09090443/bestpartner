@@ -11,8 +11,8 @@ const embeddingOptions = ref<Option[]>([])
 const knowledgeId = ref<string>((props.config.knowledgeId as string) ?? '')
 const embeddingModelId = ref<string>((props.config.embeddingModelId as string) ?? '')
 const query = ref<string>((props.config.query as string) ?? '')
-const topK = ref<number>((props.config.topK as number) ?? 4)
-// v-model.number 清空時值為空字串，故型別為 number | ''
+// v-model.number 清空時值為空字串，故型別為 number | ''；新節點無 topK 時預設顯示 4
+const topK = ref<number | ''>((props.config.topK as number) ?? 4)
 const minScore = ref<number | ''>((props.config.minScore as number) ?? '')
 const outputKey = ref<string>((props.config.outputKey as string) ?? '')
 
@@ -36,8 +36,10 @@ function emitConfig() {
   const next: Record<string, unknown> = {
     ...props.config,
     knowledgeId: knowledgeId.value,
-    topK: topK.value,
   }
+  // topK 清空時為空字串，送出 topK:"" 會令後端 strictJson 解 Int? 失敗；空值刪鍵
+  if (typeof topK.value === 'number') next.topK = topK.value
+  else delete next.topK
   if (embeddingModelId.value) next.embeddingModelId = embeddingModelId.value
   else delete next.embeddingModelId
   if (query.value) next.query = query.value
