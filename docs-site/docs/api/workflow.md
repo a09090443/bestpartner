@@ -92,6 +92,9 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 - **save（含 DRAFT）**：依 NodeType 嚴格反序列化——**未知欄位**或**結構性型別錯誤**（如陣列欄位給字串、非法 enum 值）回 400（`workflow.node.config.invalid`，訊息含 nodeKey 與原因）；必填欄位缺席**放行**，允許存不完整草稿。數字/布林形式的字串（如 `"topK": "5"`）會被寬鬆轉型接受。
 - **switchStatus 啟用**：逐節點檢查必填欄位，驗不過回 400（`workflow.node.config.required.missing`，訊息含 nodeKey 與缺漏欄位清單）。
+- **ACTIVE 重存**：對 status 已為 `ACTIVE` 的 workflow 執行 save 時，同步套用上述必填驗證（與啟用共用同一份邏輯），維持「ACTIVE ⟺ 通過啟用驗證」不變式；DRAFT/INACTIVE 的 save 不驗必填。
+
+> 相容性：save 時後端會自動把 `MCP_SERVER` 節點 config 的舊欄位 `mcpSettingId` 改名為契約欄位 `userSettingId`（現值優先），涵蓋既有資料、載入後直接存與匯入等來源。
 
 > ⚠️ 因未知欄位會被拒，前端表單寫入的欄位名必須與 DTO 完全一致；以 `JsonConfigEditor` 自由編輯的 config 若含契約外的鍵，存檔會被 400 擋下（錯誤訊息會指出節點與原因）。
 

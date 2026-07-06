@@ -97,6 +97,8 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 - **無非法環**：以拓樸排序偵測有向環（Phase 1 一律視環為非法）
 - **節點 config 型別（save）**：每個節點的 config 依 NodeType 強型別反序列化——未知欄位、結構性型別錯誤、非法 enum 值回 400 並指出 nodeKey 與原因；必填缺席放行（草稿可不完整）
 - **啟用前置**：啟用 workflow 前須具備至少一個 `TRIGGER` 節點、圖無環，且**逐節點驗 config 必填欄位**（如 LLM 助手的 `llmId`），驗不過回報哪個節點缺哪些欄位——前述「必填未選不擋存檔」正是留待此處把關
+- **ACTIVE 重存驗必填**：對**已啟用（ACTIVE）**的 workflow 執行 save 時，同步套用上述必填驗證（維持「ACTIVE ⟺ 通過啟用驗證」不變式）；要存不完整的半成品須先停用（switchStatus false）。DRAFT / INACTIVE 的 save 仍只驗型別、放行缺必填
+- **舊 MCP 欄位相容**：save 時後端會把 `MCP_SERVER` 節點 config 內的舊欄位 `mcpSettingId` 自動改名為契約欄位 `userSettingId`（`userSettingId` 已有值則保留現值），使含舊資料的 workflow 重存不被未知欄位驗證擋下
 
 ## 並發保護
 
