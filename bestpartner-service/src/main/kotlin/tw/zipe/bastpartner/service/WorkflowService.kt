@@ -121,7 +121,7 @@ class WorkflowService(
             workflowNodeRepository.saveOrUpdate(WorkflowNodeEntity().apply {
                 this.workflowId = workflowId
                 nodeKey = n.nodeKey
-                type = n.type ?: throw ServiceException(AppMessage.WORKFLOW_NODE_KEY_DUPLICATED, n.nodeKey)
+                type = n.type ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_REQUIRED, n.nodeKey)
                 name = n.name
                 positionX = n.positionX
                 positionY = n.positionY

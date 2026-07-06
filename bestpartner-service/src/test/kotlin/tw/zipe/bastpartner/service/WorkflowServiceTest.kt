@@ -253,6 +253,7 @@ class WorkflowServiceTest {
 
         val ex = assertThrows(ServiceException::class.java) { workflowService.save(req) }
         assertTrue(ex.message!!.contains("n1"), "錯誤訊息應指出節點 key：${ex.message}")
+        assertTrue(ex.message!!.contains("bogusField"), "錯誤訊息應指出未知欄位名稱：${ex.message}")
     }
 
     /**
@@ -268,6 +269,29 @@ class WorkflowServiceTest {
 
         val dto = workflowService.save(req) // 不應拋例外
         touchedWorkflowIds.add(dto.id!!)
+        assertEquals(WorkflowStatus.DRAFT, dto.status, "新建存回的 workflow 狀態應為 DRAFT")
+    }
+
+    /**
+     * 案例 9-1：save 時節點 type 為 null -> WORKFLOW_NODE_TYPE_REQUIRED，訊息須指出節點 key
+     */
+    @Test
+    fun testSaveRejectsNullNodeType() {
+        val nodeWithoutType = WorkflowNodeDTO().apply {
+            nodeKey = "n1"
+            type = null // 刻意缺席 type
+            name = "節點-無 type"
+            positionX = 10.0
+            positionY = 20.0
+        }
+        val req = WorkflowSaveRequestDTO().apply {
+            name = "config-驗證-缺 type"
+            nodes = listOf(nodeWithoutType)
+            edges = emptyList()
+        }
+
+        val ex = assertThrows(ServiceException::class.java) { workflowService.save(req) }
+        assertEquals(MessageUtil.get(AppMessage.WORKFLOW_NODE_TYPE_REQUIRED, "n1"), ex.message)
     }
 
     /**

@@ -95,6 +95,7 @@ enum class AppMessage(val key: String) {
     WORKFLOW_NODE_LIMIT_EXCEEDED("workflow.node.limit.exceeded"),
     WORKFLOW_NODE_CONFIG_INVALID("workflow.node.config.invalid"),
     WORKFLOW_NODE_CONFIG_REQUIRED_MISSING("workflow.node.config.required.missing"),
+    WORKFLOW_NODE_TYPE_REQUIRED("workflow.node.type.required"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),
