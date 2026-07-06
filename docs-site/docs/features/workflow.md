@@ -67,8 +67,8 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 |----------|----------|----------|
 | `LLM_ASSISTANT` | `llmId`（下拉，必填）、`systemPrompt`／`userPrompt`、Memory、工具／MCP／Skill 多選、`knowledgeId`、附加檔案、`responseFormat`／`outputSchema`／`outputKey` | `POST /llm/setting/get`、`/llm/tool/list`、`/llm/mcpServer/list`、`/llm/skill/list`、`/llm/vector/getKnowledgeStore` |
 | `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填） | `GET /llm/tool/list` |
-| `MCP_SERVER` | `mcpId`（下拉，必填）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移） | `GET /llm/mcpServer/list` |
-| `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`topK`（數字，預設 4） | `POST /llm/vector/getKnowledgeStore` |
+| `MCP_SERVER` | `mcpId`（下拉，必填）、`toolName`（文字，必填；MCP 工具清單為執行期發現，無查詢端點故不做下拉）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移）、`outputKey`（選填） | `GET /llm/mcpServer/list` |
+| `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`embeddingModelId`（下拉，必填，僅列 EMBEDDING 型別）、`query`（textarea，必填，支援插值）、`topK`（數字，預設 4）、`minScore`（數字，選填 0–1）、`outputKey`（選填） | `POST /llm/vector/getKnowledgeStore`、`POST /llm/setting/get`（過濾 `modelType=EMBEDDING`） |
 | 其餘 6 種 | 通用 JSON 編輯器（fallback） | — |
 
 下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料；空值鍵一律移除以維持 config 精簡。表單為結構化輸入不會產生 JSON 錯誤，故一律視為有效；「必填未選」不擋存檔，留待 workflow 啟用驗證。

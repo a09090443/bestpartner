@@ -161,13 +161,13 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|:----:|------|
 | `knowledgeId` | string | ✓ | 知識庫 id |
-| `embeddingModelId` | string | ✓ | Embedding 模型設定 id（啟用時必填；表單欄位待補，見已知落差） |
-| `query` | string | ✓ | 檢索語句，支援插值（啟用時必填；表單欄位待補） |
+| `embeddingModelId` | string | ✓ | Embedding 模型設定 id（啟用時必填） |
+| `query` | string | ✓ | 檢索語句，支援插值（啟用時必填） |
 | `topK` | number | | 取回筆數 |
 | `minScore` | number | | 相似度下限 |
 | `outputKey` | string | | 輸出鍵名 |
 
-> ⚠️ 已知落差：前端 `KnowledgeRagForm` 目前僅提供 `knowledgeId`/`topK` 欄位，`embeddingModelId` 與 `query` 須先以 JSON 編輯器補上，否則啟用驗證不會通過。
+> 前端 `McpServerForm` 與 `KnowledgeRagForm` 已涵蓋上述必填與主要選填欄位；僅 `arguments`（物件型別）尚無表單輸入欄位。
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
