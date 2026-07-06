@@ -116,7 +116,7 @@ class ToolServiceTest {
                 groupId = "90caee3f-2c87-48b9-8912-3dd810f62377",
                 groupDescription = "網頁搜尋群組",
                 configObjectPath = "tw.zipe.bastpartner.tool.config.Google",
-                settingContent = "{\"apiKey\":\"AIzaSyDOSA26AyzMOO87_j_fcypWVoaTJXqaYj0\",\"csi\":\"f009fbd9a12af4ccb\",\"siteRestrict\":false,\"includeImages\":true,\"timeout\":100000,\"maxRetries\":10,\"logRequests\":true,\"logResponses\":true}",
+                settingContent = "{\"apiKey\":\"AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\",\"csi\":\"xxxxxxxxxxxxxxxxx\",\"siteRestrict\":false,\"includeImages\":true,\"timeout\":100000,\"maxRetries\":10,\"logRequests\":true,\"logResponses\":true}",
                 type = ToolsType.BUILT_IN,
                 description = "內建 Google 搜尋工具",
             )
@@ -129,7 +129,7 @@ class ToolServiceTest {
                 groupId = "90caee3f-2c87-48b9-8912-3dd810f62377",
                 groupDescription = "網頁搜尋群組",
                 configObjectPath = "tw.zipe.bastpartner.tool.config.Tavily",
-                settingContent = "{\"apiKey\":\"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\",\"timeout\":100000,\"includeAnswer\":true,\"includeRawContent\":false,\"includeDomains\":[],\"excludeDomains\":[]}",
+                settingContent = "{\"apiKey\":\"tvly-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"timeout\":100000,\"includeAnswer\":true,\"includeRawContent\":false,\"includeDomains\":[],\"excludeDomains\":[]}",
                 type = ToolsType.BUILT_IN,
                 description = "內建 Tavily 搜尋工具",
             )
