@@ -15,6 +15,10 @@ const userSettingId = ref<string>(
 // MCP 工具清單為執行期才能發現，後端無查詢端點，v1 以文字輸入
 const toolName = ref<string>((props.config.toolName as string) ?? '')
 const outputKey = ref<string>((props.config.outputKey as string) ?? '')
+// 呼叫參數（JsonObject）：以格式化 JSON 文字編輯，比照 LlmAssistantForm.outputSchema
+const argumentsText = ref<string>(
+  props.config.arguments ? JSON.stringify(props.config.arguments, null, 2) : '',
+)
 
 onMounted(async () => {
   try {
@@ -35,7 +39,26 @@ function emitConfig() {
   else delete next.toolName
   if (outputKey.value) next.outputKey = outputKey.value
   else delete next.outputKey
+  applyArguments(next)
   emit('update:config', next)
+}
+
+/**
+ * 將 arguments 文字合併回 config：非空且 JSON.parse 成功 → 寫入 parse 後物件；
+ * 空字串或 parse 失敗 → 刪鍵（不讓壞 JSON 進 config，比照 LlmAssistantForm.outputSchema）。
+ */
+function applyArguments(next: Record<string, unknown>) {
+  const text = argumentsText.value.trim()
+  let args: unknown = null
+  if (text) {
+    try {
+      args = JSON.parse(text)
+    } catch {
+      args = null
+    }
+  }
+  if (args !== null) next.arguments = args
+  else delete next.arguments
 }
 </script>
 
@@ -64,6 +87,17 @@ function emitConfig() {
     <div class="field">
       <label>輸出鍵名（選填）</label>
       <input v-model="outputKey" data-test="output-key" class="text-input" @input="emitConfig" />
+    </div>
+    <div class="field">
+      <!-- v-pre 避免 {{變數}} 被 Vue 當作插值運算式 -->
+      <label v-pre>呼叫參數（選填，JSON 物件，值支援 {{變數}} 插值）</label>
+      <textarea
+        v-model="argumentsText"
+        data-test="arguments"
+        class="text-input"
+        rows="3"
+        @input="emitConfig"
+      />
     </div>
   </div>
 </template>

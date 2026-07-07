@@ -372,5 +372,63 @@ describe('ToolForm', () => {
       await wrapper.find('[data-test="setting-toggle"]').trigger('click')
       expect(wrapper.find('[data-test="setting-create"]').exists()).toBe(true)
     })
+
+    it('required boolean 欄位未觸碰時不阻擋建立按鈕（boolean 必填語意模糊，false 亦合法）', async () => {
+      const boolSchema: ToolSettingSchema = {
+        apiKey: { type: 'string', required: true },
+        strict: { type: 'boolean', required: true },
+      }
+      getTool.mockResolvedValue({ id: 't1', settingSchema: boolSchema })
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      const disabled = () => wrapper.find('[data-test="setting-create"]').attributes('disabled')
+      await wrapper.find('[data-test="setting-alias"]').setValue('my-alias')
+      // string 必填填妥；required boolean（strict）未觸碰不應使按鈕 disabled
+      await wrapper.find('[data-test="field-apiKey"]').setValue('sk-xxx')
+      expect(disabled()).toBeUndefined()
+    })
+  })
+
+  describe('arguments 呼叫參數欄位', () => {
+    it('輸入合法 JSON 物件 → emit 帶 parse 後物件', async () => {
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('{"q": "{{input}}"}')
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({
+        toolId: 't1',
+        arguments: { q: '{{input}}' },
+      })
+    })
+
+    it('清空 arguments → 自 config 刪鍵', async () => {
+      const wrapper = mount(ToolForm, {
+        props: { config: { toolId: 't1', arguments: { a: 1 } } },
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('')
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({ toolId: 't1' })
+    })
+
+    it('輸入非法 JSON → 不寫入 arguments 鍵（不讓壞 JSON 進 config）', async () => {
+      const wrapper = mount(ToolForm, { props: { config: { toolId: 't1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('{ bad json')
+      const emitted = wrapper.emitted('update:config')!
+      const last = emitted[emitted.length - 1][0] as Record<string, unknown>
+      expect(last).toEqual({ toolId: 't1' })
+      expect(last).not.toHaveProperty('arguments')
+    })
+
+    it('由既有 config.arguments 初始化為格式化 JSON 文字', async () => {
+      const wrapper = mount(ToolForm, {
+        props: { config: { toolId: 't1', arguments: { a: 1 } } },
+      })
+      await flushPromises()
+      expect((wrapper.find('[data-test="arguments"]').element as HTMLTextAreaElement).value).toBe(
+        JSON.stringify({ a: 1 }, null, 2),
+      )
+    })
   })
 })

@@ -12,6 +12,10 @@ const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>
 const options = ref<Option[]>([])
 const toolId = ref<string>((props.config.toolId as string) ?? '')
 const toolSettingId = ref<string>((props.config.toolSettingId as string) ?? '')
+// 呼叫參數（JsonObject）：以格式化 JSON 文字編輯，比照 LlmAssistantForm.outputSchema
+const argumentsText = ref<string>(
+  props.config.arguments ? JSON.stringify(props.config.arguments, null, 2) : '',
+)
 
 // 工具設定建立區塊狀態
 const settingSchema = ref<ToolSettingSchema | null>(null)
@@ -33,6 +37,10 @@ const schemaForForm = computed<ToolSettingSchema>(() => settingSchema.value ?? {
 const missingRequired = computed(() =>
   Object.entries(schemaForForm.value).some(([name, field]) => {
     if (!field.required) return false
+    // boolean 的「必填」語意本就模糊：未勾選(false) 也是合法值，且初始鍵不存在時
+    // 難以區分「未觸碰」與「刻意 false」。故 required boolean 不視為缺漏、不擋建立按鈕；
+    // 僅對 string/integer/number/array 的 required 缺漏 disable。
+    if (field.type === 'boolean') return false
     const v = settingValues.value[name]
     // 空陣列分支僅為防禦外部注入；UI 上 array 空輸入 emit undefined，走 undefined 路徑
     return v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
@@ -123,7 +131,26 @@ function emitConfig() {
   const next: Record<string, unknown> = { ...props.config, toolId: toolId.value }
   if (toolSettingId.value) next.toolSettingId = toolSettingId.value
   else delete next.toolSettingId
+  applyArguments(next)
   emit('update:config', next)
+}
+
+/**
+ * 將 arguments 文字合併回 config：非空且 JSON.parse 成功 → 寫入 parse 後物件；
+ * 空字串或 parse 失敗 → 刪鍵（不讓壞 JSON 進 config，比照 LlmAssistantForm.outputSchema）。
+ */
+function applyArguments(next: Record<string, unknown>) {
+  const text = argumentsText.value.trim()
+  let args: unknown = null
+  if (text) {
+    try {
+      args = JSON.parse(text)
+    } catch {
+      args = null
+    }
+  }
+  if (args !== null) next.arguments = args
+  else delete next.arguments
 }
 </script>
 
@@ -143,6 +170,17 @@ function emitConfig() {
         data-test="tool-setting-id"
         class="text-input"
         @input="onToolSettingIdInput"
+      />
+    </div>
+    <div class="field">
+      <!-- v-pre 避免 {{變數}} 被 Vue 當作插值運算式 -->
+      <label v-pre>呼叫參數（選填，JSON 物件，值支援 {{變數}} 插值）</label>
+      <textarea
+        v-model="argumentsText"
+        data-test="arguments"
+        class="text-input"
+        rows="3"
+        @input="emitConfig"
       />
     </div>
     <div v-if="hasSchema" class="setting-section" data-test="setting-section">

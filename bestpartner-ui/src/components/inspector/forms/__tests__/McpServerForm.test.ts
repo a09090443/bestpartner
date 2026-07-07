@@ -90,4 +90,47 @@ describe('McpServerForm', () => {
     const emitted = wrapper.emitted('update:config')
     expect(emitted![emitted!.length - 1][0]).toEqual({ mcpId: 'm2', userSettingId: 'ms-legacy' })
   })
+
+  describe('arguments 呼叫參數欄位', () => {
+    it('輸入合法 JSON 物件 → emit 帶 parse 後物件', async () => {
+      const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('{"city": "{{input}}"}')
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({
+        mcpId: 'm1',
+        arguments: { city: '{{input}}' },
+      })
+    })
+
+    it('清空 arguments → 自 config 刪鍵', async () => {
+      const wrapper = mount(McpServerForm, {
+        props: { config: { mcpId: 'm1', arguments: { a: 1 } } },
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('')
+      const emitted = wrapper.emitted('update:config')!
+      expect(emitted[emitted.length - 1][0]).toEqual({ mcpId: 'm1' })
+    })
+
+    it('輸入非法 JSON → 不寫入 arguments 鍵（不讓壞 JSON 進 config）', async () => {
+      const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('{ bad json')
+      const emitted = wrapper.emitted('update:config')!
+      const last = emitted[emitted.length - 1][0] as Record<string, unknown>
+      expect(last).toEqual({ mcpId: 'm1' })
+      expect(last).not.toHaveProperty('arguments')
+    })
+
+    it('由既有 config.arguments 初始化為格式化 JSON 文字', async () => {
+      const wrapper = mount(McpServerForm, {
+        props: { config: { mcpId: 'm1', arguments: { a: 1 } } },
+      })
+      await flushPromises()
+      expect((wrapper.find('[data-test="arguments"]').element as HTMLTextAreaElement).value).toBe(
+        JSON.stringify({ a: 1 }, null, 2),
+      )
+    })
+  })
 })
