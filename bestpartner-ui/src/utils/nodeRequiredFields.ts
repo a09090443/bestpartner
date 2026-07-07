@@ -52,11 +52,14 @@ export function formatMissingFields(fields: string[]): string {
     .join('、')
 }
 
-/** 判斷欄位值是否視為「空」：undefined / null / 空字串 / 空陣列 */
+/** 判斷欄位值是否視為「空」：undefined / null / 空字串 / 空陣列 / 空物件 */
 function isEmptyValue(value: unknown): boolean {
   if (value === undefined || value === null) return true
   if (typeof value === 'string') return value.trim().length === 0
   if (Array.isArray(value)) return value.length === 0
+  // 非 null 非陣列的物件（config 值來自 JSON，不含 Date/Map 等特殊物件）：無自身鍵即視為空，
+  // 讓 object 型必填欄位（如未來的 mappings）以 {} 也能正確判為缺漏
+  if (typeof value === 'object') return Object.keys(value as object).length === 0
   return false
 }
 

@@ -51,6 +51,14 @@ describe('missingRequiredForNode', () => {
   it('複合字樣 "a|b" 所有子欄位皆空時回傳原字樣', () => {
     expect(missingRequiredForNode('DATA_TRANSFORM', {}, requiredFields)).toEqual(['mappings|template'])
   })
+
+  it('config 欄位為空物件 {} 時仍視為缺漏', () => {
+    expect(missingRequiredForNode('LLM_ASSISTANT', { llmId: {} }, requiredFields)).toEqual(['llmId'])
+  })
+
+  it('config 欄位為非空物件時視為已填', () => {
+    expect(missingRequiredForNode('LLM_ASSISTANT', { llmId: { id: 'l1' } }, requiredFields)).toEqual([])
+  })
 })
 
 describe('formatMissingFields', () => {

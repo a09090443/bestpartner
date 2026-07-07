@@ -210,6 +210,41 @@ describe('WorkflowEditorView — dirty 追蹤與離頁攔截', () => {
     expect(message).toContain('可先停用')
   })
 
+  it('畫布快照於 await getNodeRequiredFields 之後才擷取，等待期間的編輯不遺失', async () => {
+    const oldCanvas = {
+      nodes: [{ id: 'old', type: 'workflow', position: { x: 0, y: 0 }, data: { name: 'O', type: 'TOOL', config: {} } }],
+      edges: [],
+    }
+    const newCanvas = {
+      nodes: [{ id: 'new', type: 'workflow', position: { x: 0, y: 0 }, data: { name: 'N', type: 'TOOL', config: {} } }],
+      edges: [],
+    }
+    h.toObjectMock.mockReturnValue(oldCanvas)
+    // 第一次（onMounted 預載）不動畫布；第二次（handleSave 的 await）期間才把畫布換成新版，
+    // 模擬使用者在必填清單查詢等待視窗內編輯了畫布
+    vi.mocked(workflowApi.getNodeRequiredFields)
+      .mockImplementationOnce(async () => ({}))
+      .mockImplementationOnce(async () => {
+        h.toObjectMock.mockReturnValue(newCanvas)
+        return {}
+      })
+    vi.mocked(workflowApi.save).mockResolvedValueOnce({
+      id: 'w1', name: 'flow', status: 'DRAFT', version: 2, nodes: [], edges: [],
+    })
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(workflowApi.save).toHaveBeenCalled()
+    // store.save 會把畫布轉為 WorkflowSaveRequestDTO 再送出，flow node 的 id 對應 nodeKey。
+    // 若快照在 await 前擷取，會送出 oldCanvas（nodeKey 'old'）；修正後應為 await 後的 newCanvas（'new'）
+    const req = vi.mocked(workflowApi.save).mock.calls[0][0] as { nodes: Array<{ nodeKey: string }> }
+    expect(req.nodes[0].nodeKey).toBe('new')
+  })
+
   it('DRAFT 流程缺少必填欄位僅提示 warning、不擋存檔', async () => {
     vi.mocked(workflowApi.getNodeRequiredFields).mockResolvedValue({ LLM_ASSISTANT: ['llmId'] })
     vi.mocked(workflowApi.save).mockResolvedValueOnce({

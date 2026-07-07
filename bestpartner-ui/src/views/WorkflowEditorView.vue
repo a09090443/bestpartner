@@ -313,14 +313,6 @@ async function handleSave() {
     ElMessage.error('節點設定 JSON 格式錯誤，請修正後再存檔')
     return
   }
-  const flowNodes = toObject().nodes as unknown as FlowNode[]
-  const flowEdges = toObject().edges as unknown as FlowEdge[]
-
-  // 存檔前先跑與後端同義的輕量驗證。error 擋存檔；warning 提示但放行（啟用時再擋）
-  const req = flowToSaveRequest(flowNodes, flowEdges, {
-    name: store.current?.name ?? '未命名流程',
-  })
-
   // 必填欄位清單取自後端契約；查詢失敗則降級跳過必填檢查，不阻斷既有存檔流程
   let latestRequiredFields: NodeRequiredFields | undefined
   try {
@@ -329,6 +321,16 @@ async function handleSave() {
   } catch {
     latestRequiredFields = undefined
   }
+
+  // 快照於 await 之後才擷取：確保驗證與存檔用的是「等待期間可能已被編輯」的最新畫布，
+  // 避免首次存檔（快取未預載、await 為真實網路等待）期間的編輯遺失
+  const flowNodes = toObject().nodes as unknown as FlowNode[]
+  const flowEdges = toObject().edges as unknown as FlowEdge[]
+
+  // 存檔前先跑與後端同義的輕量驗證。error 擋存檔；warning 提示但放行（啟用時再擋）
+  const req = flowToSaveRequest(flowNodes, flowEdges, {
+    name: store.current?.name ?? '未命名流程',
+  })
 
   const results = validateGraph(req.nodes, req.edges, latestRequiredFields)
   const blockingError = results.find((r) => r.severity === 'error')
