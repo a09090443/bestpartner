@@ -132,5 +132,15 @@ describe('McpServerForm', () => {
         JSON.stringify({ a: 1 }, null, 2),
       )
     })
+
+    it('輸入合法但非物件的 JSON（如陣列）→ 不寫入 arguments 鍵', async () => {
+      const wrapper = mount(McpServerForm, { props: { config: { mcpId: 'm1' } } })
+      await flushPromises()
+      await wrapper.find('[data-test="arguments"]').setValue('[1,2]')
+      const emitted = wrapper.emitted('update:config')!
+      const last = emitted[emitted.length - 1][0] as Record<string, unknown>
+      expect(last).toEqual({ mcpId: 'm1' })
+      expect(last).not.toHaveProperty('arguments')
+    })
   })
 })

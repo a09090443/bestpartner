@@ -6,6 +6,16 @@ vi.mock('../../api/auth', () => ({
   login: vi.fn(),
 }))
 
+// Mock per-user 快取清除入口，驗證 logout 有觸發
+const invalidateSettingsCache = vi.fn()
+const clearNodeOptionsCache = vi.fn()
+vi.mock('../../api/llmSetting', () => ({
+  invalidateSettingsCache: () => invalidateSettingsCache(),
+}))
+vi.mock('../../composables/useNodeOptions', () => ({
+  clearNodeOptionsCache: () => clearNodeOptionsCache(),
+}))
+
 import * as authApi from '../../api/auth'
 import { useAuthStore } from '../auth'
 
@@ -68,6 +78,14 @@ describe('authStore', () => {
       expect(store.token).toBe('')
       expect(store.isAuthenticated).toBe(false)
       expect(localStorage.getItem('token')).toBeNull()
+    })
+
+    it('logout() 清除 per-user 模組級快取（設定清單與節點選項）', () => {
+      const store = useAuthStore()
+      store.logout()
+
+      expect(invalidateSettingsCache).toHaveBeenCalledTimes(1)
+      expect(clearNodeOptionsCache).toHaveBeenCalledTimes(1)
     })
   })
 

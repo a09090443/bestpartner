@@ -191,6 +191,17 @@ describe('LlmAssistantForm', () => {
     expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', responseFormat: 'JSON' })
   })
 
+  it('outputSchema 為合法但非物件的 JSON（如陣列）時不 emit 該鍵', async () => {
+    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
+    await flushPromises()
+    await wrapper.find('[data-test="response-format"]').setValue('JSON')
+    await wrapper.find('[data-test="output-schema"]').setValue('[1,2]')
+    const emitted = wrapper.emitted('update:config')
+    const last = emitted![emitted!.length - 1][0] as Record<string, unknown>
+    expect(last).toEqual({ llmId: 's1', responseFormat: 'JSON' })
+    expect(last).not.toHaveProperty('outputSchema')
+  })
+
   it('編輯 outputKey 應 emit update:config 帶入 outputKey', async () => {
     const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
     await flushPromises()

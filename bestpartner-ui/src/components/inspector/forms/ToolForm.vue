@@ -4,6 +4,7 @@ import { getTool, saveToolSetting, updateToolSetting } from '../../../api/tool'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
 import type { Option } from '../../../types/options'
 import type { ToolSettingSchema } from '../../../types/toolSchema'
+import { parseJsonObjectField } from '../../../utils/json'
 import SettingSchemaForm from './SettingSchemaForm.vue'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
@@ -12,7 +13,7 @@ const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>
 const options = ref<Option[]>([])
 const toolId = ref<string>((props.config.toolId as string) ?? '')
 const toolSettingId = ref<string>((props.config.toolSettingId as string) ?? '')
-// 呼叫參數（JsonObject）：以格式化 JSON 文字編輯，比照 LlmAssistantForm.outputSchema
+// 呼叫參數（JsonObject）：以美化縮排的 JSON 文字編輯，方便閱讀多行參數
 const argumentsText = ref<string>(
   props.config.arguments ? JSON.stringify(props.config.arguments, null, 2) : '',
 )
@@ -136,19 +137,11 @@ function emitConfig() {
 }
 
 /**
- * 將 arguments 文字合併回 config：非空且 JSON.parse 成功 → 寫入 parse 後物件；
- * 空字串或 parse 失敗 → 刪鍵（不讓壞 JSON 進 config，比照 LlmAssistantForm.outputSchema）。
+ * 將 arguments 文字合併回 config：僅合法 JSON「物件」才寫入，否則刪鍵。
+ * 非物件（陣列/字串/數字等）與壞 JSON 一律不寫入，避免後端 JsonObject 反序列化失敗。
  */
 function applyArguments(next: Record<string, unknown>) {
-  const text = argumentsText.value.trim()
-  let args: unknown = null
-  if (text) {
-    try {
-      args = JSON.parse(text)
-    } catch {
-      args = null
-    }
-  }
+  const args = parseJsonObjectField(argumentsText.value)
   if (args !== null) next.arguments = args
   else delete next.arguments
 }

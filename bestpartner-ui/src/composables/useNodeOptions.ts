@@ -18,6 +18,19 @@ const mcpOptions = ref<Option[] | null>(null)
 const knowledgeOptions = ref<Option[] | null>(null)
 const skillOptions = ref<Option[] | null>(null)
 
+/**
+ * 清除所有節點選項快取。這些清單皆為 per-user 資料（LLM 設定、工具、MCP、知識庫、Skill），
+ * 登出時須清除，否則同分頁換使用者登入（client-side 導航不 reload）會看到上一位的殘留清單。
+ */
+export function clearNodeOptionsCache(): void {
+  llmOptions.value = null
+  embeddingOptions.value = null
+  toolOptions.value = null
+  mcpOptions.value = null
+  knowledgeOptions.value = null
+  skillOptions.value = null
+}
+
 export function useNodeOptions() {
   async function loadLlmOptions(): Promise<Option[]> {
     if (!llmOptions.value) llmOptions.value = await llmSettingApi.getSettings()

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
 import type { Option } from '../../../types/options'
+import { parseJsonObjectField } from '../../../utils/json'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
@@ -88,14 +89,8 @@ function emitConfig() {
 
   const isJson = responseFormat.value === 'JSON'
   setOrDelete('responseFormat', 'JSON', isJson)
-  let schema: unknown = null
-  if (isJson && outputSchemaText.value.trim()) {
-    try {
-      schema = JSON.parse(outputSchemaText.value)
-    } catch {
-      schema = null
-    }
-  }
+  // 僅合法 JSON「物件」才寫入；非物件與壞 JSON 一律不寫，避免後端 JsonObject 反序列化失敗
+  const schema = isJson ? parseJsonObjectField(outputSchemaText.value) : null
   setOrDelete('outputSchema', schema, schema !== null)
 
   setOrDelete('outputKey', outputKey.value, !!outputKey.value)
