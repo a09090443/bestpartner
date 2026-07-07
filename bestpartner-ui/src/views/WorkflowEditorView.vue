@@ -22,6 +22,7 @@ import { getNodeRequiredFields } from '../api/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
 import type { NodeType } from '../types/workflow'
 import type { NodeRequiredFields } from '../api/workflow'
+import type { GraphValidationError } from '../composables/useGraphValidation'
 import '../styles/workflow-theme.css'
 
 // 單一 Vue Flow 自訂節點型別，語意型別放於 node.data.type
@@ -296,6 +297,17 @@ function handleTidyUp() {
   nextTick(() => fitView())
 }
 
+/**
+ * ACTIVE 流程存檔遇必填缺漏時的擋存訊息：聚合所有缺漏節點的 key（避免只顯示第一筆），
+ * 訊息過長時最多列出前 5 個並以「等」收尾；並附一句引導，提示可先停用以暫存半成品。
+ */
+function buildActiveRequiredFieldMessage(missingResults: GraphValidationError[]): string {
+  const keys = missingResults.map((r) => r.key).filter((k): k is string => Boolean(k))
+  const shown = keys.slice(0, 5)
+  const suffix = keys.length > shown.length ? ' 等' : ''
+  return `有 ${keys.length} 個節點缺必填：${shown.join('、')}${suffix}。可先停用（Active off）以暫存半成品`
+}
+
 async function handleSave() {
   if (!configValid.value) {
     ElMessage.error('節點設定 JSON 格式錯誤，請修正後再存檔')
@@ -319,14 +331,21 @@ async function handleSave() {
   }
 
   const results = validateGraph(req.nodes, req.edges, latestRequiredFields)
-  // ACTIVE 流程：必填缺漏比照後端行為升級為擋存錯誤；DRAFT/INACTIVE 維持 warning 放行
-  const blocking = results.find(
-    (r) => r.severity === 'error' || (isActive.value && r.type === 'REQUIRED_FIELD_MISSING'),
-  )
-  if (blocking) {
-    ElMessage.error(blocking.message)
+  const blockingError = results.find((r) => r.severity === 'error')
+  if (blockingError) {
+    ElMessage.error(blockingError.message)
     return
   }
+
+  // ACTIVE 流程：必填缺漏比照後端行為升級為擋存錯誤；聚合多節點訊息，避免只提示第一筆
+  if (isActive.value) {
+    const missingRequired = results.filter((r) => r.type === 'REQUIRED_FIELD_MISSING')
+    if (missingRequired.length > 0) {
+      ElMessage.error(buildActiveRequiredFieldMessage(missingRequired))
+      return
+    }
+  }
+
   const warning = results.find((r) => r.severity === 'warning')
   if (warning) {
     ElMessage.warning(warning.message)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { missingRequiredForNode } from '../nodeRequiredFields'
+import { missingRequiredForNode, formatMissingFields } from '../nodeRequiredFields'
 import type { NodeRequiredFields } from '../../api/workflow'
 
 describe('missingRequiredForNode', () => {
@@ -50,5 +50,24 @@ describe('missingRequiredForNode', () => {
 
   it('複合字樣 "a|b" 所有子欄位皆空時回傳原字樣', () => {
     expect(missingRequiredForNode('DATA_TRANSFORM', {}, requiredFields)).toEqual(['mappings|template'])
+  })
+})
+
+describe('formatMissingFields', () => {
+  it('複合字樣 "a|b" 格式化為「中文標籤 或 中文標籤（擇一）」', () => {
+    expect(formatMissingFields(['mappings|template'])).toBe('欄位對應 或 範本（擇一）')
+  })
+
+  it('已知欄位鍵轉為中文標籤', () => {
+    expect(formatMissingFields(['llmId'])).toBe('LLM 設定')
+    expect(formatMissingFields(['mcpId', 'toolName'])).toBe('MCP 伺服器、工具名稱')
+  })
+
+  it('未知欄位鍵 fallback 顯示原始 key', () => {
+    expect(formatMissingFields(['someUnmappedField'])).toBe('someUnmappedField')
+  })
+
+  it('空陣列回傳空字串', () => {
+    expect(formatMissingFields([])).toBe('')
   })
 })

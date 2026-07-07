@@ -1,5 +1,57 @@
 import type { NodeRequiredFields } from '../api/workflow'
 
+/**
+ * 欄位鍵 → 中文顯示標籤映射。
+ *
+ * ⚠️ 這是「純顯示用」的 i18n 標籤表，不是必填規則本身——
+ * 必填規則的唯一事實來源仍是後端 NodeConfig 契約（見 {@link NodeRequiredFields}，
+ * 來自 GET /llm/workflow/nodeRequiredFields）。此表只負責把後端回傳的英文欄位鍵
+ * 轉為使用者看得懂的中文提示文字，找不到映射的鍵會 fallback 顯示原始 key，
+ * 不會因映射缺漏而漏顯示或出錯。
+ */
+const FIELD_LABELS: Record<string, string> = {
+  llmId: 'LLM 設定',
+  toolId: '工具',
+  mcpId: 'MCP 伺服器',
+  toolName: '工具名稱',
+  knowledgeId: '知識庫',
+  embeddingModelId: 'Embedding 模型',
+  query: '檢索語句',
+  triggerType: '觸發類型',
+  conditions: '條件',
+  mappings: '欄位對應',
+  template: '範本',
+  method: 'HTTP 方法',
+  url: 'URL',
+  inputArrayPath: '輸入陣列路徑',
+  loopBodyEntryNodeKey: '迴圈起始節點',
+  language: '語言',
+  source: '程式碼',
+}
+
+/** 取得欄位鍵的中文顯示標籤；找不到映射時 fallback 回傳原始鍵名 */
+function fieldLabel(key: string): string {
+  return FIELD_LABELS[key] ?? key
+}
+
+/**
+ * 將 {@link missingRequiredForNode} 回傳的缺漏欄位鍵陣列格式化為可讀的中文提示字串。
+ *
+ * 複合字樣（如 `"mappings|template"`）轉為「欄位對應 或 範本（擇一）」，
+ * 讓使用者理解這是擇一滿足的語意，而非兩者皆缺。
+ */
+export function formatMissingFields(fields: string[]): string {
+  return fields
+    .map((field) => {
+      if (field.includes('|')) {
+        const labels = field.split('|').map(fieldLabel).join(' 或 ')
+        return `${labels}（擇一）`
+      }
+      return fieldLabel(field)
+    })
+    .join('、')
+}
+
 /** 判斷欄位值是否視為「空」：undefined / null / 空字串 / 空陣列 */
 function isEmptyValue(value: unknown): boolean {
   if (value === undefined || value === null) return true

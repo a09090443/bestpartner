@@ -102,13 +102,29 @@ describe('InspectorPanel 必填欄位缺漏提示', () => {
     expect(w.find('[data-test="required-field-warning"]').exists()).toBe(false)
   })
 
-  it('提供 requiredFields 且缺漏必填欄位時顯示提示', () => {
+  it('提供 requiredFields 且缺漏必填欄位時顯示提示（欄位鍵中文化）', () => {
     const w = mount(InspectorPanel, {
       props: { selectedNode: nodeOf('LLM_ASSISTANT'), workflowName: 'wf', requiredFields },
     })
     const warning = w.find('[data-test="required-field-warning"]')
     expect(warning.exists()).toBe(true)
-    expect(warning.text()).toContain('llmId')
+    // llmId → 'LLM 設定'，不應顯示原始英文鍵名
+    expect(warning.text()).toContain('LLM 設定')
+    expect(warning.text()).not.toContain('llmId')
+  })
+
+  it('複合字樣缺漏欄位顯示為「A 或 B（擇一）」而非原始管線字樣', () => {
+    const dataTransformRequired: NodeRequiredFields = { DATA_TRANSFORM: ['mappings|template'] }
+    const w = mount(InspectorPanel, {
+      props: {
+        selectedNode: nodeOf('DATA_TRANSFORM'),
+        workflowName: 'wf',
+        requiredFields: dataTransformRequired,
+      },
+    })
+    const warning = w.find('[data-test="required-field-warning"]')
+    expect(warning.text()).toContain('欄位對應 或 範本（擇一）')
+    expect(warning.text()).not.toContain('|')
   })
 
   it('config 已齊全必填欄位時不顯示提示', () => {
@@ -120,6 +136,34 @@ describe('InspectorPanel 必填欄位缺漏提示', () => {
       },
     })
     expect(w.find('[data-test="required-field-warning"]').exists()).toBe(false)
+  })
+
+  it('workflowStatus 為 ACTIVE 時提示採 error 語意（紅色）', () => {
+    const w = mount(InspectorPanel, {
+      props: {
+        selectedNode: nodeOf('LLM_ASSISTANT'),
+        workflowName: 'wf',
+        requiredFields,
+        workflowStatus: 'ACTIVE',
+      },
+    })
+    const warning = w.find('[data-test="required-field-warning"]')
+    expect(warning.attributes('data-severity')).toBe('error')
+    expect(warning.classes()).toContain('required-warning--error')
+  })
+
+  it('workflowStatus 為 DRAFT/未提供時提示採 warning 語意（橘色）', () => {
+    const w = mount(InspectorPanel, {
+      props: {
+        selectedNode: nodeOf('LLM_ASSISTANT'),
+        workflowName: 'wf',
+        requiredFields,
+        workflowStatus: 'DRAFT',
+      },
+    })
+    const warning = w.find('[data-test="required-field-warning"]')
+    expect(warning.attributes('data-severity')).toBe('warning')
+    expect(warning.classes()).toContain('required-warning--warning')
   })
 })
 

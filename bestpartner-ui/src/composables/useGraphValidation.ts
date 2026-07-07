@@ -1,6 +1,6 @@
 import type { WorkflowNodeDTO, WorkflowEdgeDTO } from '../types/workflow'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
-import { missingRequiredForNode } from '../utils/nodeRequiredFields'
+import { missingRequiredForNode, formatMissingFields } from '../utils/nodeRequiredFields'
 import type { NodeRequiredFields } from '../api/workflow'
 
 /** 驗證錯誤型別 */
@@ -164,7 +164,7 @@ export function validateGraph(
           type: 'REQUIRED_FIELD_MISSING',
           severity: 'warning',
           key: n.nodeKey,
-          message: `節點 ${n.nodeKey} 缺少必填欄位：${missing.join('、')}`,
+          message: `節點 ${n.nodeKey} 缺少必填欄位：${formatMissingFields(missing)}`,
         })
       }
     })

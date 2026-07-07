@@ -6,7 +6,7 @@ import ToolForm from './forms/ToolForm.vue'
 import McpServerForm from './forms/McpServerForm.vue'
 import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
 import { NODE_CATEGORIES, getNodeTypeMeta, getNodesByCategory } from '../../constants/nodeTypes'
-import { missingRequiredForNode } from '../../utils/nodeRequiredFields'
+import { missingRequiredForNode, formatMissingFields } from '../../utils/nodeRequiredFields'
 import type { FlowNode } from '../../composables/useWorkflowSync'
 import type { WorkflowStatus } from '../../types/workflow'
 import type { NodeRequiredFields } from '../../api/workflow'
@@ -90,6 +90,17 @@ const missingRequired = computed(() => {
     props.requiredFields,
   )
 })
+
+/** 缺漏欄位的中文化顯示文字（複合字樣轉為「A 或 B（擇一）」、已知鍵轉中文標籤） */
+const missingRequiredText = computed(() => formatMissingFields(missingRequired.value))
+
+/**
+ * 提示語意：ACTIVE workflow 存檔時必填缺漏會被升級為擋存 error（見 WorkflowEditorView.handleSave），
+ * 故此處同步改為紅色 error 樣式；DRAFT / INACTIVE 僅為 warning 提示，維持橘色。
+ */
+const requiredWarningSeverity = computed<'error' | 'warning'>(() =>
+  props.workflowStatus === 'ACTIVE' ? 'error' : 'warning',
+)
 </script>
 
 <template>
@@ -120,9 +131,11 @@ const missingRequired = computed(() => {
       <div
         v-if="missingRequired.length > 0"
         class="required-warning"
+        :class="`required-warning--${requiredWarningSeverity}`"
+        :data-severity="requiredWarningSeverity"
         data-test="required-field-warning"
       >
-        缺少必填欄位：{{ missingRequired.join('、') }}
+        缺少必填欄位：{{ missingRequiredText }}
       </div>
 
       <div class="section">
@@ -282,10 +295,22 @@ const missingRequired = computed(() => {
   padding: 8px 10px;
   font-size: 11.5px;
   line-height: 1.5;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+/* DRAFT / INACTIVE：可存檔但未來啟用時會被擋，橘色 warning 語意 */
+.required-warning--warning {
   color: #e6a23c;
   background: rgba(230, 162, 60, 0.12);
-  border: 1px solid rgba(230, 162, 60, 0.35);
-  border-radius: 8px;
+  border-color: rgba(230, 162, 60, 0.35);
+}
+
+/* ACTIVE：存檔當下即被擋，紅色 error 語意 */
+.required-warning--error {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.12);
+  border-color: rgba(245, 108, 108, 0.35);
 }
 
 /* ---- 區段 ---- */

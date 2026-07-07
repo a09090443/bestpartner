@@ -170,6 +170,44 @@ describe('WorkflowEditorView — dirty 追蹤與離頁攔截', () => {
 
     expect(workflowApi.save).not.toHaveBeenCalled()
     expect(h.errorMock).toHaveBeenCalled()
+    // ACTIVE 擋存訊息為聚合格式（節點 key 清單 + 引導），非單筆原始 message
+    expect(h.errorMock.mock.calls.at(-1)?.[0]).toContain('可先停用')
+  })
+
+  it('ACTIVE 流程多節點缺必填時應聚合訊息並附引導提示，而非只顯示第一筆', async () => {
+    vi.mocked(workflowApi.getNodeRequiredFields).mockResolvedValue({ LLM_ASSISTANT: ['llmId'] })
+    h.toObjectMock.mockReturnValue({
+      nodes: [
+        {
+          id: 'a',
+          type: 'workflow',
+          position: { x: 0, y: 0 },
+          data: { name: 'A', type: 'LLM_ASSISTANT', config: {} },
+        },
+        {
+          id: 'b',
+          type: 'workflow',
+          position: { x: 0, y: 0 },
+          data: { name: 'B', type: 'LLM_ASSISTANT', config: {} },
+        },
+      ],
+      edges: [],
+    })
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    const store = useWorkflowStore()
+    store.current!.status = 'ACTIVE'
+
+    await wrapper.find('[data-test="save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(workflowApi.save).not.toHaveBeenCalled()
+    const message = h.errorMock.mock.calls.at(-1)?.[0] as string
+    expect(message).toContain('2 個節點缺必填')
+    expect(message).toContain('a')
+    expect(message).toContain('b')
+    expect(message).toContain('可先停用')
   })
 
   it('DRAFT 流程缺少必填欄位僅提示 warning、不擋存檔', async () => {

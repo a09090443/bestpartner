@@ -120,7 +120,8 @@ describe('validateGraph — 必填欄位規則', () => {
     expect(missing).toBeDefined()
     expect(missing?.severity).toBe('warning')
     expect(missing?.key).toBe('a')
-    expect(missing?.message).toContain('llmId')
+    // message 使用 formatMissingFields 中文化，'llmId' 顯示為 'LLM 設定'
+    expect(missing?.message).toContain('LLM 設定')
   })
 
   it('傳入 requiredFields 但 config 齊全時不回報', () => {
