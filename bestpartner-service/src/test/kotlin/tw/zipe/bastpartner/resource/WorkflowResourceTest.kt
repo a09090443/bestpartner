@@ -143,4 +143,17 @@ class WorkflowResourceTest {
             .then().statusCode(200)
             .body("code", equalTo(200))
     }
+
+    /**
+     * 案例 6（任務 #19）：已登入取得節點必填欄位清單，回 200 且 LLM_ASSISTANT 含 llmId
+     */
+    @Test
+    @TestSecurity(user = TEST_USER, roles = ["user"])
+    fun testNodeRequiredFields() {
+        given()
+            .`when`().get("/llm/workflow/nodeRequiredFields")
+            .then().statusCode(200)
+            .body("code", equalTo(200))
+            .body("data.LLM_ASSISTANT", org.hamcrest.Matchers.hasItem("llmId"))
+    }
 }

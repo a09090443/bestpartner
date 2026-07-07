@@ -69,6 +69,17 @@ class WorkflowResource(
     @Path("/list")
     fun list(): ApiResponse<List<WorkflowSummaryDTO>> = ApiResponse.success(workflowService.list())
 
+    /**
+     * 取得各 NodeType 的必填欄位清單，供前端載入時即時驗證節點設定。
+     *
+     * 清單源自 NodeConfig 契約（missingRequiredFields），非硬編；前端據此在存檔前即時提示缺漏欄位。
+     * 純查詢設定契約、不涉個資，class 層級 @Authenticated 已足夠，不另加權限標註。
+     */
+    @GET
+    @Path("/nodeRequiredFields")
+    fun nodeRequiredFields(): ApiResponse<Map<String, List<String>>> =
+        ApiResponse.success(workflowService.getNodeRequiredFields())
+
     @POST
     @Path("/update")
     fun update(dto: WorkflowDTO): ApiResponse<WorkflowDTO> {

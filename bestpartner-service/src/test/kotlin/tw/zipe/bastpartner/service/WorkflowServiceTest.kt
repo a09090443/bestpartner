@@ -478,4 +478,29 @@ class WorkflowServiceTest {
         val dto = workflowService.save(resave)
         assertEquals(WorkflowStatus.ACTIVE, dto.status)
     }
+
+    /**
+     * 案例 17（任務 #19）：getNodeRequiredFields 涵蓋全部 NodeType，
+     * 且必填清單與 NodeConfig 契約一致（抽驗關鍵節點）。純函式、不碰 DB。
+     */
+    @Test
+    fun testGetNodeRequiredFields() {
+        val map = workflowService.getNodeRequiredFields()
+
+        // 涵蓋全部 10 種 NodeType
+        assertEquals(NodeType.entries.size, map.size, "應涵蓋全部 NodeType")
+        NodeType.entries.forEach { type ->
+            assertTrue(map.containsKey(type.name), "缺少 NodeType：${type.name}")
+        }
+
+        // 抽驗關鍵節點的必填欄位
+        assertEquals(listOf("llmId"), map["LLM_ASSISTANT"])
+        assertTrue(map["MCP_SERVER"]!!.containsAll(listOf("mcpId", "toolName")), "MCP_SERVER 應含 mcpId 與 toolName：${map["MCP_SERVER"]}")
+        assertTrue(
+            map["KNOWLEDGE_RAG"]!!.containsAll(listOf("knowledgeId", "embeddingModelId", "query")),
+            "KNOWLEDGE_RAG 應含三個必填：${map["KNOWLEDGE_RAG"]}"
+        )
+        // DATA_TRANSFORM 為擇一必填，契約以複合字樣表示
+        assertEquals(listOf("mappings|template"), map["DATA_TRANSFORM"])
+    }
 }

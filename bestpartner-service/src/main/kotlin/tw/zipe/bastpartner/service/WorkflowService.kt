@@ -230,6 +230,25 @@ class WorkflowService(
     }
 
     /**
+     * 回傳各 NodeType 的「無條件必填欄位清單」，供前端載入時即時驗證節點設定。
+     *
+     * 事實來源：清單直接由 [NodeConfigRegistry.parse] 搭配空 config 產生——空 config 下所有
+     * 必填欄位都會 missing，其 [NodeConfig.missingRequiredFields] 結果即等同「無條件必填欄位」。
+     * 因此本清單與後端 save / switchStatus 的必填檢核共用同一份 NodeConfig 契約，前端無須重複硬編。
+     *
+     * 特例：DATA_TRANSFORM 的 mappings 與 template 為「擇一必填」，契約以複合字樣
+     * `"mappings|template"` 表示，此處原樣回傳，交由前端解讀。
+     *
+     * 純函式，不涉及 DB 與登入狀態。
+     *
+     * @return NodeType.name 對應其必填欄位清單，涵蓋全部 [NodeType.entries]
+     */
+    fun getNodeRequiredFields(): Map<String, List<String>> =
+        NodeType.entries.associate { type ->
+            type.name to NodeConfigRegistry.parse(type, JsonObject(emptyMap())).missingRequiredFields()
+        }
+
+    /**
      * 畫布驗證：節點數上限、nodeKey 唯一、edge 端點存在、無非法環。
      */
     private fun validateGraph(nodes: List<WorkflowNodeDTO>, edges: List<WorkflowEdgeDTO>) {
