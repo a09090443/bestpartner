@@ -28,6 +28,7 @@ const {
 vi.mock('../../api/workflow', () => ({
   get: vi.fn(),
   save: vi.fn(),
+  getNodeRequiredFields: vi.fn().mockResolvedValue({}),
 }))
 
 // ---- mock Vue Flow ----

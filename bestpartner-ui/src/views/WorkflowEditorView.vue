@@ -18,8 +18,10 @@ import { layoutGraph } from '../composables/useCanvasLayout'
 import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import { extractApiMessage } from '../api/http'
+import { getNodeRequiredFields } from '../api/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
 import type { NodeType } from '../types/workflow'
+import type { NodeRequiredFields } from '../api/workflow'
 import '../styles/workflow-theme.css'
 
 // 單一 Vue Flow 自訂節點型別，語意型別放於 node.data.type
@@ -48,6 +50,10 @@ const {
 
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
+
+// 各 NodeType 必填欄位清單（後端 NodeConfig 契約）：供 Inspector 即時提示與存檔前驗證共用。
+// 載入失敗時維持空物件，Inspector 不顯示提示、存檔驗證則自行重試（見 handleSave）。
+const requiredFields = ref<NodeRequiredFields>({})
 
 // 載入既有流程期間為 true：此時 setNodes/setEdges 會觸發 onNodesChange/onEdgesChange，
 // 但那是程式化還原、非使用者編輯，不應標記為未存。
@@ -110,6 +116,15 @@ onMounted(async () => {
     await loadIntoCanvas(id)
   } else {
     store.createNew()
+  }
+})
+
+// 預先載入必填欄位清單，供 Inspector 即時提示；失敗時靜默忽略（不影響畫布可用性）
+onMounted(async () => {
+  try {
+    requiredFields.value = await getNodeRequiredFields()
+  } catch {
+    // 忽略：Inspector 提示退化為不顯示，handleSave 存檔時會再各自嘗試一次
   }
 })
 
@@ -293,8 +308,21 @@ async function handleSave() {
   const req = flowToSaveRequest(flowNodes, flowEdges, {
     name: store.current?.name ?? '未命名流程',
   })
-  const results = validateGraph(req.nodes, req.edges)
-  const blocking = results.find((r) => r.severity === 'error')
+
+  // 必填欄位清單取自後端契約；查詢失敗則降級跳過必填檢查，不阻斷既有存檔流程
+  let latestRequiredFields: NodeRequiredFields | undefined
+  try {
+    latestRequiredFields = await getNodeRequiredFields()
+    requiredFields.value = latestRequiredFields
+  } catch {
+    latestRequiredFields = undefined
+  }
+
+  const results = validateGraph(req.nodes, req.edges, latestRequiredFields)
+  // ACTIVE 流程：必填缺漏比照後端行為升級為擋存錯誤；DRAFT/INACTIVE 維持 warning 放行
+  const blocking = results.find(
+    (r) => r.severity === 'error' || (isActive.value && r.type === 'REQUIRED_FIELD_MISSING'),
+  )
   if (blocking) {
     ElMessage.error(blocking.message)
     return
@@ -396,6 +424,7 @@ async function handleSave() {
           :connection-count="connectionCount"
           :trigger-count="triggerCount"
           :workflow-status="store.current?.status"
+          :required-fields="requiredFields"
           @update:node-name="onNodeNameUpdate"
           @update:node-config="onNodeConfigUpdate"
           @update:workflow-name="onWorkflowNameUpdate"

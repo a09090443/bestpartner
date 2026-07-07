@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { validateGraph } from '../useGraphValidation'
 import type { NodeType, WorkflowNodeDTO, WorkflowEdgeDTO } from '../../types/workflow'
+import type { NodeRequiredFields } from '../../api/workflow'
 
-function node(nodeKey: string, type: NodeType = 'TOOL'): WorkflowNodeDTO {
-  return { nodeKey, type, positionX: 0, positionY: 0, config: {} }
+function node(nodeKey: string, type: NodeType = 'TOOL', config: Record<string, unknown> = {}): WorkflowNodeDTO {
+  return { nodeKey, type, positionX: 0, positionY: 0, config }
 }
 
 function edge(sourceNodeKey: string, targetNodeKey: string): WorkflowEdgeDTO {
@@ -100,5 +101,30 @@ describe('validateGraph — handle 規則', () => {
     expect(branch).toBeDefined()
     expect(branch?.severity).toBe('warning')
     expect(branch?.key).toBe('c')
+  })
+})
+
+describe('validateGraph — 必填欄位規則', () => {
+  const requiredFields: NodeRequiredFields = {
+    LLM_ASSISTANT: ['llmId'],
+  }
+
+  it('不傳 requiredFields 時完全不檢查必填欄位', () => {
+    const errors = validateGraph([node('a', 'LLM_ASSISTANT', {})], [])
+    expect(errors.some((e) => e.type === 'REQUIRED_FIELD_MISSING')).toBe(false)
+  })
+
+  it('傳入 requiredFields 且節點缺必填欄位時應回報 warning', () => {
+    const errors = validateGraph([node('a', 'LLM_ASSISTANT', {})], [], requiredFields)
+    const missing = errors.find((e) => e.type === 'REQUIRED_FIELD_MISSING')
+    expect(missing).toBeDefined()
+    expect(missing?.severity).toBe('warning')
+    expect(missing?.key).toBe('a')
+    expect(missing?.message).toContain('llmId')
+  })
+
+  it('傳入 requiredFields 但 config 齊全時不回報', () => {
+    const errors = validateGraph([node('a', 'LLM_ASSISTANT', { llmId: 'l1' })], [], requiredFields)
+    expect(errors.some((e) => e.type === 'REQUIRED_FIELD_MISSING')).toBe(false)
   })
 })

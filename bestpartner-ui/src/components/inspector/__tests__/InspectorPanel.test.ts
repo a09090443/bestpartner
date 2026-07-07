@@ -18,9 +18,10 @@ import KnowledgeRagForm from '../forms/KnowledgeRagForm.vue'
 import JsonConfigEditor from '../JsonConfigEditor.vue'
 import type { FlowNode } from '../../../composables/useWorkflowSync'
 import type { NodeType } from '../../../types/workflow'
+import type { NodeRequiredFields } from '../../../api/workflow'
 
-function nodeOf(type: NodeType): FlowNode {
-  return { id: 'n1', type: 'workflow', position: { x: 0, y: 0 }, data: { type, config: {} } }
+function nodeOf(type: NodeType, config: Record<string, unknown> = {}): FlowNode {
+  return { id: 'n1', type: 'workflow', position: { x: 0, y: 0 }, data: { type, config } }
 }
 
 function mountWith(type: NodeType) {
@@ -90,6 +91,35 @@ describe('InspectorPanel 已選節點操作', () => {
     const w = mountWith('TOOL')
     await w.find('[data-test="delete-node-button"]').trigger('click')
     expect(w.emitted('delete-node')).toBeTruthy()
+  })
+})
+
+describe('InspectorPanel 必填欄位缺漏提示', () => {
+  const requiredFields: NodeRequiredFields = { LLM_ASSISTANT: ['llmId'] }
+
+  it('未提供 requiredFields 時不顯示提示', () => {
+    const w = mountWith('LLM_ASSISTANT')
+    expect(w.find('[data-test="required-field-warning"]').exists()).toBe(false)
+  })
+
+  it('提供 requiredFields 且缺漏必填欄位時顯示提示', () => {
+    const w = mount(InspectorPanel, {
+      props: { selectedNode: nodeOf('LLM_ASSISTANT'), workflowName: 'wf', requiredFields },
+    })
+    const warning = w.find('[data-test="required-field-warning"]')
+    expect(warning.exists()).toBe(true)
+    expect(warning.text()).toContain('llmId')
+  })
+
+  it('config 已齊全必填欄位時不顯示提示', () => {
+    const w = mount(InspectorPanel, {
+      props: {
+        selectedNode: nodeOf('LLM_ASSISTANT', { llmId: 'l1' }),
+        workflowName: 'wf',
+        requiredFields,
+      },
+    })
+    expect(w.find('[data-test="required-field-warning"]').exists()).toBe(false)
   })
 })
 

@@ -1,5 +1,7 @@
 import type { WorkflowNodeDTO, WorkflowEdgeDTO } from '../types/workflow'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
+import { missingRequiredForNode } from '../utils/nodeRequiredFields'
+import type { NodeRequiredFields } from '../api/workflow'
 
 /** 驗證錯誤型別 */
 export type GraphErrorType =
@@ -8,6 +10,7 @@ export type GraphErrorType =
   | 'CYCLE'
   | 'UNKNOWN_HANDLE'
   | 'BRANCH_INCOMPLETE'
+  | 'REQUIRED_FIELD_MISSING'
 
 /** 驗證嚴重度：error 擋存檔；warning 可存檔、啟用時再擋 */
 export type GraphErrorSeverity = 'error' | 'warning'
@@ -55,10 +58,15 @@ function hasCycle(nodeKeys: string[], edges: Array<[string, string]>): boolean {
 /**
  * 輕量畫布驗證（前端存檔前先擋）：nodeKey 唯一、edge 端點存在、無有向環。
  * 與後端 WorkflowService.validateGraph 同義，但收集所有錯誤而非遇到第一個即中止。
+ *
+ * @param requiredFields 選填。傳入時額外依後端 NodeConfig 契約檢查各節點必填欄位是否缺漏
+ *   （severity 一律為 warning；是否升級為擋存 error 由呼叫端依 workflow 狀態決定）。
+ *   不傳則完全跳過此檢查，維持既有呼叫端行為不變。
  */
 export function validateGraph(
   nodes: WorkflowNodeDTO[],
   edges: WorkflowEdgeDTO[],
+  requiredFields?: NodeRequiredFields,
 ): GraphValidationError[] {
   const errors: GraphValidationError[] = []
 
@@ -146,6 +154,21 @@ export function validateGraph(
         })
       }
     })
+
+  // 必填欄位缺漏：僅在呼叫端提供 requiredFields（後端契約）時檢查
+  if (requiredFields) {
+    nodes.forEach((n) => {
+      const missing = missingRequiredForNode(n.type, n.config ?? {}, requiredFields)
+      if (missing.length > 0) {
+        errors.push({
+          type: 'REQUIRED_FIELD_MISSING',
+          severity: 'warning',
+          key: n.nodeKey,
+          message: `節點 ${n.nodeKey} 缺少必填欄位：${missing.join('、')}`,
+        })
+      }
+    })
+  }
 
   // 有向環
   const nodeKeys = nodes.map((n) => n.nodeKey)

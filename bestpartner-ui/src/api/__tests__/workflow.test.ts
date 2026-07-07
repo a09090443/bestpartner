@@ -89,4 +89,48 @@ describe('workflow API client', () => {
 
     expect(postMock).toHaveBeenCalledWith('/llm/workflow/switchStatus', { id: 'w1', active: true })
   })
+
+  describe('getNodeRequiredFields', () => {
+    beforeEach(() => {
+      // 模組級快取，跨測試殘留；每案例前清除以維持獨立性
+      workflowApi.invalidateNodeRequiredFieldsCache()
+    })
+
+    it('應 GET /llm/workflow/nodeRequiredFields 並回傳 data', async () => {
+      const fields = { LLM_ASSISTANT: ['llmId'], TOOL: ['toolId'] }
+      getMock.mockResolvedValueOnce(apiOk(fields))
+
+      const result = await workflowApi.getNodeRequiredFields()
+
+      expect(getMock).toHaveBeenCalledWith('/llm/workflow/nodeRequiredFields')
+      expect(result).toEqual(fields)
+    })
+
+    it('data 為 null 時回空物件', async () => {
+      getMock.mockResolvedValueOnce(apiOk(null))
+
+      const result = await workflowApi.getNodeRequiredFields()
+
+      expect(result).toEqual({})
+    })
+
+    it('連續呼叫命中快取，只發一次請求', async () => {
+      getMock.mockResolvedValue(apiOk({ TOOL: ['toolId'] }))
+
+      await workflowApi.getNodeRequiredFields()
+      await workflowApi.getNodeRequiredFields()
+
+      expect(getMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('請求失敗不留下壞快取，下次查詢可重試', async () => {
+      getMock.mockRejectedValueOnce(new Error('boom'))
+      await expect(workflowApi.getNodeRequiredFields()).rejects.toThrow('boom')
+
+      getMock.mockResolvedValueOnce(apiOk({ TOOL: ['toolId'] }))
+      const result = await workflowApi.getNodeRequiredFields()
+      expect(result).toEqual({ TOOL: ['toolId'] })
+      expect(getMock).toHaveBeenCalledTimes(2)
+    })
+  })
 })

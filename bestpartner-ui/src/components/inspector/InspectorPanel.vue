@@ -6,8 +6,10 @@ import ToolForm from './forms/ToolForm.vue'
 import McpServerForm from './forms/McpServerForm.vue'
 import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
 import { NODE_CATEGORIES, getNodeTypeMeta, getNodesByCategory } from '../../constants/nodeTypes'
+import { missingRequiredForNode } from '../../utils/nodeRequiredFields'
 import type { FlowNode } from '../../composables/useWorkflowSync'
 import type { WorkflowStatus } from '../../types/workflow'
+import type { NodeRequiredFields } from '../../api/workflow'
 
 const props = defineProps<{
   selectedNode?: FlowNode | null
@@ -18,6 +20,8 @@ const props = defineProps<{
   connectionCount?: number
   triggerCount?: number
   workflowStatus?: WorkflowStatus
+  /** 各 NodeType 必填欄位清單（後端契約）；未提供時不顯示必填缺漏提示 */
+  requiredFields?: NodeRequiredFields
 }>()
 
 const emit = defineEmits<{
@@ -76,6 +80,16 @@ const legend = computed(() =>
 function onFormConfig(config: Record<string, unknown>) {
   emit('update:node-config', config)
 }
+
+/** 選中節點的必填欄位缺漏（依後端契約即時計算，不需等存檔） */
+const missingRequired = computed(() => {
+  if (!props.selectedNode || !props.requiredFields) return []
+  return missingRequiredForNode(
+    props.selectedNode.data.type,
+    props.selectedNode.data.config ?? {},
+    props.requiredFields,
+  )
+})
 </script>
 
 <template>
@@ -101,6 +115,14 @@ function onFormConfig(config: Record<string, unknown>) {
             @input="emit('update:node-name', ($event.target as HTMLInputElement).value)"
           />
         </div>
+      </div>
+
+      <div
+        v-if="missingRequired.length > 0"
+        class="required-warning"
+        data-test="required-field-warning"
+      >
+        缺少必填欄位：{{ missingRequired.join('、') }}
       </div>
 
       <div class="section">
@@ -253,6 +275,17 @@ function onFormConfig(config: Record<string, unknown>) {
 
 .name-input {
   font-weight: 700;
+}
+
+/* ---- 必填欄位缺漏提示 ---- */
+.required-warning {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.12);
+  border: 1px solid rgba(230, 162, 60, 0.35);
+  border-radius: 8px;
 }
 
 /* ---- 區段 ---- */

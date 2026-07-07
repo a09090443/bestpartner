@@ -58,3 +58,34 @@ export async function remove(id: string): Promise<void> {
 export async function switchStatus(id: string, active: boolean): Promise<void> {
   await http.post<ApiResponse<null>>('/llm/workflow/switchStatus', { id, active })
 }
+
+/** 各 NodeType 的必填欄位清單（key 為 NodeType 字串，value 為必填欄位名稱；"a|b" 表示擇一即可） */
+export type NodeRequiredFields = Record<string, string[]>
+
+/**
+ * 必填欄位清單快取：以 Promise 形式快取，兼作「進行中請求」的去重。
+ *
+ * 注意：此清單是後端 NodeConfig 契約的靜態設定（非 per-user 資料），
+ * 與 llmSetting/nodeOptions 的 per-user 快取不同——**不需要在登出時清除**。
+ */
+let nodeRequiredFieldsCache: Promise<NodeRequiredFields> | null = null
+
+/** 查詢各 NodeType 的必填欄位清單，供存檔前即時驗證使用 */
+export function getNodeRequiredFields(): Promise<NodeRequiredFields> {
+  if (!nodeRequiredFieldsCache) {
+    nodeRequiredFieldsCache = http
+      .get<ApiResponse<NodeRequiredFields>>('/llm/workflow/nodeRequiredFields')
+      .then((res) => res.data.data ?? {})
+      .catch((err) => {
+        // 壞快取（rejected Promise）會讓後續呼叫永遠失敗，須清除以允許重試
+        nodeRequiredFieldsCache = null
+        throw err
+      })
+  }
+  return nodeRequiredFieldsCache
+}
+
+/** 使必填欄位清單快取失效（主要供測試使用；此清單非 per-user 資料，一般不需在登出時呼叫） */
+export function invalidateNodeRequiredFieldsCache(): void {
+  nodeRequiredFieldsCache = null
+}

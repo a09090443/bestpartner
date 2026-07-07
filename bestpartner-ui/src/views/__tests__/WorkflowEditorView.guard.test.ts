@@ -12,6 +12,7 @@ const h = vi.hoisted(() => {
     confirmMock: vi.fn(() => Promise.resolve('confirm')),
     successMock: vi.fn(),
     errorMock: vi.fn(),
+    warningMock: vi.fn(),
     onBeforeRouteLeaveMock: vi.fn((cb: () => unknown) => {
       captured.leave = cb
     }),
@@ -21,7 +22,11 @@ const h = vi.hoisted(() => {
   }
 })
 
-vi.mock('../../api/workflow', () => ({ get: vi.fn(), save: vi.fn() }))
+vi.mock('../../api/workflow', () => ({
+  get: vi.fn(),
+  save: vi.fn(),
+  getNodeRequiredFields: vi.fn().mockResolvedValue({}),
+}))
 
 vi.mock('@vue-flow/core', () => ({
   VueFlow: { name: 'VueFlow', template: '<div />' },
@@ -56,7 +61,7 @@ vi.mock('element-plus', async () => {
   const actual = await vi.importActual<typeof import('element-plus')>('element-plus')
   return {
     ...actual,
-    ElMessage: { success: h.successMock, error: h.errorMock },
+    ElMessage: { success: h.successMock, error: h.errorMock, warning: h.warningMock },
     ElMessageBox: { confirm: h.confirmMock },
   }
 })
@@ -139,5 +144,65 @@ describe('WorkflowEditorView — dirty 追蹤與離頁攔截', () => {
 
     expect(workflowApi.save).not.toHaveBeenCalled()
     expect(h.errorMock).toHaveBeenCalled()
+  })
+
+  it('ACTIVE 流程缺少必填欄位應擋存檔（升級為 error）', async () => {
+    vi.mocked(workflowApi.getNodeRequiredFields).mockResolvedValue({ LLM_ASSISTANT: ['llmId'] })
+    h.toObjectMock.mockReturnValue({
+      nodes: [
+        {
+          id: 'a',
+          type: 'workflow',
+          position: { x: 0, y: 0 },
+          data: { name: 'A', type: 'LLM_ASSISTANT', config: {} },
+        },
+      ],
+      edges: [],
+    })
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    const store = useWorkflowStore()
+    store.current!.status = 'ACTIVE'
+
+    await wrapper.find('[data-test="save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(workflowApi.save).not.toHaveBeenCalled()
+    expect(h.errorMock).toHaveBeenCalled()
+  })
+
+  it('DRAFT 流程缺少必填欄位僅提示 warning、不擋存檔', async () => {
+    vi.mocked(workflowApi.getNodeRequiredFields).mockResolvedValue({ LLM_ASSISTANT: ['llmId'] })
+    vi.mocked(workflowApi.save).mockResolvedValueOnce({
+      id: 'w1',
+      name: 'flow',
+      status: 'DRAFT',
+      version: 2,
+      nodes: [],
+      edges: [],
+    })
+    h.toObjectMock.mockReturnValue({
+      nodes: [
+        {
+          id: 'a',
+          type: 'workflow',
+          position: { x: 0, y: 0 },
+          data: { name: 'A', type: 'LLM_ASSISTANT', config: {} },
+        },
+      ],
+      edges: [],
+    })
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    const store = useWorkflowStore()
+    expect(store.current?.status).toBe('DRAFT')
+
+    await wrapper.find('[data-test="save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(workflowApi.save).toHaveBeenCalled()
+    expect(h.warningMock).toHaveBeenCalled()
   })
 })
