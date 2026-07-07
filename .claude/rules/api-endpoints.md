@@ -1,6 +1,6 @@
 # API Endpoints 說明
 
-> 共 13 個模組、66 個 endpoint。
+> 共 13 個模組、67 個 endpoint。
 > 權限標示：無標示 = 公開或依類別預設；括號內為額外限制。
 
 ---
@@ -154,6 +154,7 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/workflow/save` | 新增或整張覆寫 workflow（含 nodes/edges）；更新時以 version 樂觀鎖檢核；存檔前驗證畫布（nodeKey 唯一、edge 端點存在、節點數上限、無環）與節點 config 型別（依 NodeType 強型別反序列化，未知欄位或結構性型別錯誤回 400；必填缺席放行） |
 | POST | `/llm/workflow/get` | 取得單一 workflow 完整定義（含 nodes/edges），須傳入 id |
 | GET | `/llm/workflow/list` | 列出當前使用者擁有的 workflow 摘要清單 |
+| GET | `/llm/workflow/nodeRequiredFields` | 回傳各 NodeType 的必填欄位清單（源自 NodeConfig 契約），供前端載入時即時驗證節點設定；複合字樣 `a\|b` 表示擇一必填 |
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta），須傳入 id |
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge），須傳入 id |
 | POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow（啟用前須具備 Trigger 節點、圖無環，且逐節點驗 config 必填欄位——驗不過回報 nodeKey 與缺漏欄位），須傳入 id + active |

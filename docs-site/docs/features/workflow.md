@@ -66,12 +66,14 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 | 節點型別 | 主要設定欄位 | 選項來源 |
 |----------|----------|----------|
 | `LLM_ASSISTANT` | `llmId`（下拉，必填）、`systemPrompt`／`userPrompt`、Memory、工具／MCP／Skill 多選、`knowledgeId`、附加檔案、`responseFormat`／`outputSchema`／`outputKey` | `POST /llm/setting/get`、`/llm/tool/list`、`/llm/mcpServer/list`、`/llm/skill/list`、`/llm/vector/getKnowledgeStore` |
-| `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填） | `GET /llm/tool/list` |
-| `MCP_SERVER` | `mcpId`（下拉，必填）、`toolName`（文字，必填；MCP 工具清單為執行期發現，無查詢端點故不做下拉）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移）、`outputKey`（選填） | `GET /llm/mcpServer/list` |
+| `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填）、`arguments`（JSON 物件，選填，支援插值）、`outputKey`（選填） | `GET /llm/tool/list` |
+| `MCP_SERVER` | `mcpId`（下拉，必填）、`toolName`（文字，必填；MCP 工具清單為執行期發現，無查詢端點故不做下拉）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移）、`arguments`（JSON 物件，選填，支援插值）、`outputKey`（選填） | `GET /llm/mcpServer/list` |
 | `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`embeddingModelId`（下拉，必填，僅列 EMBEDDING 型別）、`query`（textarea，必填，支援插值）、`topK`（數字，預設 4）、`minScore`（數字，選填 0–1）、`outputKey`（選填） | `POST /llm/vector/getKnowledgeStore`、`POST /llm/setting/get`（過濾 `modelType=EMBEDDING`） |
 | 其餘 6 種 | 通用 JSON 編輯器（fallback） | — |
 
-下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料；空值鍵一律移除以維持 config 精簡。表單為結構化輸入不會產生 JSON 錯誤，故一律視為有效；「必填未選」不擋存檔，留待 workflow 啟用驗證。
+下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次（登出時連同 LLM 設定快取一併清除，避免跨使用者殘留）。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料；空值鍵一律移除以維持 config 精簡。`arguments`（JSON 物件）以文字輸入，僅接受合法 JSON 物件——非物件或壞 JSON 不寫入 config，避免後端反序列化失敗。
+
+表單為結構化輸入不會產生 JSON 錯誤，故一律視為有效。必填欄位則採**契約驅動的即時驗證**：前端載入 `GET /llm/workflow/nodeRequiredFields` 取得各 NodeType 的必填清單（源自後端 `NodeConfig` 契約、前端不重複硬編），Inspector 對選中節點即時提示缺漏欄位（欄位名中文化、複合欄位顯示「擇一」）。存檔行為依狀態而異：**DRAFT / INACTIVE** 缺必填僅提示不擋（留待啟用驗證）；**ACTIVE** 缺必填則提前擋下存檔（與後端 ACTIVE 重存驗必填一致，Inspector 提示同步轉為紅色 error 語意）。
 
 > 各節點 `config` 的完整欄位契約（型別、必填、預設值）見 [Workflow API — 節點 config 契約](../api/workflow.md#節點-config-契約)。
 

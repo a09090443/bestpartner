@@ -3400,6 +3400,22 @@
           "response": []
         },
         {
+          "name": "nodeRequiredFields",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/nodeRequiredFields",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "nodeRequiredFields" ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "update",
           "request": {
             "method": "POST",

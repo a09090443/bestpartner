@@ -28,6 +28,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | POST | `/llm/workflow/save` | 新增或整張覆寫 workflow（含 nodes/edges）|
 | POST | `/llm/workflow/get` | 取得單一 workflow 完整定義 |
 | GET | `/llm/workflow/list` | 列出當前使用者的 workflow 摘要 |
+| GET | `/llm/workflow/nodeRequiredFields` | 回傳各 NodeType 的必填欄位清單，供前端即時驗證 |
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta）|
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge）|
 | POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow |
@@ -170,7 +171,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `minScore` | number | | 相似度下限 |
 | `outputKey` | string | | 輸出鍵名 |
 
-> 前端 `McpServerForm` 與 `KnowledgeRagForm` 已涵蓋上述必填與主要選填欄位；僅 `arguments`（物件型別）尚無表單輸入欄位。
+> 前端 `ToolForm`、`McpServerForm` 與 `KnowledgeRagForm` 已涵蓋上述必填與主要選填欄位，`arguments`（物件型別）以 JSON 文字輸入（僅接受合法 JSON 物件，非物件或壞 JSON 不寫入 config）。
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
@@ -193,6 +194,35 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 `GET /llm/workflow/list`
 
 **Response**：當前使用者的 `WorkflowSummaryDTO` 陣列（含 `id`、`name`、`status`、`version`、`updatedAt`）。
+
+## 取得節點必填欄位清單
+
+`GET /llm/workflow/nodeRequiredFields`
+
+回傳各 `NodeType` 的必填欄位清單，供前端載入時**即時驗證**節點設定、在存檔前提示缺漏欄位，而不需重複硬編必填規則。清單直接由後端 `NodeConfig` 契約（`missingRequiredFields`，以空 config 推導）產生——與 `save` / `switchStatus` 的必填檢核**共用同一份事實來源**。
+
+**Response**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "LLM_ASSISTANT": ["llmId"],
+    "TOOL": ["toolId"],
+    "MCP_SERVER": ["mcpId", "toolName"],
+    "KNOWLEDGE_RAG": ["knowledgeId", "embeddingModelId", "query"],
+    "TRIGGER": ["triggerType"],
+    "CONDITION": ["conditions"],
+    "LOOP": ["inputArrayPath", "loopBodyEntryNodeKey"],
+    "CODE": ["language", "source"],
+    "HTTP_REQUEST": ["method", "url"],
+    "DATA_TRANSFORM": ["mappings|template"]
+  }
+}
+```
+
+> 複合字樣 `"mappings|template"` 表示兩欄位**擇一必填**（任一有值即滿足）。前端據此在 Inspector 即時提示、並於存檔前驗證；對 **ACTIVE** 的 workflow，缺必填會提前擋下存檔（與後端 ACTIVE 重存驗必填一致），DRAFT / INACTIVE 僅提示不擋。
 
 ## 更新 Meta
 

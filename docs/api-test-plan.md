@@ -118,6 +118,7 @@
 | P1 | save 樂觀鎖：version 不符 | 400，`workflow.version.conflict` |
 | P2 | 圖驗證：nodeKey 重複、edge 端點不存在、節點數超上限 | 400 對應訊息 |
 | P2 | 非擁有者存取（非 admin） | 403，`workflow.forbidden` |
+| P2 | nodeRequiredFields 取必填清單 | 200，含全 10 種 NodeType；`LLM_ASSISTANT=["llmId"]`、`DATA_TRANSFORM=["mappings\|template"]` |
 
 ## SYSTEM SETTING - `/systemSetting`
 
