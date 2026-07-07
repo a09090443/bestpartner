@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import type { ToolSettingFieldSchema, ToolSettingSchema } from '../../../types/toolSchema'
 
 const props = defineProps<{
@@ -9,6 +9,44 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, unknown>] }>()
 
 const fields = computed(() => Object.entries(props.schema))
+
+/**
+ * array 欄位的本地原始輸入字串（欄位名 -> raw 字串）。
+ * array input 的 :value 綁定此 buffer 而非從 model 反推，
+ * 否則使用者每打一個逗號會被 split→filter→join 還原吃掉（尾端逗號消失）。
+ */
+const arrayBuffers = reactive<Record<string, string>>({})
+
+/** 將 array 欄位原始字串切割為字串陣列：split→trim→濾空段。注意：值本身不可含逗號 */
+function parseArray(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i])
+}
+
+/**
+ * 依 schema 與 modelValue 同步 array 欄位 buffer。
+ * 避免同步迴圈：僅在 buffer 尚未建立，或其解析結果與 model 陣列「不等價」（＝外部變更，
+ * 如切換工具）時才以 model 重建 buffer；使用者自行 emit 造成的 model 變更解析後等價，
+ * 故不覆寫正在編輯的原始字串（保留尾端逗號等中間狀態）。
+ */
+function syncArrayBuffers() {
+  for (const [name, field] of Object.entries(props.schema)) {
+    if (field.type !== 'array') continue
+    const v = props.modelValue[name]
+    const modelArr = Array.isArray(v) ? (v as string[]) : []
+    if (!(name in arrayBuffers) || !arraysEqual(parseArray(arrayBuffers[name]), modelArr)) {
+      arrayBuffers[name] = modelArr.join(', ')
+    }
+  }
+}
+
+watch([() => props.schema, () => props.modelValue], syncArrayBuffers, { immediate: true })
 
 /**
  * 依欄位描述決定 input type：sensitive 優先 password，數字 number，其餘（含 array）text。
@@ -28,10 +66,10 @@ function updateField(name: string, value: unknown) {
   emit('update:modelValue', next)
 }
 
-/** array 欄位顯示時把陣列 join 回逗號字串供編輯；其餘型別原樣顯示 */
-function displayValue(name: string): string | number {
+/** input 顯示值：array 綁本地 buffer（不從 model 反推），其餘型別原樣顯示 */
+function inputValue(name: string): string | number {
+  if (props.schema[name].type === 'array') return arrayBuffers[name] ?? ''
   const v = props.modelValue[name]
-  if (Array.isArray(v)) return v.join(', ')
   return (v as string | number | undefined) ?? ''
 }
 
@@ -40,16 +78,14 @@ function onInput(name: string, event: Event) {
   const field = props.schema[name]
   let value: unknown
   if (field.type === 'integer') {
-    // integer 欄位截斷小數，僅保留整數（後端對應 Int/Long）
+    // integer 欄位截斷小數，僅保留整數（後端對應 Int/Long；Math.trunc 趨零截斷，負數亦適用）
     value = el.value === '' ? undefined : Math.trunc(Number(el.value))
   } else if (field.type === 'number') {
     value = el.value === '' ? undefined : Number(el.value)
   } else if (field.type === 'array') {
-    // array 欄位以逗號切割為字串陣列（trim 每段、濾除空段），空輸入則刪鍵
-    const parts = el.value
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s !== '')
+    // 先更新本地 buffer（保留原始輸入），再 emit 切割後的字串陣列；空則刪鍵
+    arrayBuffers[name] = el.value
+    const parts = parseArray(el.value)
     value = parts.length === 0 ? undefined : parts
   } else {
     value = el.value
@@ -85,8 +121,8 @@ function onCheckbox(name: string, event: Event) {
           :type="inputType(field)"
           :step="field.type === 'integer' ? '1' : undefined"
           :autocomplete="field.sensitive ? 'new-password' : undefined"
-          :placeholder="field.type === 'array' ? '以逗號分隔' : undefined"
-          :value="displayValue(name)"
+          :placeholder="field.type === 'array' ? '以逗號分隔（值不可含逗號）' : undefined"
+          :value="inputValue(name)"
           class="text-input"
           @input="onInput(name, $event)"
         />

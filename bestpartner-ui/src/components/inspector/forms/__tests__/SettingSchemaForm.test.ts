@@ -116,6 +116,39 @@ describe('SettingSchemaForm', () => {
     )
   })
 
+  it('array 欄位逐字輸入逗號不被吞（本地 buffer 不從 model 反推）', async () => {
+    const arraySchema: ToolSettingSchema = { tags: { type: 'array', required: false } }
+    const wrapper = mount(SettingSchemaForm, { props: { schema: arraySchema, modelValue: {} } })
+    const input = wrapper.find('[data-test="field-tags"]')
+    const el = input.element as HTMLInputElement
+    // 逐字打到剛按下逗號：DOM 值須保留 'a,'（逗號不被吃掉），model 為 ['a']
+    el.value = 'a,'
+    await input.trigger('input')
+    await wrapper.vm.$nextTick()
+    expect((wrapper.find('[data-test="field-tags"]').element as HTMLInputElement).value).toBe('a,')
+    let events = wrapper.emitted('update:modelValue')!
+    expect(events[events.length - 1][0]).toEqual({ tags: ['a'] })
+    // 繼續打 'b'
+    el.value = 'a,b'
+    await input.trigger('input')
+    await wrapper.vm.$nextTick()
+    events = wrapper.emitted('update:modelValue')!
+    expect(events[events.length - 1][0]).toEqual({ tags: ['a', 'b'] })
+  })
+
+  it('切換 schema 時 array buffer 由新 modelValue 重建', async () => {
+    const arraySchema: ToolSettingSchema = { tags: { type: 'array', required: false } }
+    const wrapper = mount(SettingSchemaForm, {
+      props: { schema: arraySchema, modelValue: { tags: ['x'] } },
+    })
+    expect((wrapper.find('[data-test="field-tags"]').element as HTMLInputElement).value).toBe('x')
+    // 外部（切換工具）帶入不同 modelValue → buffer 應重建
+    await wrapper.setProps({ modelValue: { tags: ['a.com', 'b.com'] } })
+    expect((wrapper.find('[data-test="field-tags"]').element as HTMLInputElement).value).toBe(
+      'a.com, b.com',
+    )
+  })
+
   it('integer 欄位輸入小數時截斷為整數，number 欄位保留小數', async () => {
     const numberSchema: ToolSettingSchema = {
       timeout: { type: 'integer', required: false },
@@ -127,6 +160,14 @@ describe('SettingSchemaForm', () => {
     const events = wrapper.emitted('update:modelValue')!
     expect(events[0][0]).toEqual({ timeout: 3 }) // integer 截斷
     expect(events[1][0]).toEqual({ ratio: 3.5 }) // number 保留小數
+  })
+
+  it('integer 欄位負數小數趨零截斷（-3.7 → -3）', async () => {
+    const numberSchema: ToolSettingSchema = { offset: { type: 'integer', required: false } }
+    const wrapper = mount(SettingSchemaForm, { props: { schema: numberSchema, modelValue: {} } })
+    await wrapper.find('[data-test="field-offset"]').setValue('-3.7')
+    const events = wrapper.emitted('update:modelValue')!
+    expect(events[events.length - 1][0]).toEqual({ offset: -3 })
   })
 
   it('sensitive 欄位帶 autocomplete="new-password"，一般欄位不帶', () => {

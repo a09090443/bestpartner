@@ -34,6 +34,7 @@ const missingRequired = computed(() =>
   Object.entries(schemaForForm.value).some(([name, field]) => {
     if (!field.required) return false
     const v = settingValues.value[name]
+    // 空陣列分支僅為防禦外部注入；UI 上 array 空輸入 emit undefined，走 undefined 路徑
     return v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
   }),
 )
