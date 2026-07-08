@@ -4,7 +4,7 @@
 
 BestPartner 是一個 AI 應用大平台，可動態建立 AI agent 並支援多種 AI 模型，目標類似 Dify 或 Coze 平台。
 
-**當前版本**: 0.1.7-SNAPSHOT
+**當前版本**: 0.1.8-SNAPSHOT
 
 ## 規則檔案索引
 
@@ -49,10 +49,10 @@ cd bestpartner-service
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
 ```
 
-產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar`
+產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar`
 
 ```bash
-java -jar bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+java -jar bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 ```
 
 服務預設埠：**port 80**

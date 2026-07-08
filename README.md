@@ -308,12 +308,12 @@ npm run build    # vue-tsc 型別檢查 + production 建置
 
 2. 打包完成後，JAR 位於：
    ```
-   bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+   bestpartner-service/build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
    ```
 
 3. 執行：
    ```bash
-   java -jar bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+   java -jar bestpartner-service-0.1.8-SNAPSHOT-runner.jar
    ```
 
 服務預設埠：**port 80**

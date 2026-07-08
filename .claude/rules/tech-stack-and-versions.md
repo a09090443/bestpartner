@@ -11,7 +11,7 @@
 | 資料庫 | PostgreSQL | - |
 | 建置工具 | Gradle | - |
 
-**當前服務版本**: 0.1.7-SNAPSHOT
+**當前服務版本**: 0.1.8-SNAPSHOT
 
 ## 支援的 AI 平台
 

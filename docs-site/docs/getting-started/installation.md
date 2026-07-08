@@ -149,5 +149,5 @@ cd bestpartner-service
 建置完成後，JAR 檔案位置：
 
 ```
-bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+bestpartner-service/build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 ```

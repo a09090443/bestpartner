@@ -13,12 +13,12 @@
 
 `${profile}` 可選值：`dev`（預設）、`sit`、`prod`
 
-產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar`
+產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar`
 
 ## 執行
 
 ```bash
-java -jar bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+java -jar bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 ```
 
 服務預設埠：**port 80**

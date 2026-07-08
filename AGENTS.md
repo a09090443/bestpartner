@@ -5,7 +5,7 @@
 
 ## 這是什麼專案
 
-AI 應用大平台（類似 Dify / Coze），可動態建立 AI agent、支援多種 AI 模型。當前版本 **0.1.7-SNAPSHOT**。
+AI 應用大平台（類似 Dify / Coze），可動態建立 AI agent、支援多種 AI 模型。當前版本 **0.1.8-SNAPSHOT**。
 
 ## 模組總覽
 
@@ -51,7 +51,7 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.13.0 · JDK 21 · PostgreSQL · 
 cd bestpartner-service
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
 # profile: dev(預設) / sit / prod
-java -jar build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+java -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 ```
 
 設定檔與 profile 差異 → [`configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)、[`build-and-run.md`](.claude/rules/build-and-run.md)

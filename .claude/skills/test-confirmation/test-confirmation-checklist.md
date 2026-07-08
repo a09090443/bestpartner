@@ -58,7 +58,7 @@ echo "TEST_USER_TOKEN=${TEST_USER_TOKEN:0:30}..."
 | 項目 | 內容 |
 |------|------|
 | 測試日期 | |
-| 服務版本 | 0.1.7-SNAPSHOT |
+| 服務版本 | 0.1.8-SNAPSHOT |
 | 測試環境 | dev / sit |
 | LLM 平台 | |
 | LLM Setting ID | |
