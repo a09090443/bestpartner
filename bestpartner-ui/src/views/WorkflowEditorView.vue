@@ -15,6 +15,7 @@ import { generateNodeKey } from '../composables/useNodeKey'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
 import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
 import { layoutGraph } from '../composables/useCanvasLayout'
+import { computeFitZoom } from '../composables/useDefaultZoom'
 import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import { extractApiMessage } from '../api/http'
@@ -37,17 +38,22 @@ const {
   onPaneClick,
   onNodesChange,
   onEdgesChange,
+  onPaneReady,
   addEdges,
   addNodes,
   removeNodes,
   screenToFlowCoordinate,
   setNodes,
   setEdges,
+  setViewport,
   toObject,
   fitView,
   nodes: flowNodesRef,
   edges: flowEdgesRef,
 } = useVueFlow()
+
+// 畫布容器 DOM：量測可視寬度以計算「容納約 5 個節點」的預設縮放
+const canvasRef = ref<HTMLElement | null>(null)
 
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
@@ -95,6 +101,27 @@ function currentId(): string | undefined {
   return Array.isArray(idParam) ? idParam[0] : idParam
 }
 
+/** 依畫布可視寬度計算「容納約 5 個節點」的預設縮放；量不到寬度時退回固定值 */
+function defaultCanvasZoom(): number {
+  return computeFitZoom({ canvasWidth: canvasRef.value?.clientWidth ?? 0 })
+}
+
+/**
+ * 套用預設檢視，讓各情境的初始視野都以「約 5 個節點寬」為基準：
+ * 有節點時 fitView 但以預設縮放為上限（少數節點不被放到過大）；
+ * 空白畫布則定位到預設縮放並留左上空白，方便放置第一個節點。
+ * 僅改動 viewport、不變動節點，故不會標記未存。
+ */
+function applyDefaultView() {
+  const zoom = defaultCanvasZoom()
+  const hasNodes = (flowNodesRef?.value?.length ?? 0) > 0
+  if (hasNodes) {
+    fitView({ maxZoom: zoom, padding: 0.2 })
+  } else {
+    setViewport({ x: 80, y: 80, zoom })
+  }
+}
+
 async function loadIntoCanvas(id: string) {
   hydrating.value = true
   try {
@@ -106,6 +133,8 @@ async function loadIntoCanvas(id: string) {
     // 等畫布套用完 setNodes/setEdges 觸發的變更事件後，再重置為已存狀態
     await nextTick()
     store.setDirty(false)
+    // 節點就位後套預設視野（pane 若尚未 ready，onPaneReady 會再補一次）
+    applyDefaultView()
   } finally {
     hydrating.value = false
   }
@@ -117,8 +146,13 @@ onMounted(async () => {
     await loadIntoCanvas(id)
   } else {
     store.createNew()
+    await nextTick()
+    applyDefaultView()
   }
 })
+
+// pane 初始化後套用預設檢視（涵蓋首次載入既有流程與空白流程）
+onPaneReady(() => applyDefaultView())
 
 // 預先載入必填欄位清單，供 Inspector 即時提示；失敗時靜默忽略（不影響畫布可用性）
 onMounted(async () => {
@@ -294,7 +328,7 @@ function handleTidyUp() {
   )
   setNodes(laidOut as unknown as Node[])
   store.setDirty(true)
-  nextTick(() => fitView())
+  nextTick(() => fitView({ maxZoom: defaultCanvasZoom(), padding: 0.2 }))
 }
 
 /**
@@ -423,12 +457,11 @@ async function handleSave() {
     <div class="editor-body">
       <NodePalette />
 
-      <div class="canvas" @drop="onDrop" @dragover="onDragOver">
+      <div class="canvas" ref="canvasRef" @drop="onDrop" @dragover="onDragOver">
         <VueFlow
           :node-types="nodeTypes"
           :default-edge-options="EDGE_DEFAULTS"
           delete-key-code="Delete"
-          fit-view-on-init
         >
           <Background variant="dots" :gap="20" :size="1.4" color="#2b2b34" />
           <MiniMap :node-color="minimapNodeColor" pannable zoomable />
