@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://github.com',
-  baseUrl: '/',
+  url: 'https://a09090443.github.io',
+  baseUrl: '/bestpartner/',
 
   organizationName: 'a09090443',
   projectName: 'bestpartner',
@@ -20,7 +20,7 @@ const config: Config = {
   onBrokenLinks: 'throw',
   markdown: {
     hooks: {
-      onBrokenMarkdownLinks: 'warn',
+      onBrokenMarkdownLinks: 'throw',
       onBrokenMarkdownImages: 'warn',
     },
   },
@@ -43,6 +43,29 @@ const config: Config = {
           customCss: './src/css/custom.css',
         },
       } satisfies Preset.Options,
+    ],
+  ],
+
+  plugins: [
+    [
+      'docusaurus-plugin-llms',
+      {
+        // 產生 AI/LLM 友善的彙整檔與各頁純 Markdown
+        docsDir: 'docs',
+        generateLLMsTxt: true, // /llms.txt：站台索引與頁面清單
+        generateLLMsFullTxt: true, // /llms-full.txt：全文彙整，供 LLM 一次讀取
+        generateMarkdownFiles: true, // 每頁輸出對應的純 .md，供 AI agent 直接抓取
+        title: 'BestPartner 文件',
+        description:
+          'BestPartner 是一個 AI 應用大平台，可動態建立 AI Agent 並支援多種 AI 模型，內建 RAG 知識庫、工具調用、MCP Server 與視覺化 Workflow。',
+        includeOrder: [
+          'intro.md',
+          'getting-started/**',
+          'architecture/**',
+          'features/**',
+          'api/**',
+        ],
+      },
     ],
   ],
 

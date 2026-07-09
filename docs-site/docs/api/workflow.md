@@ -1,5 +1,7 @@
 ---
 sidebar_position: 6
+description: BestPartner Workflow API，提供視覺化工作流定義的 CRUD 管理，端點前綴 /llm/workflow，含擁有權與 admin 代管規則。
+keywords: [Workflow API, 工作流, CRUD, 節點, 畫布驗證]
 ---
 
 # Workflow API

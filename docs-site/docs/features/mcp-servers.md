@@ -1,5 +1,7 @@
 ---
 sidebar_position: 4
+description: BestPartner 整合 Model Context Protocol（MCP）Server，支援 SSE 與 STDIO 傳輸模式，擴充 AI 模型的外部工具能力。
+keywords: [MCP, Model Context Protocol, MCP Server, SSE, STDIO, 外部工具]
 ---
 
 # MCP Server

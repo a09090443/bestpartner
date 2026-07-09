@@ -1,5 +1,7 @@
 ---
 sidebar_position: 4
+description: BestPartner 集中式 i18n 訊息管理架構，透過 AppMessage enum 與 properties 檔提供 type-safe 訊息存取，支援英文與繁體中文動態切換。
+keywords: [i18n, 國際化, AppMessage, 訊息管理, 繁體中文, 多語系]
 ---
 
 # i18n 訊息管理

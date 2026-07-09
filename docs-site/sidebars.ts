@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
       label: 'API 文件',
       items: [
         'api/authentication',
+        'api/llm-setting',
         'api/assistant',
         'api/knowledge-base',
         'api/skills',

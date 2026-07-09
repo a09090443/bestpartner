@@ -1,5 +1,7 @@
 ---
 sidebar_position: 2
+description: BestPartner RAG 知識庫功能說明，示範文件切割、嵌入向量化、儲存至 EmbeddingStore 與相似度檢索的完整運作原理。
+keywords: [RAG, 知識庫, 向量資料庫, Embedding, 檢索增強生成, Chroma, Milvus]
 ---
 
 # RAG 知識庫

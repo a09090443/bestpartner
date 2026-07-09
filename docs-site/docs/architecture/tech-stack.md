@@ -1,5 +1,7 @@
 ---
 sidebar_position: 3
+description: BestPartner 技術選型與版本清單，包含 Quarkus 3.21、Kotlin 2.1、LangChain4J 1.13、Hibernate Panache、SmallRye JWT 等核心框架。
+keywords: [技術選型, Quarkus, Kotlin, LangChain4J, 版本, 技術堆疊]
 ---
 
 # 技術選型

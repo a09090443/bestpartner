@@ -1,5 +1,7 @@
 ---
 sidebar_position: 2
+description: BestPartner LLM 設定 API，提供 AI 模型設定的 CRUD 與 AI 平台管理，端點前綴 /llm/setting，需帶入有效 JWT Token。
+keywords: [LLM 設定, API, 模型設定, AI 平台, CRUD]
 ---
 
 # LLM 設定 API

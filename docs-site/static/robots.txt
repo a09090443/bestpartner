@@ -1,0 +1,32 @@
+# BestPartner 文件網站 — 爬蟲政策
+# 明確放行一般搜尋引擎與主流 AI 爬蟲
+
+User-agent: *
+Allow: /
+
+# AI 爬蟲（明確放行，便於文件被 LLM 檢索）
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://a09090443.github.io/bestpartner/sitemap.xml

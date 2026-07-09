@@ -1,5 +1,7 @@
 ---
 sidebar_position: 5
+description: BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，以節點（Node）與連線（Edge）自訂 AI 自動化流程，含節點類型與畫布驗證規則。
+keywords: [Workflow, 工作流, n8n, 視覺化, 節點, Node, Edge, 自動化]
 ---
 
 # 視覺化 Workflow

@@ -1,6 +1,8 @@
 ---
 slug: /
 sidebar_position: 1
+description: BestPartner 是一個 AI 應用大平台，可動態建立 AI Agent 並支援 OpenAI、Anthropic、Gemini、Ollama、Grok 等多種模型，內建 RAG 知識庫、工具調用、MCP Server 與視覺化 Workflow。
+keywords: [BestPartner, AI 平台, AI Agent, LLM, Dify, Coze, LangChain4J, Quarkus]
 ---
 
 # BestPartner 簡介

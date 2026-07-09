@@ -1,5 +1,7 @@
 ---
-sidebar_position: 5
+sidebar_position: 7
+description: BestPartner 整合 SmallRye OpenAPI 提供互動式 Swagger UI，於 dev 與 sit 環境開放瀏覽 API 並發送測試請求。
+keywords: [Swagger, OpenAPI, API 文件, SmallRye, 互動測試]
 ---
 
 # Swagger UI

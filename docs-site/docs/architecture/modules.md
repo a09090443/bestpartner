@@ -1,5 +1,7 @@
 ---
 sidebar_position: 2
+description: BestPartner 專案模組結構說明，涵蓋 bestpartner-service 主服務、bestpartner-mcp-servers 範例與 bestpartner-ui 前端各模組的職責劃分。
+keywords: [模組, 專案結構, bestpartner-service, bestpartner-ui, MCP Server]
 ---
 
 # 模組說明

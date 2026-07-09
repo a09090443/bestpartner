@@ -1,5 +1,7 @@
 ---
 sidebar_position: 1
+description: BestPartner 系統架構概覽，說明以 Quarkus 為核心、透過 LangChain4J 整合多種 AI 模型的雲原生平台整體設計與分層架構。
+keywords: [架構, Quarkus, LangChain4J, 系統設計, REST API, 雲原生]
 ---
 
 # 架構概覽

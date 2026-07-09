@@ -1,5 +1,7 @@
 ---
 sidebar_position: 3
+description: 第一次啟動 BestPartner 服務並取得 JWT Token 的操作教學，示範服務啟動確認與登入流程。
+keywords: [第一次執行, 啟動服務, JWT Token, 登入, 快速上手]
 ---
 
 # 第一次執行

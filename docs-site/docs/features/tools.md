@@ -1,5 +1,7 @@
 ---
 sidebar_position: 3
+description: BestPartner 的 AI 工具調用（Tool Calling）功能，內建 Google/Tavily 搜尋、日期查詢與 Text2SQL，並支援註冊自訂工具。
+keywords: [工具, Tool Calling, Google 搜尋, Tavily, Text2SQL, 工具調用]
 ---
 
 # 工具（Tools）

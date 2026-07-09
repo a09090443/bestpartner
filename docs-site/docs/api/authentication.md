@@ -1,5 +1,7 @@
 ---
 sidebar_position: 1
+description: BestPartner 認證 API 說明，介紹以 JWT 進行身份驗證的登入端點、Token 取得方式與請求 Header 帶入規則。
+keywords: [認證 API, JWT, 登入, Token, 身份驗證, RBAC]
 ---
 
 # 認證 API
