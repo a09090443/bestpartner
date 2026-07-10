@@ -182,6 +182,17 @@ data class DataTransformNodeConfig(
     }
 }
 
+@Serializable
+data class OutputNodeConfig(
+    val template: String? = null,
+    val mappings: Map<String, String>? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        // template 與 mappings 至少擇一
+        if (template.isNullOrBlank() && mappings.isNullOrEmpty()) add("template|mappings")
+    }
+}
+
 /**
  * NodeType -> config 反序列化的映射入口。
  *
@@ -205,5 +216,6 @@ object NodeConfigRegistry {
         NodeType.CODE -> strictJson.decodeFromJsonElement<CodeNodeConfig>(config)
         NodeType.HTTP_REQUEST -> strictJson.decodeFromJsonElement<HttpRequestNodeConfig>(config)
         NodeType.DATA_TRANSFORM -> strictJson.decodeFromJsonElement<DataTransformNodeConfig>(config)
+        NodeType.OUTPUT -> strictJson.decodeFromJsonElement<OutputNodeConfig>(config)
     }
 }

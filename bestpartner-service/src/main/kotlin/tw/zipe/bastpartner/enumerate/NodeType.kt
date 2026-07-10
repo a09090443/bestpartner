@@ -13,5 +13,6 @@ enum class NodeType {
     LOOP,
     CODE,
     HTTP_REQUEST,
-    DATA_TRANSFORM
+    DATA_TRANSFORM,
+    OUTPUT
 }
