@@ -1,6 +1,6 @@
 # API 測試計畫
 
-> 本文件為 BestPartner API 測試計畫，涵蓋 13 個模組、66 個 endpoint。
+> 本文件為 BestPartner API 測試計畫，涵蓋 13 個模組、68 個 endpoint。
 > 端點清單與權限規格見 `.claude/rules/api-endpoints.md`；執行測試週期須透過 `test-confirmation` skill（見 `.claude/rules/api-testing.md`）。
 > Postman Collection：`docs/postman/basepartner.postman_collection.json`。
 
