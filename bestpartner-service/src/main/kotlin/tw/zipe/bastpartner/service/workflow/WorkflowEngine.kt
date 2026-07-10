@@ -11,8 +11,16 @@ import java.time.format.DateTimeFormatter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
+import org.eclipse.microprofile.context.ManagedExecutor
+import tw.zipe.bastpartner.dto.workflow.config.CodeNodeConfig
+import tw.zipe.bastpartner.dto.workflow.config.HttpRequestNodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.LoopNodeConfig
+import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.NodeConfigRegistry
 import tw.zipe.bastpartner.entity.WorkflowExecutionEntity
 import tw.zipe.bastpartner.entity.WorkflowNodeEntity
@@ -48,8 +56,14 @@ class WorkflowEngine(
     private val executionRepository: WorkflowExecutionRepository,
     private val nodeExecutionRepository: WorkflowNodeExecutionRepository,
     private val executors: Instance<NodeExecutor>,
-    private val currentIdentityAssociation: CurrentIdentityAssociation
+    private val currentIdentityAssociation: CurrentIdentityAssociation,
+    private val managedExecutor: ManagedExecutor
 ) {
+    companion object {
+        /** 節點逾時預設值（spec §2.2）：config 未指定 timeoutMs 時套用 */
+        const val DEFAULT_NODE_TIMEOUT_MS = 120_000L
+    }
+
     private val logger = logger()
     private val objectMapper = ObjectMapper()
     private val json = Json { ignoreUnknownKeys = true }
@@ -170,7 +184,7 @@ class WorkflowEngine(
                 } else {
                     val executor = executorMap[node.type]
                         ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
-                    executor.execute(node, parsed, context)
+                    executeWithTimeout(executor, node, parsed, context)
                 }
                 context.putOutput(node.nodeKey, output)
                 executedKeys.add(node.nodeKey)
@@ -398,7 +412,7 @@ class WorkflowEngine(
                 ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
             val configObj = mapToJsonObject(node.config) ?: JsonObject(emptyMap())
             val parsed = NodeConfigRegistry.parse(node.type, configObj)
-            val output = executor.execute(node, parsed, context)
+            val output = executeWithTimeout(executor, node, parsed, context)
             context.putOutput(node.nodeKey, output)
             val duration = System.currentTimeMillis() - nodeStart
             record.apply {
@@ -422,6 +436,37 @@ class WorkflowEngine(
             persist { nodeExecutionRepository.saveOrUpdate(record) }
             sink.emit(ExecutionEvent("node.failed", executionId, node.nodeKey, seqNo, "FAILED", error = message, ts = now()))
             throw ServiceException(AppMessage.WORKFLOW_NODE_EXEC_FAILED, node.nodeKey, message)
+        }
+    }
+
+    /**
+     * 節點逾時通用機制（spec §2.2 + 追記）：以 [managedExecutor] submit 後 `future.get` 套用逾時，
+     * config 有 timeoutMs（HTTP / CODE 型別）用之，否則預設 [DEFAULT_NODE_TIMEOUT_MS]。
+     * executor 內部依賴 CDI request context 與登入身分，故必須用 Quarkus ManagedExecutor
+     * （自動傳播 CDI + security context）而非一般執行緒池。
+     * 逾時 → `future.cancel(true)` 中斷工作執行緒，拋 [ServiceException]（訊息含逾時毫秒數），
+     * 由主迴圈轉為節點 FAILED。CODE 節點自身已有內層腳本逾時，外層仍照套（取 config timeoutMs）。
+     */
+    private fun executeWithTimeout(
+        executor: NodeExecutor,
+        node: WorkflowNodeEntity,
+        parsed: NodeConfig,
+        context: ExecutionContext
+    ): Map<String, Any?> {
+        val timeoutMs = when (parsed) {
+            is HttpRequestNodeConfig -> parsed.timeoutMs
+            is CodeNodeConfig -> parsed.timeoutMs
+            else -> null
+        } ?: DEFAULT_NODE_TIMEOUT_MS
+        val future = managedExecutor.submit(Callable { executor.execute(node, parsed, context) })
+        return try {
+            future.get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            future.cancel(true)
+            throw ServiceException(AppMessage.WORKFLOW_NODE_TIMEOUT, node.nodeKey, timeoutMs.toString())
+        } catch (e: ExecutionException) {
+            // 解包實際例外，維持 failureMessage 對例外型別的判斷（如 VariableNotFoundException）
+            throw (e.cause as? Exception ?: e)
         }
     }
 

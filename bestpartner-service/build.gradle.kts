@@ -53,6 +53,7 @@ dependencies {
     implementation("io.quarkus:quarkus-rest-kotlin")
     implementation("io.quarkus:quarkus-container-image-docker")
     implementation("io.quarkus:quarkus-arc")
+    implementation("io.quarkus:quarkus-smallrye-context-propagation")
     implementation("io.quarkus:quarkus-websockets-next")
     implementation("io.quarkus:quarkus-kotlin")
     implementation("io.quarkus:quarkus-rest-kotlin-serialization")

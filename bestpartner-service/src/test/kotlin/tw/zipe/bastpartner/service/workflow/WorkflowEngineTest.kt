@@ -36,6 +36,12 @@ class WorkflowEngineTest {
     companion object {
         private const val WORKFLOW_ID = "wf-1"
         private const val USER_ID = "user-1"
+
+        // 測試共用 ManagedExecutor（smallrye-context-propagation 已在 test classpath；
+        // 純單元測試無 CDI 容器，context 傳播為 no-op，僅作為節點逾時的執行緒池）
+        private val managedExecutor: org.eclipse.microprofile.context.ManagedExecutor by lazy {
+            io.smallrye.context.SmallRyeManagedExecutor.builder().build()
+        }
     }
 
     // ---------- fake NodeExecutor ----------
@@ -131,7 +137,8 @@ class WorkflowEngineTest {
             executionRepo,
             nodeExecutionRepo,
             FakeNodeExecutorInstance(executors),
-            SecurityIdentityAssociation()
+            SecurityIdentityAssociation(),
+            managedExecutor
         )
         return Triple(engine, executionRepo, nodeExecutionRepo)
     }
@@ -600,6 +607,97 @@ class WorkflowEngineTest {
             mapOf<String, Any?>("final" to listOf(mapOf("r" to "hi a"), mapOf("r" to "hi b"))),
             executionRepo.lastSaved?.outputResult
         )
+    }
+
+    // ---------- 節點逾時（Task 5：通用逾時機制） ----------
+
+    @Test
+    fun `節點執行超過 config timeoutMs 時 FAILED 且訊息含逾時毫秒數與下游 SKIPPED`() {
+        // CODE 節點 config 帶 timeoutMs=300，fake executor sleep 遠超過 → 逾時 FAILED
+        val codeNode = node("C", NodeType.CODE, mapOf("language" to "js", "source" to "x", "timeoutMs" to 300))
+        val nodes = listOf(triggerNode(), codeNode, outputNode("out"))
+        val edges = listOf(edge("trigger", "C"), edge("C", "out"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.CODE) { Thread.sleep(10_000); mapOf("r" to "late") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        val start = System.currentTimeMillis()
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+        val elapsed = System.currentTimeMillis() - start
+
+        assertTrue(elapsed < 5_000, "逾時應在 timeoutMs 附近觸發而非等待 executor 完成（實際 ${elapsed}ms）")
+        assertEquals("FAILED", sink.events.last().status)
+        val failed = sink.events.single { it.event == "node.failed" }
+        assertEquals("C", failed.nodeKey)
+        assertTrue(failed.error!!.contains("300"), "訊息應含逾時毫秒數：${failed.error}")
+        // C 落 FAILED 紀錄且訊息含逾時毫秒數；下游 out 落 SKIPPED
+        val cRecord = nodeExecutionRepo.saved.single { it.nodeKey == "C" }
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.FAILED, cRecord.status)
+        assertTrue(cRecord.errorMessage!!.contains("300"))
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "out" }.status
+        )
+    }
+
+    @Test
+    fun `未逾時節點不受逾時機制影響正常完成`() {
+        // 同樣帶 timeoutMs=300 但執行極快 → SUCCESS，輸出照常寫回 context
+        val codeNode = node("C", NodeType.CODE, mapOf("language" to "js", "source" to "x", "timeoutMs" to 300))
+        val nodes = listOf(triggerNode(), codeNode, outputNode("out"))
+        val edges = listOf(edge("trigger", "C"), edge("C", "out"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.CODE) { mapOf("r" to "fast") },
+            FakeNodeExecutor(NodeType.OUTPUT) { ctx -> mapOf("final" to ctx.resolvePath("C.r")) }
+        )
+        val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertEquals(mapOf<String, Any?>("final" to "fast"), executionRepo.lastSaved?.outputResult)
+    }
+
+    @Test
+    fun `逾時機制下節點失敗例外訊息維持原樣不被包裝`() {
+        // executor 拋一般例外 → 經逾時包裝層後訊息仍為原始例外訊息（ExecutionException 需解包）
+        val nodes = listOf(triggerNode(), toolNode())
+        val edges = listOf(edge("trigger", "A"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { throw RuntimeException("boom") }
+        )
+        val (engine, _, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        val failed = sink.events.single { it.event == "node.failed" }
+        assertEquals("boom", failed.error)
+    }
+
+    @Test
+    fun `逾時機制下插值變數不存在仍轉為 i18n 訊息`() {
+        // VariableNotFoundException 經 ExecutionException 解包後仍走 failureMessage 的 i18n 轉換
+        val nodes = listOf(triggerNode(), toolNode())
+        val edges = listOf(edge("trigger", "A"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx -> mapOf("r" to ctx.resolvePath("no.such.path")) }
+        )
+        val (engine, _, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        val failed = sink.events.single { it.event == "node.failed" }
+        assertTrue(failed.error!!.contains("no.such.path"), "訊息應含變數路徑：${failed.error}")
     }
 
     @Test

@@ -99,6 +99,7 @@ enum class AppMessage(val key: String) {
     WORKFLOW_NODE_TYPE_NOT_SUPPORTED("workflow.node.type.not.supported"),
     WORKFLOW_EXECUTION_NOT_FOUND("workflow.execution.not.found"),
     WORKFLOW_NODE_EXEC_FAILED("workflow.node.exec.failed"),
+    WORKFLOW_NODE_TIMEOUT("workflow.node.timeout"),
     WORKFLOW_VARIABLE_NOT_FOUND("workflow.variable.not.found"),
     WORKFLOW_CONDITION_OPERATOR_NOT_SUPPORTED("workflow.condition.operator.not.supported"),
     WORKFLOW_LOOP_INPUT_NOT_ARRAY("workflow.loop.input.not.array"),
