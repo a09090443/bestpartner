@@ -40,4 +40,25 @@ class ExecutionContextTest {
     fun `resolveTemplate 無變數時原樣回傳`() {
         assertEquals("plain text", ctx().resolveTemplate("plain text"))
     }
+
+    @Test
+    fun `putValue 原生值可以單段與巢狀路徑解析`() {
+        val context = ctx()
+        context.putValue("item", mapOf("name" to "a", "score" to 9))
+        assertEquals(mapOf("name" to "a", "score" to 9), context.resolvePath("item"))
+        assertEquals("a", context.resolvePath("item.name"))
+        assertEquals("hi a / 9", context.resolveTemplate("hi {{item.name}} / {{item.score}}"))
+        // 非 Map 原生值：單段路徑直接取值
+        context.putValue("item", 7)
+        assertEquals(7, context.resolvePath("item"))
+    }
+
+    @Test
+    fun `removeValue 後解析拋 VariableNotFoundException`() {
+        val context = ctx()
+        context.putValue("item", "x")
+        context.removeValue("item")
+        val ex = assertThrows<VariableNotFoundException> { context.resolvePath("item") }
+        assertEquals("item", ex.path)
+    }
 }

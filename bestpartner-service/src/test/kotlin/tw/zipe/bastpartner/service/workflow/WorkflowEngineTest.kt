@@ -4,6 +4,7 @@ import io.quarkus.security.runtime.QuarkusPrincipal
 import io.quarkus.security.runtime.QuarkusSecurityIdentity
 import io.quarkus.security.runtime.SecurityIdentityAssociation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
@@ -413,5 +414,212 @@ class WorkflowEngineTest {
             tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
             nodeExecutionRepo.saved.single { it.nodeKey == "B" }.status
         )
+    }
+
+    // ---------- LOOP（Task 2：LoopExecutor + 引擎子圖迭代） ----------
+
+    /** 建立 LOOP 節點（config 由引擎經 NodeConfigRegistry 解析） */
+    private fun loopNode(
+        key: String = "loop",
+        inputArrayPath: String = "{{trigger.input.list}}",
+        entry: String = "B1",
+        maxIterations: Int? = null,
+        itemAlias: String? = null,
+        collectOutputKey: String? = null
+    ) = node(key, NodeType.LOOP, buildMap {
+        put("inputArrayPath", inputArrayPath)
+        put("loopBodyEntryNodeKey", entry)
+        maxIterations?.let { put("maxIterations", it) }
+        itemAlias?.let { put("itemAlias", it) }
+        collectOutputKey?.let { put("collectOutputKey", it) }
+    })
+
+    private fun toolBodyNode(key: String = "B1") = node(key, NodeType.TOOL, mapOf("toolId" to "t1"))
+    private fun codeBodyNode(key: String = "B2") = node(key, NodeType.CODE, mapOf("language" to "js", "source" to "x"))
+
+    @Test
+    fun `LOOP 三項陣列逐迭代執行子圖並彙集輸出給 done 下游`() {
+        // trigger → loop；loop -(out:loop)→ B1 → B2；loop -(out:done)→ D
+        val nodes = listOf(triggerNode(), loopNode(), toolBodyNode("B1"), codeBodyNode("B2"), outputNode("D"))
+        val edges = listOf(
+            edge("trigger", "loop"),
+            edge("loop", "B1", "out:loop"),
+            edge("B1", "B2"),
+            edge("loop", "D", "out:done")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.LoopExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx -> mapOf("r" to "b1-${ctx.resolvePath("item")}") },
+            FakeNodeExecutor(NodeType.CODE) { ctx -> mapOf("r" to "b2-${ctx.resolvePath("item")}") },
+            FakeNodeExecutor(NodeType.OUTPUT) { ctx -> mapOf("final" to ctx.resolvePath("loop.items")) }
+        )
+        val (engine, executionRepo, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, mapOf("list" to listOf("x", "y", "z")), testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        // 子圖節點每迭代各一筆紀錄：B1、B2 各 3 筆，loop_index 0..2 且皆 SUCCESS
+        val b1Records = nodeExecutionRepo.saved.filter { it.nodeKey == "B1" }
+        val b2Records = nodeExecutionRepo.saved.filter { it.nodeKey == "B2" }
+        assertEquals(listOf(0, 1, 2), b1Records.map { it.loopIndex })
+        assertEquals(listOf(0, 1, 2), b2Records.map { it.loopIndex })
+        assertTrue((b1Records + b2Records).all { it.status == tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SUCCESS })
+        // LOOP 節點輸出彙集各迭代「子圖拓撲序最後節點」（B2）的輸出於預設鍵 items
+        val expectedItems = listOf(mapOf("r" to "b2-x"), mapOf("r" to "b2-y"), mapOf("r" to "b2-z"))
+        assertEquals(mapOf("items" to expectedItems), nodeExecutionRepo.saved.single { it.nodeKey == "loop" }.output)
+        // out:done 下游 D 插值取得彙集值，且為最終輸出
+        assertEquals(mapOf<String, Any?>("final" to expectedItems), executionRepo.lastSaved?.outputResult)
+        // SSE 事件每迭代照發
+        assertEquals(3, sink.events.count { it.nodeKey == "B1" && it.event == "node.completed" })
+        assertEquals(3, sink.events.count { it.nodeKey == "B2" && it.event == "node.completed" })
+    }
+
+    @Test
+    fun `LOOP 輸入非陣列時節點 FAILED 且訊息含路徑`() {
+        val nodes = listOf(triggerNode(), loopNode(), toolBodyNode("B1"), outputNode("D"))
+        val edges = listOf(
+            edge("trigger", "loop"),
+            edge("loop", "B1", "out:loop"),
+            edge("loop", "D", "out:done")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.LoopExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("r" to "b1") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, mapOf("list" to "not-a-list"), testIdentity(), sink) { false }
+
+        assertEquals("FAILED", sink.events.last().status)
+        val failed = sink.events.single { it.event == "node.failed" }
+        assertEquals("loop", failed.nodeKey)
+        assertTrue(failed.error!!.contains("{{trigger.input.list}}"), "訊息應含 path：${failed.error}")
+        // 子圖節點未執行且不落紀錄；out:done 下游 D 落 SKIPPED
+        assertTrue(nodeExecutionRepo.saved.none { it.nodeKey == "B1" })
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "D" }.status
+        )
+    }
+
+    @Test
+    fun `LOOP 超出 maxIterations 以上限截斷`() {
+        val nodes = listOf(triggerNode(), loopNode(maxIterations = 2), toolBodyNode("B1"))
+        val edges = listOf(
+            edge("trigger", "loop"),
+            edge("loop", "B1", "out:loop")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.LoopExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx -> mapOf("r" to ctx.resolvePath("item")) }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, mapOf("list" to listOf(1, 2, 3, 4, 5)), testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        // 僅執行前 2 項
+        assertEquals(listOf(0, 1), nodeExecutionRepo.saved.filter { it.nodeKey == "B1" }.map { it.loopIndex })
+        @Suppress("UNCHECKED_CAST")
+        val items = nodeExecutionRepo.saved.single { it.nodeKey == "loop" }.output?.get("items") as List<Any?>
+        assertEquals(2, items.size)
+    }
+
+    @Test
+    fun `LOOP 迭代中節點失敗則 LOOP FAILED 並中止整體`() {
+        val nodes = listOf(triggerNode(), loopNode(), toolBodyNode("B1"), outputNode("D"))
+        val edges = listOf(
+            edge("trigger", "loop"),
+            edge("loop", "B1", "out:loop"),
+            edge("loop", "D", "out:done")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.LoopExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx ->
+                if (ctx.resolvePath("item") == "y") throw RuntimeException("boom") else mapOf("r" to "ok")
+            },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, mapOf("list" to listOf("x", "y", "z")), testIdentity(), sink) { false }
+
+        assertEquals("FAILED", sink.events.last().status)
+        // 失敗事件序：先子圖節點 B1，再 LOOP 節點本身
+        assertEquals(listOf("B1", "loop"), sink.events.filter { it.event == "node.failed" }.map { it.nodeKey })
+        // B1 兩筆紀錄：迭代 0 成功、迭代 1 失敗；不再執行迭代 2
+        val b1Records = nodeExecutionRepo.saved.filter { it.nodeKey == "B1" }
+        assertEquals(listOf(0, 1), b1Records.map { it.loopIndex })
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SUCCESS, b1Records[0].status)
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.FAILED, b1Records[1].status)
+        // LOOP 節點 FAILED，錯誤訊息指出失敗的子圖節點
+        val loopRecord = nodeExecutionRepo.saved.single { it.nodeKey == "loop" }
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.FAILED, loopRecord.status)
+        assertTrue(loopRecord.errorMessage!!.contains("B1"), "錯誤訊息應含子圖節點鍵：${loopRecord.errorMessage}")
+        // out:done 下游 D 落 SKIPPED
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "D" }.status
+        )
+    }
+
+    @Test
+    fun `LOOP 巢狀插值 item xxx 可解析且支援自訂 collectOutputKey`() {
+        val nodes = listOf(triggerNode(), loopNode(collectOutputKey = "results"), toolBodyNode("B1"), outputNode("D"))
+        val edges = listOf(
+            edge("trigger", "loop"),
+            edge("loop", "B1", "out:loop"),
+            edge("loop", "D", "out:done")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.LoopExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx -> mapOf("r" to ctx.resolveTemplate("hi {{item.name}}")) },
+            FakeNodeExecutor(NodeType.OUTPUT) { ctx -> mapOf("final" to ctx.resolvePath("loop.results")) }
+        )
+        val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(
+            WORKFLOW_ID, USER_ID,
+            mapOf("list" to listOf(mapOf("name" to "a"), mapOf("name" to "b"))),
+            testIdentity(), sink
+        ) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertEquals(
+            mapOf<String, Any?>("final" to listOf(mapOf("r" to "hi a"), mapOf("r" to "hi b"))),
+            executionRepo.lastSaved?.outputResult
+        )
+    }
+
+    @Test
+    fun `子圖含巢狀 LOOP 於 validateForExecution 即報錯`() {
+        val nodes = listOf(
+            triggerNode(),
+            loopNode(key = "loop1", entry = "loop2"),
+            loopNode(key = "loop2", entry = "B1"),
+            toolBodyNode("B1")
+        )
+        val edges = listOf(
+            edge("trigger", "loop1"),
+            edge("loop1", "loop2", "out:loop"),
+            edge("loop2", "B1", "out:loop")
+        )
+        val (engine, _, _) = buildEngine(nodes, edges, emptyList())
+
+        val ex = assertThrows(tw.zipe.bastpartner.exception.ServiceException::class.java) {
+            engine.validateForExecution(WORKFLOW_ID)
+        }
+        assertTrue(ex.message!!.contains("loop2"), "訊息應指出巢狀 LOOP 節點：${ex.message}")
     }
 }

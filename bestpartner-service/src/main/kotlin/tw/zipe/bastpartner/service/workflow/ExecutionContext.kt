@@ -8,12 +8,15 @@ class VariableNotFoundException(val path: String) : RuntimeException(path)
 /**
  * 單次執行的變數上下文：nodeKey → 該節點輸出物件。
  * 下游以 `{{nodeKey.path}}` 插值引用上游輸出，path 支援巢狀（Map 逐層取值）。
+ * 另支援原生值（[putValue]，供 LOOP 迭代注入 `{{item}}`）：單段路徑解析出該值本身，
+ * 值為 Map 時 `{{item.name}}` 巢狀路徑亦可解析。
  */
 class ExecutionContext(
     val executionId: String,
     val userId: String
 ) {
     private val outputs = LinkedHashMap<String, Map<String, Any?>>()
+    private val values = LinkedHashMap<String, Any?>()
     private val objectMapper = ObjectMapper()
 
     companion object {
@@ -29,9 +32,23 @@ class ExecutionContext(
 
     fun allOutputs(): Map<String, Map<String, Any?>> = outputs
 
+    /** 注入原生值（如 LOOP 的當前迭代項），優先於同名 nodeKey 輸出被解析 */
+    fun putValue(key: String, value: Any?) {
+        values[key] = value
+    }
+
+    fun removeValue(key: String) {
+        values.remove(key)
+    }
+
     fun resolvePath(path: String): Any? {
         val segments = path.split(".")
-        var current: Any? = outputs[segments.first()] ?: throw VariableNotFoundException(path)
+        val first = segments.first()
+        var current: Any? = when {
+            values.containsKey(first) -> values[first]
+            outputs.containsKey(first) -> outputs[first]
+            else -> throw VariableNotFoundException(path)
+        }
         segments.drop(1).forEach { seg ->
             val map = current as? Map<*, *> ?: throw VariableNotFoundException(path)
             if (!map.containsKey(seg)) throw VariableNotFoundException(path)

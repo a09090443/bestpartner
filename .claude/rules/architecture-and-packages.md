@@ -93,7 +93,7 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── resource/       # LLMResource, LLMSettingResource, LLMSkillResource, LLMToolResource, LoginResource, WorkflowResource ...
 ├── service/        # LLMService, EmbeddingService, SkillService, ToolService, McpServerService, WorkflowService ...
 │   └── workflow/   # WorkflowEngine, ExecutionContext, ExecutionEvent(+ExecutionEventSink), NodeExecutor
-│       └── executor/ # TriggerExecutor, OutputExecutor, ConditionExecutor, HttpRequestExecutor, ToolNodeExecutor, McpServerNodeExecutor, KnowledgeRagExecutor, LlmAssistantExecutor（共 8 個）
+│       └── executor/ # TriggerExecutor, OutputExecutor, ConditionExecutor, LoopExecutor, HttpRequestExecutor, ToolNodeExecutor, McpServerNodeExecutor, KnowledgeRagExecutor, LlmAssistantExecutor（共 9 個）
 ├── tool/
 │   ├── config/     # Google, Tavily, ToolConfigField（settingSchema 的 UI 提示 annotation）
 │   └── text2sql/

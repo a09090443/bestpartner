@@ -11,6 +11,8 @@ import java.time.format.DateTimeFormatter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import java.util.concurrent.atomic.AtomicInteger
+import tw.zipe.bastpartner.dto.workflow.config.LoopNodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.NodeConfigRegistry
 import tw.zipe.bastpartner.entity.WorkflowExecutionEntity
 import tw.zipe.bastpartner.entity.WorkflowNodeEntity
@@ -26,6 +28,7 @@ import tw.zipe.bastpartner.repository.WorkflowExecutionRepository
 import tw.zipe.bastpartner.repository.WorkflowNodeExecutionRepository
 import tw.zipe.bastpartner.repository.WorkflowNodeRepository
 import tw.zipe.bastpartner.repository.WorkflowRepository
+import tw.zipe.bastpartner.service.workflow.executor.LoopExecutor
 import tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor
 import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
@@ -81,9 +84,12 @@ class WorkflowEngine(
         val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
         val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
 
-        validateNodes(nodes)
+        validateNodes(nodes, edges)
 
         val order = topologicalOrder(nodes, edges)
+        // LOOP 子圖：loopNodeKey → 子圖節點鍵集合；子圖節點不在主遍歷執行，由 LOOP 迭代驅動
+        val loopSubgraphs = computeLoopSubgraphs(nodes, edges)
+        val loopBodyKeys = loopSubgraphs.values.flatten().toSet()
         val startedAt = LocalDateTime.now()
 
         val execution = WorkflowExecutionEntity().apply {
@@ -115,10 +121,14 @@ class WorkflowEngine(
         val incomingEdges = edges.groupBy { it.targetNodeKey }
         val outgoingEdges = edges.groupBy { it.sourceNodeKey }
         val activatedEdges = mutableSetOf<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>()
+        // seqNo 改為遞增計數器（Phase 2）：LOOP 每迭代的子圖節點紀錄各占一個序號
+        val seq = AtomicInteger(0)
 
-        for ((index, node) in order.withIndex()) {
+        for (node in order) {
             if (cancelled()) { wasCancelled = true; break }
-            val seqNo = index + 1
+            // LOOP 子圖節點由 LOOP 迭代驅動，主遍歷不執行也不落紀錄
+            if (node.nodeKey in loopBodyKeys) continue
+            val seqNo = seq.incrementAndGet()
             val incoming = incomingEdges[node.nodeKey].orEmpty()
             if (incoming.isNotEmpty() && incoming.none { it in activatedEdges }) {
                 // 非 active：落 SKIPPED 紀錄（含 seqNo），不執行、不活化出邊、不發事件
@@ -151,18 +161,27 @@ class WorkflowEngine(
                 this.startedAt = LocalDateTime.now()
             }
             try {
-                val executor = executorMap[node.type]
-                    ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
                 val configObj = mapToJsonObject(node.config) ?: JsonObject(emptyMap())
                 val parsed = NodeConfigRegistry.parse(node.type, configObj)
-                val output = executor.execute(node, parsed, context)
+                val output = if (node.type == NodeType.LOOP) {
+                    // LOOP 由引擎自行編排子圖迭代（需執行其他節點，不經 executor 分派）
+                    val bodyOrder = order.filter { it.nodeKey in loopSubgraphs[node.nodeKey].orEmpty() }
+                    executeLoopNode(node, parsed as LoopNodeConfig, bodyOrder, context, executionId, workflowId, sink, seq)
+                } else {
+                    val executor = executorMap[node.type]
+                        ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
+                    executor.execute(node, parsed, context)
+                }
                 context.putOutput(node.nodeKey, output)
                 executedKeys.add(node.nodeKey)
 
-                // 活化出邊：CONDITION 僅活化 sourceHandle 等於判定分支的邊，其餘節點全數活化
-                val branch = if (node.type == NodeType.CONDITION) {
-                    output[tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor.OUTPUT_BRANCH] as? String
-                } else null
+                // 活化出邊：CONDITION 僅活化判定分支、LOOP 完成後僅活化 out:done，其餘節點全數活化
+                val branch = when (node.type) {
+                    NodeType.CONDITION ->
+                        output[tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor.OUTPUT_BRANCH] as? String
+                    NodeType.LOOP -> LoopExecutor.DONE_HANDLE
+                    else -> null
+                }
                 outgoingEdges[node.nodeKey].orEmpty().forEach { e ->
                     if (branch == null || e.sourceHandle == branch) activatedEdges.add(e)
                 }
@@ -177,11 +196,7 @@ class WorkflowEngine(
                 persist { nodeExecutionRepository.saveOrUpdate(record) }
                 sink.emit(ExecutionEvent("node.completed", executionId, node.nodeKey, seqNo, "SUCCESS", output, durationMs = duration, ts = now()))
             } catch (e: Exception) {
-                val message = if (e is VariableNotFoundException) {
-                    MessageUtil.get(AppMessage.WORKFLOW_VARIABLE_NOT_FOUND, e.path)
-                } else {
-                    e.message ?: e.javaClass.simpleName
-                }
+                val message = failureMessage(e)
                 logger.error("節點 ${node.nodeKey} 執行失敗", e)
                 record.apply {
                     status = NodeExecutionStatus.FAILED
@@ -197,16 +212,20 @@ class WorkflowEngine(
             }
         }
 
-        // 未執行節點標 SKIPPED（失敗或取消時）；排除主迴圈已落過 SKIPPED 紀錄者，避免重複記錄
+        // 未執行節點標 SKIPPED（失敗或取消時）；排除主迴圈已落過 SKIPPED 紀錄者與
+        // LOOP 子圖節點（由 LOOP 迭代驅動，已執行過的迭代各有紀錄），避免重複記錄
         if (failedNode != null || wasCancelled) {
-            order.filter { it.nodeKey !in executedKeys && it.nodeKey !in skippedKeys && it.nodeKey != failedNode?.nodeKey }.forEach { skipped ->
+            order.filter {
+                it.nodeKey !in executedKeys && it.nodeKey !in skippedKeys &&
+                    it.nodeKey !in loopBodyKeys && it.nodeKey != failedNode?.nodeKey
+            }.forEach { skipped ->
                 persist {
                     nodeExecutionRepository.saveOrUpdate(WorkflowNodeExecutionEntity().apply {
                         this.executionId = executionId
                         this.workflowId = workflowId
                         nodeKey = skipped.nodeKey
                         nodeType = skipped.type
-                        seqNo = order.indexOf(skipped) + 1
+                        seqNo = seq.incrementAndGet()
                         status = NodeExecutionStatus.SKIPPED
                     })
                 }
@@ -248,11 +267,15 @@ class WorkflowEngine(
         workflowRepository.findOptionalById(workflowId)
             ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
         val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
-        validateNodes(nodes)
+        val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
+        validateNodes(nodes, edges)
     }
 
-    /** 無 TRIGGER 節點檢查 + 逐節點 parse/必填驗證（同啟用等級） */
-    private fun validateNodes(nodes: List<WorkflowNodeEntity>) {
+    /** 無 TRIGGER 節點檢查 + 逐節點 parse/必填驗證（同啟用等級）+ 巢狀 LOOP 檢查 */
+    private fun validateNodes(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+    ) {
         if (nodes.none { it.type == NodeType.TRIGGER }) {
             throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_REQUIRED)
         }
@@ -265,6 +288,148 @@ class WorkflowEngine(
                 throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
             }
         }
+        // 巢狀 LOOP 不支援：任一 LOOP 子圖內含另一 LOOP 節點即報錯
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
+        computeLoopSubgraphs(nodes, edges).forEach { (_, body) ->
+            body.firstOrNull { typeByKey[it] == NodeType.LOOP }?.let { nested ->
+                throw ServiceException(AppMessage.WORKFLOW_LOOP_NESTED_NOT_SUPPORTED, nested)
+            }
+        }
+    }
+
+    /**
+     * 計算各 LOOP 節點的迴圈子圖：自 loopBodyEntryNodeKey 起沿出邊可達、
+     * 不含 LOOP 節點本身（亦不越過它續遍歷）的節點鍵集合。
+     */
+    private fun computeLoopSubgraphs(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+    ): Map<String, Set<String>> {
+        val outgoing = edges.groupBy { it.sourceNodeKey }
+        val nodeKeys = nodes.map { it.nodeKey }.toSet()
+        return nodes.filter { it.type == NodeType.LOOP }.associate { loopNode ->
+            val entry = loopNode.config?.get("loopBodyEntryNodeKey") as? String
+            val body = mutableSetOf<String>()
+            if (entry != null && entry in nodeKeys) {
+                val queue = ArrayDeque<String>().apply { add(entry) }
+                while (queue.isNotEmpty()) {
+                    val key = queue.removeFirst()
+                    if (key == loopNode.nodeKey || !body.add(key)) continue
+                    outgoing[key].orEmpty().forEach { queue.add(it.targetNodeKey) }
+                }
+            }
+            loopNode.nodeKey to body
+        }
+    }
+
+    /**
+     * LOOP 節點的迭代編排（spec §2.2）：解析輸入陣列後逐項迭代，每迭代以 itemAlias 注入
+     * 當前項並依子圖拓撲序執行各節點（紀錄帶 loopIndex、SSE 事件照發）；
+     * 各迭代取子圖拓撲序最後節點的輸出彙集為 List，放入 collectOutputKey 回傳。
+     * 迭代中任一節點失敗 → 例外上拋，由主迴圈轉為 LOOP 節點 FAILED（整體 FAILED）。
+     */
+    private fun executeLoopNode(
+        loopNode: WorkflowNodeEntity,
+        cfg: LoopNodeConfig,
+        bodyOrder: List<WorkflowNodeEntity>,
+        context: ExecutionContext,
+        executionId: String,
+        workflowId: String,
+        sink: ExecutionEventSink,
+        seq: AtomicInteger
+    ): Map<String, Any?> {
+        val loopExecutor = executorMap[NodeType.LOOP] as? LoopExecutor
+            ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, NodeType.LOOP.name)
+        val items = loopExecutor.resolveItems(cfg, context)
+        val limit = cfg.maxIterations ?: LoopExecutor.DEFAULT_MAX_ITERATIONS
+        val effective = if (items.size > limit) {
+            logger.warn("LOOP ${loopNode.nodeKey} 輸入 ${items.size} 項超過迭代上限 $limit，僅執行前 $limit 項")
+            items.take(limit)
+        } else {
+            items
+        }
+        val alias = cfg.itemAlias?.takeIf { it.isNotBlank() } ?: LoopExecutor.DEFAULT_ITEM_ALIAS
+        val collected = mutableListOf<Any?>()
+        try {
+            effective.forEachIndexed { index, item ->
+                context.putValue(alias, item)
+                var lastOutput: Map<String, Any?> = emptyMap()
+                bodyOrder.forEach { bodyNode ->
+                    lastOutput = executeLoopBodyNode(bodyNode, index, context, executionId, workflowId, sink, seq)
+                }
+                collected.add(lastOutput)
+            }
+        } finally {
+            context.removeValue(alias)
+        }
+        val collectKey = cfg.collectOutputKey?.takeIf { it.isNotBlank() } ?: LoopExecutor.DEFAULT_COLLECT_KEY
+        return mapOf(collectKey to collected)
+    }
+
+    /** 執行單一迴圈子圖節點：紀錄帶 loopIndex、事件照發；失敗落 FAILED 紀錄後包 nodeKey 上拋 */
+    private fun executeLoopBodyNode(
+        node: WorkflowNodeEntity,
+        loopIndex: Int,
+        context: ExecutionContext,
+        executionId: String,
+        workflowId: String,
+        sink: ExecutionEventSink,
+        seq: AtomicInteger
+    ): Map<String, Any?> {
+        val seqNo = seq.incrementAndGet()
+        sink.emit(ExecutionEvent("node.started", executionId, node.nodeKey, seqNo, ts = now()))
+        val nodeStart = System.currentTimeMillis()
+        val record = WorkflowNodeExecutionEntity().apply {
+            this.executionId = executionId
+            this.workflowId = workflowId
+            nodeKey = node.nodeKey
+            nodeType = node.type
+            this.seqNo = seqNo
+            this.loopIndex = loopIndex
+            status = NodeExecutionStatus.RUNNING
+            this.input = mapOf(
+                "config" to node.config,
+                "contextKeys" to context.allOutputs().keys.toList()
+            )
+            this.startedAt = LocalDateTime.now()
+        }
+        try {
+            val executor = executorMap[node.type]
+                ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
+            val configObj = mapToJsonObject(node.config) ?: JsonObject(emptyMap())
+            val parsed = NodeConfigRegistry.parse(node.type, configObj)
+            val output = executor.execute(node, parsed, context)
+            context.putOutput(node.nodeKey, output)
+            val duration = System.currentTimeMillis() - nodeStart
+            record.apply {
+                status = NodeExecutionStatus.SUCCESS
+                this.output = output
+                finishedAt = LocalDateTime.now()
+                durationMs = duration
+            }
+            persist { nodeExecutionRepository.saveOrUpdate(record) }
+            sink.emit(ExecutionEvent("node.completed", executionId, node.nodeKey, seqNo, "SUCCESS", output, durationMs = duration, ts = now()))
+            return output
+        } catch (e: Exception) {
+            val message = failureMessage(e)
+            logger.error("迴圈子圖節點 ${node.nodeKey}（迭代 $loopIndex）執行失敗", e)
+            record.apply {
+                status = NodeExecutionStatus.FAILED
+                errorMessage = message
+                finishedAt = LocalDateTime.now()
+                durationMs = System.currentTimeMillis() - nodeStart
+            }
+            persist { nodeExecutionRepository.saveOrUpdate(record) }
+            sink.emit(ExecutionEvent("node.failed", executionId, node.nodeKey, seqNo, "FAILED", error = message, ts = now()))
+            throw ServiceException(AppMessage.WORKFLOW_NODE_EXEC_FAILED, node.nodeKey, message)
+        }
+    }
+
+    /** 節點失敗訊息：插值變數不存在轉 i18n 訊息，其餘取例外訊息 */
+    private fun failureMessage(e: Exception): String = if (e is VariableNotFoundException) {
+        MessageUtil.get(AppMessage.WORKFLOW_VARIABLE_NOT_FOUND, e.path)
+    } else {
+        e.message ?: e.javaClass.simpleName
     }
 
     /**
