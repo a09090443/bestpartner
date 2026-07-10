@@ -96,6 +96,10 @@ enum class AppMessage(val key: String) {
     WORKFLOW_NODE_CONFIG_INVALID("workflow.node.config.invalid"),
     WORKFLOW_NODE_CONFIG_REQUIRED_MISSING("workflow.node.config.required.missing"),
     WORKFLOW_NODE_TYPE_REQUIRED("workflow.node.type.required"),
+    WORKFLOW_NODE_TYPE_NOT_SUPPORTED("workflow.node.type.not.supported"),
+    WORKFLOW_EXECUTION_NOT_FOUND("workflow.execution.not.found"),
+    WORKFLOW_NODE_EXEC_FAILED("workflow.node.exec.failed"),
+    WORKFLOW_VARIABLE_NOT_FOUND("workflow.variable.not.found"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),
