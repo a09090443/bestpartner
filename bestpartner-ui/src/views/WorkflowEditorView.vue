@@ -9,6 +9,7 @@ import { MiniMap } from '@vue-flow/minimap'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import NodePalette from '../components/canvas/NodePalette.vue'
 import WorkflowNode from '../components/canvas/WorkflowNode.vue'
+import ExecutionResultDrawer from '../components/canvas/ExecutionResultDrawer.vue'
 import InspectorPanel from '../components/inspector/InspectorPanel.vue'
 import { DRAG_NODE_TYPE_KEY } from '../components/canvas/dragKeys'
 import { generateNodeKey } from '../composables/useNodeKey'
@@ -499,6 +500,7 @@ async function handleSave() {
           <MiniMap :node-color="minimapNodeColor" pannable zoomable />
           <Controls position="bottom-left" />
         </VueFlow>
+        <ExecutionResultDrawer />
       </div>
 
       <div class="inspector">

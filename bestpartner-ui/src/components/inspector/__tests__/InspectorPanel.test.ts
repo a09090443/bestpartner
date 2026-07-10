@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 // 表單掛載會呼叫 useNodeOptions，mock 掉避免真實網路
 vi.mock('../../../composables/useNodeOptions', () => ({
@@ -19,6 +20,9 @@ import JsonConfigEditor from '../JsonConfigEditor.vue'
 import type { FlowNode } from '../../../composables/useWorkflowSync'
 import type { NodeType } from '../../../types/workflow'
 import type { NodeRequiredFields } from '../../../api/workflow'
+
+// InspectorPanel 內用 useExecutionStore 讀取節點執行狀態，需先啟用 Pinia
+beforeEach(() => setActivePinia(createPinia()))
 
 function nodeOf(type: NodeType, config: Record<string, unknown> = {}): FlowNode {
   return { id: 'n1', type: 'workflow', position: { x: 0, y: 0 }, data: { type, config } }
@@ -164,6 +168,32 @@ describe('InspectorPanel 必填欄位缺漏提示', () => {
     const warning = w.find('[data-test="required-field-warning"]')
     expect(warning.attributes('data-severity')).toBe('warning')
     expect(warning.classes()).toContain('required-warning--warning')
+  })
+})
+
+describe('InspectorPanel 本次執行區塊', () => {
+  it('未有執行狀態時不顯示本次執行區塊', () => {
+    const w = mountWith('TOOL')
+    expect(w.find('[data-test="node-exec-section"]').exists()).toBe(false)
+  })
+
+  it('nodeStates 有該節點資料時顯示狀態與輸出', async () => {
+    const { useExecutionStore } = await import('../../../stores/execution')
+    const store = useExecutionStore()
+    store.applyEvent({
+      event: 'node.completed',
+      executionId: 'e1',
+      nodeKey: 'n1',
+      output: { result: 'ok' },
+      durationMs: 12,
+      ts: 't',
+    })
+    const w = mountWith('TOOL')
+    const section = w.find('[data-test="node-exec-section"]')
+    expect(section.exists()).toBe(true)
+    expect(section.text()).toContain('SUCCESS')
+    expect(section.text()).toContain('12')
+    expect(section.text()).toContain('ok')
   })
 })
 

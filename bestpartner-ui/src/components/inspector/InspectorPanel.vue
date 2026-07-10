@@ -8,6 +8,7 @@ import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
 import OutputForm from './forms/OutputForm.vue'
 import { NODE_CATEGORIES, getNodeTypeMeta, getNodesByCategory } from '../../constants/nodeTypes'
 import { missingRequiredForNode, formatMissingFields } from '../../utils/nodeRequiredFields'
+import { useExecutionStore } from '../../stores/execution'
 import type { FlowNode } from '../../composables/useWorkflowSync'
 import type { WorkflowStatus } from '../../types/workflow'
 import type { NodeRequiredFields } from '../../api/workflow'
@@ -103,6 +104,12 @@ const missingRequiredText = computed(() => formatMissingFields(missingRequired.v
 const requiredWarningSeverity = computed<'error' | 'warning'>(() =>
   props.workflowStatus === 'ACTIVE' ? 'error' : 'warning',
 )
+
+// 選中節點的本次執行狀態（依 nodeKey 從 execution store 讀取，見 FlowNode.id）
+const executionStore = useExecutionStore()
+const nodeRun = computed(() =>
+  props.selectedNode ? executionStore.nodeStates[props.selectedNode.id] : undefined,
+)
 </script>
 
 <template>
@@ -156,6 +163,13 @@ const requiredWarningSeverity = computed<'error' | 'warning'>(() =>
           @update:model-value="emit('update:node-config', $event)"
           @validity-change="emit('config-validity', $event)"
         />
+      </div>
+
+      <div v-if="nodeRun" class="section exec-section" data-test="node-exec-section">
+        <div class="section-title">本次執行</div>
+        <p>狀態：{{ nodeRun.status }}<span v-if="nodeRun.durationMs != null">（{{ nodeRun.durationMs }} ms）</span></p>
+        <p v-if="nodeRun.error" class="error-text">{{ nodeRun.error }}</p>
+        <pre v-if="nodeRun.output" class="output-json">{{ JSON.stringify(nodeRun.output, null, 2) }}</pre>
       </div>
 
       <div class="node-actions">
@@ -426,6 +440,29 @@ const requiredWarningSeverity = computed<'error' | 'warning'>(() =>
 .legend-label {
   font-size: 12px;
   color: var(--wf-text-dim, #8a8a95);
+}
+
+/* ---- 本次執行 ---- */
+.exec-section p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--wf-text-dim, #8a8a95);
+}
+
+.exec-section .error-text {
+  color: #f56c6c;
+}
+
+.exec-section .output-json {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--wf-text, #e7e7ec);
+  background: var(--wf-input, #0f0f13);
+  border: 1px solid var(--wf-border, #29292f);
+  border-radius: 8px;
+  padding: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* ---- 底部操作列 ---- */
