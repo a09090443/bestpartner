@@ -103,6 +103,10 @@ enum class AppMessage(val key: String) {
     WORKFLOW_CONDITION_OPERATOR_NOT_SUPPORTED("workflow.condition.operator.not.supported"),
     WORKFLOW_LOOP_INPUT_NOT_ARRAY("workflow.loop.input.not.array"),
     WORKFLOW_LOOP_NESTED_NOT_SUPPORTED("workflow.loop.nested.not.supported"),
+    WORKFLOW_CODE_LANGUAGE_NOT_SUPPORTED("workflow.code.language.not.supported"),
+    WORKFLOW_CODE_TIMEOUT("workflow.code.timeout"),
+    WORKFLOW_CODE_OUTPUT_TOO_LARGE("workflow.code.output.too.large"),
+    WORKFLOW_CODE_SCRIPT_ERROR("workflow.code.script.error"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),

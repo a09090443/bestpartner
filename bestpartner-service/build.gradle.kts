@@ -24,12 +24,20 @@ val okhttp3Version: String by project
 val kotlinSerializationVersion: String by project
 val kotlinxCoroutinesVersion: String by project
 val archunitVersion: String by project
+val graalJsVersion: String by project
 
 configurations.all {
     resolutionStrategy {
         force("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
         force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion")
         force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+        // Quarkus BOM 管的 Truffle 為 23.1.x，與 GraalJS 24.x 不相容；polyglot 與 truffle 版本必須一致
+        eachDependency {
+            if (requested.group.startsWith("org.graalvm.")) {
+                useVersion(graalJsVersion)
+                because("GraalJS sandbox 需 polyglot/truffle 版本對齊 $graalJsVersion")
+            }
+        }
     }
 }
 
@@ -81,6 +89,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:$okhttp3Version")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
+
+    // GraalJS sandbox（CODE 節點；js-community 為 pom 型別聚合依賴，Gradle 以 module metadata 解析）
+    implementation("org.graalvm.polyglot:polyglot:$graalJsVersion")
+    implementation("org.graalvm.polyglot:js-community:$graalJsVersion")
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-test-security")
