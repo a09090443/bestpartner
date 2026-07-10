@@ -80,11 +80,24 @@ class ArchitectureTest {
 
     @Test
     fun `service 套件的類別必須命名為 XxxService`() {
+        // service.workflow 為執行引擎子套件（引擎/上下文/事件/executor 各有專屬命名），另由下一條規則約束
         classes()
             .that().resideInAPackage("..service..")
+            .and().resideOutsideOfPackage("..service.workflow..")
             .and().areTopLevelClasses()
             .should().haveSimpleNameEndingWith("Service")
             .because("業務邏輯層命名一律以 Service 結尾（修正方式：重新命名或移出 service 套件）")
+            .allowEmptyShould(true)
+            .check(importedClasses)
+    }
+
+    @Test
+    fun `workflow executor 套件的類別必須命名為 XxxExecutor`() {
+        classes()
+            .that().resideInAPackage("..service.workflow.executor..")
+            .and().areTopLevelClasses()
+            .should().haveSimpleNameEndingWith("Executor")
+            .because("workflow 節點執行器一律以 Executor 結尾（修正方式：重新命名）")
             .allowEmptyShould(true)
             .check(importedClasses)
     }
