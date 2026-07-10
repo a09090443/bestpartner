@@ -11,7 +11,6 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicBoolean
 import org.jboss.resteasy.reactive.RestStreamElementType
 import tw.zipe.bastpartner.config.security.SecurityValidator
@@ -140,7 +139,12 @@ class WorkflowResource(
      *
      * 擁有權檢核與 userId 解析須在 request scope 內先完成（[workflowService.get] 內含
      * checkAccess；[SecurityIdentity] 為 request scope，無法帶入 async 執行緒），
-     * 解析完成後才進 [CompletableFuture.runAsync] 交由 [WorkflowEngine] 背景執行。
+     * 解析完成後才透過 Mutiny 的 [io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool]
+     * 交由 [WorkflowEngine] 背景執行；相較 [CompletableFuture.runAsync]（預設落在
+     * ForkJoinPool.commonPool，其執行緒 TCCL 為 system classloader 而非 Quarkus runtime
+     * classloader，背景執行緒首次觸發 langchain4j/OkHttp 類別初始化時可能拋出
+     * LinkageError/NoClassDefFoundError 等 [Throwable] 而非 [Exception]，導致 future 靜默失敗），
+     * Quarkus 管理的 worker pool 執行緒具備正確的 TCCL。
      *
      * [WorkflowEngine.execute] 以 `@ActivateRequestContext` 另啟一個 request context，
      * 其中的 [SecurityIdentity] 預設為 anonymous，會導致下游依賴登入身分的邏輯（如
@@ -160,29 +164,27 @@ class WorkflowResource(
         val input: Map<String, Any?>? = dto.inputPayload?.let { workflowService.jsonObjectToMap(it) }
         val callerIdentity = securityIdentity
 
-        return Multi.createFrom().emitter { emitter ->
+        return Multi.createFrom().emitter<String> { emitter ->
             val cancelled = AtomicBoolean(false)
             emitter.onTermination { cancelled.set(true) }
-            CompletableFuture.runAsync {
-                try {
-                    workflowEngine.execute(id, userId, input, callerIdentity, { event -> emitter.emit(event.toJson()) }) { cancelled.get() }
-                    emitter.complete()
-                } catch (e: Exception) {
-                    logger.error("workflow 執行失敗: $id", e)
-                    runCatching {
-                        emitter.emit(
-                            ExecutionEvent(
-                                event = "execution.completed",
-                                executionId = "",
-                                status = "FAILED",
-                                error = e.message ?: e.javaClass.simpleName,
-                                ts = java.time.LocalDateTime.now().toString()
-                            ).toJson()
-                        )
-                    }
-                    emitter.complete()
+            try {
+                workflowEngine.execute(id, userId, input, callerIdentity, { event -> emitter.emit(event.toJson()) }) { cancelled.get() }
+                emitter.complete()
+            } catch (e: Throwable) {
+                logger.error("workflow 執行失敗: $id", e)
+                runCatching {
+                    emitter.emit(
+                        ExecutionEvent(
+                            event = "execution.completed",
+                            executionId = "",
+                            status = "FAILED",
+                            error = e.message ?: e.javaClass.simpleName,
+                            ts = java.time.LocalDateTime.now().toString()
+                        ).toJson()
+                    )
                 }
+                emitter.complete()
             }
-        }
+        }.runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
     }
 }
