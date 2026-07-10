@@ -115,7 +115,10 @@ class WorkflowEngine(
                 nodeType = node.type
                 this.seqNo = seqNo
                 status = NodeExecutionStatus.RUNNING
-                this.input = node.config
+                this.input = mapOf(
+                    "config" to node.config,
+                    "contextKeys" to context.allOutputs().keys.toList()
+                )
                 this.startedAt = LocalDateTime.now()
             }
             try {

@@ -134,7 +134,7 @@ class WorkflowEngineTest {
             FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "A-done") },
             FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "done") }
         )
-        val (engine, _, _) = buildEngine(nodes, edges, executors)
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
         val sink = CollectingSink()
 
         val executionId = engine.execute(WORKFLOW_ID, USER_ID, mapOf("q" to "hi"), sink) { false }
@@ -155,6 +155,16 @@ class WorkflowEngineTest {
             sequence
         )
         assertEquals("SUCCESS", sink.events.last().status)
+
+        // 驗證第二個節點的執行紀錄 input 快照包含 contextKeys
+        val secondNodeRecord = nodeExecutionRepo.saved.first { it.nodeKey == "A" }
+        @Suppress("UNCHECKED_CAST")
+        val inputSnapshot = secondNodeRecord.input as Map<String, Any?>
+        assertTrue(inputSnapshot.containsKey("config"), "input 快照應含 config")
+        assertTrue(inputSnapshot.containsKey("contextKeys"), "input 快照應含 contextKeys")
+        @Suppress("UNCHECKED_CAST")
+        val contextKeys = inputSnapshot["contextKeys"] as List<String>
+        assertTrue(contextKeys.contains("trigger"), "contextKeys 應含 trigger 節點鍵")
     }
 
     @Test
