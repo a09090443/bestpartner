@@ -5,6 +5,7 @@ import LlmAssistantForm from './forms/LlmAssistantForm.vue'
 import ToolForm from './forms/ToolForm.vue'
 import McpServerForm from './forms/McpServerForm.vue'
 import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
+import OutputForm from './forms/OutputForm.vue'
 import { NODE_CATEGORIES, getNodeTypeMeta, getNodesByCategory } from '../../constants/nodeTypes'
 import { missingRequiredForNode, formatMissingFields } from '../../utils/nodeRequiredFields'
 import type { FlowNode } from '../../composables/useWorkflowSync'
@@ -40,6 +41,7 @@ const TYPED_FORMS = markRaw({
   TOOL: ToolForm,
   MCP_SERVER: McpServerForm,
   KNOWLEDGE_RAG: KnowledgeRagForm,
+  OUTPUT: OutputForm,
 })
 
 const typedForm = computed(() => {

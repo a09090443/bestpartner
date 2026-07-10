@@ -138,6 +138,15 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
+  {
+    type: 'OUTPUT',
+    label: '輸出',
+    color: '#52c41a',
+    icon: '📤',
+    category: 'Action',
+    inputs: DEFAULT_INPUTS,
+    outputs: [],
+  },
 ]
 
 /** 以 type 快速查詢中繼資料 */

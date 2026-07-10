@@ -15,6 +15,7 @@ export type NodeType =
   | 'CODE'
   | 'HTTP_REQUEST'
   | 'DATA_TRANSFORM'
+  | 'OUTPUT'
 
 /** Workflow 狀態 */
 export type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE'
