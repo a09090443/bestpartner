@@ -12,6 +12,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import org.jboss.resteasy.reactive.RestStreamElementType
 import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.ApiResponse
@@ -170,8 +171,9 @@ class WorkflowResource(
         return Multi.createFrom().emitter<String> { emitter ->
             val cancelled = AtomicBoolean(false)
             emitter.onTermination { cancelled.set(true) }
+            val lastExecutionId = AtomicReference("")
             try {
-                workflowEngine.execute(id, userId, input, callerIdentity, { event -> emitter.emit(event.toJson()) }) { cancelled.get() }
+                workflowEngine.execute(id, userId, input, callerIdentity, { event -> lastExecutionId.set(event.executionId); emitter.emit(event.toJson()) }) { cancelled.get() }
                 emitter.complete()
             } catch (e: Throwable) {
                 logger.error("workflow 執行失敗: $id", e)
@@ -179,7 +181,7 @@ class WorkflowResource(
                     emitter.emit(
                         ExecutionEvent(
                             event = "execution.completed",
-                            executionId = "",
+                            executionId = lastExecutionId.get(),
                             status = "FAILED",
                             error = e.message ?: e.javaClass.simpleName,
                             ts = java.time.LocalDateTime.now().toString()
