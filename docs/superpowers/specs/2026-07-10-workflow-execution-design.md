@@ -161,3 +161,16 @@ SSE 事件格式（單行 JSON）：
 - CRON / WEBHOOK 觸發的排程器與對外 webhook 端點（DDL 的 `llm_workflow_trigger` 表保留給後續）
 - 執行的斷線重連 / 背景執行（方案 B 演進項）
 - 多人協作與執行並發控制（單 workflow 同時多次執行允許，各自獨立紀錄）
+
+## Phase 1 驗收後追記：Phase 2 待辦
+
+Phase 1 最終審查（task-14）裁決 TOOL 動態呼叫與節點逾時延後，以下項目列入 Phase 2 範圍：
+
+- **TOOL 動態呼叫**：`ToolNodeExecutor` 目前為佔位實作，執行時一律拋「尚未支援執行」；Phase 2 需依 `config.arguments` 插值後實際呼叫工具並回傳結構化結果。
+- **每節點逾時**：`timeoutMs`（預設 120s）尚未生效，Phase 2 需在 executor 執行外層加上逾時控制，逾時視同節點失敗。
+- **RAG 檢索參數生效**：`KNOWLEDGE_RAG` 的 `topK` / `minScore` / `embeddingModelId` 於 Phase 1 執行時未生效，僅供存檔與畫布驗證使用。
+- **HTTP 節點進階欄位生效**：`HTTP_REQUEST` 的 `headers` / `secretHeaders` / `timeoutMs` 於 Phase 1 執行時未生效。
+- **SKIPPED 於分支圖的可達性判斷**：目前失敗/取消後「未執行節點」一律標 `SKIPPED`；分支（CONDITION/LOOP）落地後需改為僅標記真正「本應執行但未執行」的可達節點。
+- **LLM memory 以 executionId 累積的清理策略**：目前 Memory 未清理，需規劃保留期限或執行結束後的清除時機。
+- **前端停止後 RUNNING 殘留視覺**：client 中途斷線（`CANCELLED`）時，畫布上尚在 `RUNNING` 的節點視覺未回收，需補上終止態樣式處理。
+- **`__input__` 包裝層級檢討**：`TriggerExecutor.INPUT_KEY` 目前以 `{"input": {...}}` 包一層輸出，插值路徑需多一節 `trigger.input.xxx`，Phase 2 檢討是否扁平化。

@@ -63,7 +63,7 @@ describe('nodeTypes 分類（category）', () => {
     }
   })
 
-  it('getNodesByCategory 涵蓋全部 10 種型別且不重複', () => {
+  it('getNodesByCategory 涵蓋全部 11 種型別且不重複', () => {
     const all = NODE_CATEGORIES.flatMap((c) => getNodesByCategory(c).map((m) => m.type))
     expect(all).toHaveLength(NODE_TYPE_METAS.length)
     expect(new Set(all).size).toBe(NODE_TYPE_METAS.length)

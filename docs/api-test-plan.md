@@ -119,7 +119,7 @@
 | P2 | 圖驗證：nodeKey 重複、edge 端點不存在、節點數超上限 | 400 對應訊息 |
 | P2 | 非擁有者存取（非 admin） | 403，`workflow.forbidden` |
 | P2 | nodeRequiredFields 取必填清單 | 200，含全 11 種 NodeType；`LLM_ASSISTANT=["llmId"]`、`DATA_TRANSFORM=["mappings\|template"]`、`OUTPUT=["template\|mappings"]` |
-| P0 | **execute happy path**：已存檔 workflow（TRIGGER→…→OUTPUT，DRAFT 即可、不需 ACTIVE）呼叫 execute | SSE 事件流依序 `execution.started` → `node.started`/`node.completed` → `execution.completed`（COMPLETED）；紀錄寫入 `llm_workflow_execution` / `llm_workflow_node_execution` |
+| P0 | **execute happy path**：已存檔 workflow（TRIGGER→…→OUTPUT，DRAFT 即可、不需 ACTIVE）呼叫 execute | SSE 事件流依序 `execution.started` → `node.started`/`node.completed` → `execution.completed`（SUCCESS）；紀錄寫入 `llm_workflow_execution` / `llm_workflow_node_execution` |
 | P1 | execute 帶不存在的 id | 400，`workflow.not.found` |
 | P1 | execute 未帶 token（未認證） | 401 |
 | P2 | execute 中途 client 斷線 | 執行標記 `CANCELLED`，未執行的下游節點標記 `SKIPPED` |

@@ -39,7 +39,7 @@ const DEFAULT_INPUTS: PortMeta[] = [{ id: IN_MAIN }]
 /** 預設單輸出埠 */
 const DEFAULT_OUTPUTS: PortMeta[] = [{ id: OUT_MAIN }]
 
-/** 依顯示順序排列的節點型別清單（共 10 種） */
+/** 依顯示順序排列的節點型別清單（共 11 種） */
 export const NODE_TYPE_METAS: NodeTypeMeta[] = [
   {
     type: 'TRIGGER',

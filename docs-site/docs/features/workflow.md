@@ -25,7 +25,7 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 > `OUTPUT`（輸出）為流程終點節點，**無輸出埠**，config 以 `template`（支援 `{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一組成最終輸出。
 >
-> Phase 1 已支援 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT` 的實際執行；`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
+> Phase 1 已支援 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT` 的實際執行；`TOOL`、`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
 
 ## 前端編輯器
 
@@ -98,9 +98,9 @@ Workflow 執行引擎 Phase 1 提供**手動觸發**的執行能力（`POST /llm
 - **失敗與取消語意**：單一節點失敗時其下游節點標記 `SKIPPED`、整體 `FAILED`；client 中途斷線則標記 `CANCELLED`。執行紀錄落地 `llm_workflow_execution` / `llm_workflow_node_execution` 資料表。
 - **變數插值**：全引擎統一 `{{nodeKey.path}}` 語法引用上游輸出；引用不存在的節點該節點執行失敗。
 
-**Phase 1 支援執行的節點**：`TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`。
+**Phase 1 支援執行的節點**：`TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`。
 
-> **Phase 2 預告**：`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 目前執行時回報「尚未支援執行」，控制流與資料轉換的執行邏輯將於 Phase 2 實作。
+> **Phase 2 預告**：`TOOL`、`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 目前執行時回報「尚未支援執行」，工具動態呼叫、控制流與資料轉換的執行邏輯將於 Phase 2 實作。
 
 > 執行 API 規格與 SSE 事件格式見 [Workflow API — 執行 Workflow](../api/workflow.md#執行-workflow)。
 

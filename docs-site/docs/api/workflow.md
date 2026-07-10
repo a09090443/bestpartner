@@ -174,6 +174,8 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `minScore` | number | | 相似度下限 |
 | `outputKey` | string | | 輸出鍵名 |
 
+> ⚠️ `topK` / `minScore` / `embeddingModelId` 於 Phase 1 執行時**未生效**（Phase 2 實作），僅供存檔與畫布驗證使用。
+
 ### OUTPUT（輸出）
 
 | 欄位 | 型別 | 必填 | 說明 |
@@ -187,7 +189,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
-`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
+`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填；⚠️ `headers` / `secretHeaders` / `timeoutMs` 於 Phase 1 執行時未生效，Phase 2 實作）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
 
 完整欄位定義見 `docs/workflow-engine/system-design.md` §2；程式碼事實來源為 `dto/workflow/config/NodeConfig.kt`。以 JSON 編輯器輸入時，鍵名拼錯或型別不符會在存檔時被 400 擋下。
 
@@ -290,15 +292,17 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 **Response（SSE 事件流範例）**
 
 ```text
-data:{"event":"execution.started","executionId":"exec-1","workflowId":"workflow-id"}
-data:{"event":"node.started","nodeKey":"trigger-1","nodeType":"TRIGGER"}
-data:{"event":"node.completed","nodeKey":"trigger-1","output":{"message":"選填的觸發輸入"}}
-data:{"event":"node.started","nodeKey":"assistant-1","nodeType":"LLM_ASSISTANT"}
-data:{"event":"node.completed","nodeKey":"assistant-1","output":{"reply":"AI 回覆內容"}}
-data:{"event":"node.started","nodeKey":"output-1","nodeType":"OUTPUT"}
-data:{"event":"node.completed","nodeKey":"output-1","output":{"result":"最終輸出"}}
-data:{"event":"execution.completed","status":"COMPLETED"}
+data:{"event":"execution.started","executionId":"exec-1","ts":"2026-07-10T10:00:00"}
+data:{"event":"node.started","executionId":"exec-1","nodeKey":"trigger-1","seqNo":1,"ts":"2026-07-10T10:00:00"}
+data:{"event":"node.completed","executionId":"exec-1","nodeKey":"trigger-1","seqNo":1,"status":"SUCCESS","output":{"message":"選填的觸發輸入"},"durationMs":3,"ts":"2026-07-10T10:00:00"}
+data:{"event":"node.started","executionId":"exec-1","nodeKey":"assistant-1","seqNo":2,"ts":"2026-07-10T10:00:01"}
+data:{"event":"node.completed","executionId":"exec-1","nodeKey":"assistant-1","seqNo":2,"status":"SUCCESS","output":{"reply":"AI 回覆內容"},"durationMs":820,"ts":"2026-07-10T10:00:01"}
+data:{"event":"node.started","executionId":"exec-1","nodeKey":"output-1","seqNo":3,"ts":"2026-07-10T10:00:02"}
+data:{"event":"node.completed","executionId":"exec-1","nodeKey":"output-1","seqNo":3,"status":"SUCCESS","output":{"result":"最終輸出"},"durationMs":1,"ts":"2026-07-10T10:00:02"}
+data:{"event":"execution.completed","executionId":"exec-1","status":"SUCCESS","output":{"result":"最終輸出"},"durationMs":824,"ts":"2026-07-10T10:00:02"}
 ```
+
+**事件欄位**：`event` / `executionId` / `nodeKey` / `seqNo` / `status` / `output` / `error` / `durationMs` / `ts`（依事件類型，部分欄位為 null 或省略）。
 
 **事件類型**
 
@@ -306,16 +310,16 @@ data:{"event":"execution.completed","status":"COMPLETED"}
 |------|------|
 | `execution.started` | 整體執行開始 |
 | `node.started` | 單一節點開始執行 |
-| `node.completed` | 單一節點執行成功（含 `output`） |
-| `node.failed` | 單一節點執行失敗（含錯誤訊息） |
-| `execution.completed` | 整體執行結束（含最終 `status`） |
+| `node.completed` | 單一節點執行成功（`status=SUCCESS`，含 `output`） |
+| `node.failed` | 單一節點執行失敗（`status=FAILED`，含 `error`） |
+| `execution.completed` | 整體執行結束（含最終 `status`：`SUCCESS` / `FAILED` / `CANCELLED`） |
 
 **行為說明**
 
 - **已存檔即可執行**：不需將 workflow 切為 `ACTIVE`，DRAFT / INACTIVE 只要已存檔皆可執行。
-- **執行前驗必填**：開始執行前會逐節點檢查 config 必填欄位（與啟用驗證同一份契約），驗不過即回報錯誤。
+- **執行前驗必填**：開始執行前會逐節點檢查 config 必填欄位（與啟用驗證同一份契約，經 `WorkflowEngine.validateForExecution` 於 request scope 預檢），**驗不過直接回 400，不建立執行紀錄**。
 - **失敗語意**：單一節點失敗（`node.failed`）時，其**下游節點標記 `SKIPPED`**，整體執行以 `FAILED` 結束。
 - **取消語意**：client 中途斷線時，執行標記為 `CANCELLED`。
-- **變數插值**：全引擎統一使用 `{{nodeKey.path}}` 語法引用上游節點輸出；**引用不存在的節點該節點執行失敗**。
-- **Phase 1 支援節點**：`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`；`CONDITION` / `LOOP` / `CODE` / `DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
+- **變數插值**：全引擎統一使用 `{{nodeKey.path}}` 語法引用上游節點輸出；**引用不存在的節點該節點執行失敗**（錯誤訊息 i18n 化，含變數完整路徑）。
+- **Phase 1 支援節點**：`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`；`TOOL` / `CONDITION` / `LOOP` / `CODE` / `DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
 - **執行紀錄**：整體與逐節點執行紀錄分別寫入 `llm_workflow_execution` 與 `llm_workflow_node_execution` 資料表。
