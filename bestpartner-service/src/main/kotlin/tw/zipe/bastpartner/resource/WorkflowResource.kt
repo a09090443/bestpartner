@@ -162,7 +162,10 @@ class WorkflowResource(
         workflowService.get(id)
         val userId = securityValidator.validateLoggedInUser()
         val input: Map<String, Any?>? = dto.inputPayload?.let { workflowService.jsonObjectToMap(it) }
-        val callerIdentity = securityIdentity
+        // CDI proxy 不可直接跨執行緒傳遞（會經 CurrentIdentityAssociation 自我遞迴造成 StackOverflowError），
+        // 於 request scope 內先具體化為快照，再傳入引擎背景執行緒
+        val callerIdentity: SecurityIdentity =
+            io.quarkus.security.runtime.QuarkusSecurityIdentity.builder(securityIdentity).build()
 
         return Multi.createFrom().emitter<String> { emitter ->
             val cancelled = AtomicBoolean(false)
