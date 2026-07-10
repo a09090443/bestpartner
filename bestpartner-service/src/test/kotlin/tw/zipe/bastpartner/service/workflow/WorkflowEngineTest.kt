@@ -100,9 +100,10 @@ class WorkflowEngineTest {
         this.config = config
     }
 
-    private fun edge(source: String, target: String) = WorkflowEdgeEntity().apply {
+    private fun edge(source: String, target: String, handle: String? = null) = WorkflowEdgeEntity().apply {
         sourceNodeKey = source
         targetNodeKey = target
+        sourceHandle = handle
     }
 
     private fun testIdentity() = QuarkusSecurityIdentity.builder()
@@ -280,5 +281,137 @@ class WorkflowEngineTest {
         assertEquals("SUCCESS", completedEvent.status)
         assertEquals(mapOf("result" to "A-done"), completedEvent.output)
         assertEquals(mapOf("result" to "A-done"), executionRepo.lastSaved?.outputResult)
+    }
+
+    // ---------- 條件分支（Task 1：活化遍歷 + ConditionExecutor + SKIPPED 可達性） ----------
+
+    /** 建立 CONDITION 節點：單一條件 left op right（config 由引擎經 NodeConfigRegistry 解析） */
+    private fun conditionNode(key: String = "cond", left: String = "1", op: String = "eq", right: String = "1") =
+        node(key, NodeType.CONDITION, mapOf("conditions" to listOf(mapOf("left" to left, "operator" to op, "right" to right))))
+
+    private fun triggerExecutor() = FakeNodeExecutor(NodeType.TRIGGER) { ctx ->
+        ctx.getOutput(tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor.INPUT_KEY) ?: emptyMap()
+    }
+
+    @Test
+    fun `CONDITION true 分支活化 true 側且 false 側落 SKIPPED 不發事件`() {
+        // trigger → cond；cond -(out:true)→ A(TOOL)、-(out:false)→ B(OUTPUT)
+        val nodes = listOf(triggerNode(), conditionNode(left = "1", op = "eq", right = "1"), toolNode("A"), outputNode("B"))
+        val edges = listOf(
+            edge("trigger", "cond"),
+            edge("cond", "A", "out:true"),
+            edge("cond", "B", "out:false")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "A-done") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "B-done") }
+        )
+        val (engine, executionRepo, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        // A 有事件、B 完全沒有事件（SKIPPED 只落庫）
+        assertTrue(sink.events.any { it.nodeKey == "A" && it.event == "node.completed" })
+        assertTrue(sink.events.none { it.nodeKey == "B" })
+        assertEquals("SUCCESS", sink.events.last().status)
+        // B 落一筆 SKIPPED 紀錄且含 seqNo
+        val bRecord = nodeExecutionRepo.saved.single { it.nodeKey == "B" }
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED, bRecord.status)
+        assertTrue(bRecord.seqNo > 0, "SKIPPED 紀錄應含 seqNo")
+        // 唯一 OUTPUT 節點 B 被跳過 → 最終輸出取實際執行成功的最後節點 A
+        assertEquals(mapOf("result" to "A-done"), executionRepo.lastSaved?.outputResult)
+    }
+
+    @Test
+    fun `CONDITION false 分支活化 false 側且 true 側落 SKIPPED`() {
+        val nodes = listOf(triggerNode(), conditionNode(left = "1", op = "eq", right = "2"), toolNode("A"), outputNode("B"))
+        val edges = listOf(
+            edge("trigger", "cond"),
+            edge("cond", "A", "out:true"),
+            edge("cond", "B", "out:false")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "A-done") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "B-done") }
+        )
+        val (engine, executionRepo, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertTrue(sink.events.any { it.nodeKey == "B" && it.event == "node.completed" })
+        assertTrue(sink.events.none { it.nodeKey == "A" })
+        assertEquals("SUCCESS", sink.events.last().status)
+        val aRecord = nodeExecutionRepo.saved.single { it.nodeKey == "A" }
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED, aRecord.status)
+        // 執行到的 OUTPUT 節點 B 為最終輸出
+        assertEquals(mapOf("final" to "B-done"), executionRepo.lastSaved?.outputResult)
+    }
+
+    @Test
+    fun `分支下游失敗時其餘節點補 SKIPPED 且不重複記錄`() {
+        // cond true → Z(TOOL，執行失敗)；false → B(OUTPUT)。拓撲序 B 在 Z 之前，
+        // B 於主迴圈即落 SKIPPED，收尾迴圈不得重複記錄。
+        val nodes = listOf(triggerNode(), conditionNode(left = "1", op = "eq", right = "1"), outputNode("B"), toolNode("Z"))
+        val edges = listOf(
+            edge("trigger", "cond"),
+            edge("cond", "Z", "out:true"),
+            edge("cond", "B", "out:false")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { throw RuntimeException("boom") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "B-done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertEquals("FAILED", sink.events.last().status)
+        assertTrue(sink.events.any { it.nodeKey == "Z" && it.event == "node.failed" })
+        // B 僅一筆 SKIPPED 紀錄（主迴圈落過，收尾迴圈不重複）
+        val bRecords = nodeExecutionRepo.saved.filter { it.nodeKey == "B" }
+        assertEquals(1, bRecords.size, "B 應僅一筆紀錄")
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED, bRecords[0].status)
+    }
+
+    @Test
+    fun `CONDITION 條件插值引用上游輸出決定分支`() {
+        // trigger 輸出 score=80，cond 判斷 {{trigger.input.score}} gt 60 → 走 true 側
+        val nodes = listOf(
+            triggerNode(),
+            conditionNode(left = "{{trigger.input.score}}", op = "gt", right = "60"),
+            toolNode("A"),
+            outputNode("B")
+        )
+        val edges = listOf(
+            edge("trigger", "cond"),
+            edge("cond", "A", "out:true"),
+            edge("cond", "B", "out:false")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "A-done") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "B-done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, mapOf("score" to 80), testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertTrue(sink.events.any { it.nodeKey == "A" && it.event == "node.completed" })
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "B" }.status
+        )
     }
 }

@@ -100,6 +100,7 @@ enum class AppMessage(val key: String) {
     WORKFLOW_EXECUTION_NOT_FOUND("workflow.execution.not.found"),
     WORKFLOW_NODE_EXEC_FAILED("workflow.node.exec.failed"),
     WORKFLOW_VARIABLE_NOT_FOUND("workflow.variable.not.found"),
+    WORKFLOW_CONDITION_OPERATOR_NOT_SUPPORTED("workflow.condition.operator.not.supported"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),

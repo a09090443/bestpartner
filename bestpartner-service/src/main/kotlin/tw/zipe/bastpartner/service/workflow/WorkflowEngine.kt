@@ -31,7 +31,7 @@ import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
- * Workflow 執行引擎（Phase 1：線性節點）。
+ * Workflow 執行引擎（Phase 2：邊活化遍歷，支援 CONDITION 分支）。
  * 事件經 [ExecutionEventSink] 即時發出，紀錄同步落庫；寫庫失敗不中斷執行。
  *
  * @author Gary
@@ -107,10 +107,34 @@ class WorkflowEngine(
         var failureMessage: String? = null
         var wasCancelled = false
         val executedKeys = mutableSetOf<String>()
+        val skippedKeys = mutableSetOf<String>()
+
+        // 活化遍歷（Phase 2）：仍依拓撲序處理，但每節點先判斷是否 active——
+        // indegree 0 恆 active；其餘至少一條入邊被活化才 active。
+        // 邊被活化 = 來源節點執行成功，且（來源非 CONDITION，或 sourceHandle 等於判定分支）。
+        val incomingEdges = edges.groupBy { it.targetNodeKey }
+        val outgoingEdges = edges.groupBy { it.sourceNodeKey }
+        val activatedEdges = mutableSetOf<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>()
 
         for ((index, node) in order.withIndex()) {
             if (cancelled()) { wasCancelled = true; break }
             val seqNo = index + 1
+            val incoming = incomingEdges[node.nodeKey].orEmpty()
+            if (incoming.isNotEmpty() && incoming.none { it in activatedEdges }) {
+                // 非 active：落 SKIPPED 紀錄（含 seqNo），不執行、不活化出邊、不發事件
+                skippedKeys.add(node.nodeKey)
+                persist {
+                    nodeExecutionRepository.saveOrUpdate(WorkflowNodeExecutionEntity().apply {
+                        this.executionId = executionId
+                        this.workflowId = workflowId
+                        nodeKey = node.nodeKey
+                        nodeType = node.type
+                        this.seqNo = seqNo
+                        status = NodeExecutionStatus.SKIPPED
+                    })
+                }
+                continue
+            }
             sink.emit(ExecutionEvent("node.started", executionId, node.nodeKey, seqNo, ts = now()))
             val nodeStart = System.currentTimeMillis()
             val record = WorkflowNodeExecutionEntity().apply {
@@ -134,6 +158,14 @@ class WorkflowEngine(
                 val output = executor.execute(node, parsed, context)
                 context.putOutput(node.nodeKey, output)
                 executedKeys.add(node.nodeKey)
+
+                // 活化出邊：CONDITION 僅活化 sourceHandle 等於判定分支的邊，其餘節點全數活化
+                val branch = if (node.type == NodeType.CONDITION) {
+                    output[tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor.OUTPUT_BRANCH] as? String
+                } else null
+                outgoingEdges[node.nodeKey].orEmpty().forEach { e ->
+                    if (branch == null || e.sourceHandle == branch) activatedEdges.add(e)
+                }
 
                 val duration = System.currentTimeMillis() - nodeStart
                 record.apply {
@@ -165,9 +197,9 @@ class WorkflowEngine(
             }
         }
 
-        // 未執行節點標 SKIPPED（失敗或取消時）
+        // 未執行節點標 SKIPPED（失敗或取消時）；排除主迴圈已落過 SKIPPED 紀錄者，避免重複記錄
         if (failedNode != null || wasCancelled) {
-            order.filter { it.nodeKey !in executedKeys && it.nodeKey != failedNode?.nodeKey }.forEach { skipped ->
+            order.filter { it.nodeKey !in executedKeys && it.nodeKey !in skippedKeys && it.nodeKey != failedNode?.nodeKey }.forEach { skipped ->
                 persist {
                     nodeExecutionRepository.saveOrUpdate(WorkflowNodeExecutionEntity().apply {
                         this.executionId = executionId
@@ -186,7 +218,7 @@ class WorkflowEngine(
             failedNode != null -> ExecutionStatus.FAILED
             else -> ExecutionStatus.SUCCESS
         }
-        val finalOutput = if (finalStatus == ExecutionStatus.SUCCESS) collectFinalOutput(order, context) else null
+        val finalOutput = if (finalStatus == ExecutionStatus.SUCCESS) collectFinalOutput(order, context, executedKeys) else null
 
         execution.apply {
             status = finalStatus
@@ -235,13 +267,20 @@ class WorkflowEngine(
         }
     }
 
-    /** OUTPUT 節點輸出合併；恰一個直接用；零個取拓撲序最後節點輸出 */
-    private fun collectFinalOutput(order: List<WorkflowNodeEntity>, context: ExecutionContext): Map<String, Any?> {
-        val outputNodes = order.filter { it.type == NodeType.OUTPUT }
+    /**
+     * OUTPUT 節點輸出合併；恰一個直接用；零個取「實際執行成功的最後一個節點」輸出。
+     * 分支情境下 OUTPUT 節點可能被 SKIPPED，故僅計入實際執行成功者。
+     */
+    private fun collectFinalOutput(
+        order: List<WorkflowNodeEntity>,
+        context: ExecutionContext,
+        executedKeys: Set<String>
+    ): Map<String, Any?> {
+        val outputNodes = order.filter { it.type == NodeType.OUTPUT && it.nodeKey in executedKeys }
         return when {
             outputNodes.size == 1 -> context.getOutput(outputNodes[0].nodeKey) ?: emptyMap()
             outputNodes.size > 1 -> outputNodes.associate { it.nodeKey to context.getOutput(it.nodeKey) }
-            else -> order.lastOrNull()?.let { context.getOutput(it.nodeKey) } ?: emptyMap()
+            else -> order.lastOrNull { it.nodeKey in executedKeys }?.let { context.getOutput(it.nodeKey) } ?: emptyMap()
         }
     }
 
