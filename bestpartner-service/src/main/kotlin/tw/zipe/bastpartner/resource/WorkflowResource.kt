@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.resource
 
 import io.quarkus.security.Authenticated
+import io.smallrye.mutiny.Multi
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
@@ -8,15 +9,22 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
+import org.jboss.resteasy.reactive.RestStreamElementType
+import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.WorkflowDTO
 import tw.zipe.bastpartner.dto.WorkflowSaveRequestDTO
 import tw.zipe.bastpartner.dto.WorkflowSummaryDTO
 import tw.zipe.bastpartner.dto.WorkflowSwitchStatusRequestDTO
 import tw.zipe.bastpartner.enumerate.AppMessage
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.WorkflowService
+import tw.zipe.bastpartner.service.workflow.WorkflowEngine
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.MessageUtil
+import tw.zipe.bastpartner.util.logger
 
 /**
  * Workflow 定義 CRUD REST 端點（Phase 1）。
@@ -32,8 +40,12 @@ import tw.zipe.bastpartner.util.MessageUtil
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 class WorkflowResource(
-    private val workflowService: WorkflowService
+    private val workflowService: WorkflowService,
+    private val workflowEngine: WorkflowEngine,
+    private val securityValidator: SecurityValidator
 ) {
+
+    private val logger = logger()
 
     @POST
     @Path("/create")
@@ -116,5 +128,38 @@ class WorkflowResource(
             throwOnInvalid()
         }
         return ApiResponse.success(workflowService.switchStatus(dto.id.orEmpty(), dto.active))
+    }
+
+    /**
+     * 手動執行 workflow，SSE 逐節點吐出執行事件（execution.started / node.started /
+     * node.completed / node.failed / execution.completed）。
+     *
+     * 擁有權檢核與 userId 解析須在 request scope 內先完成（[workflowService.get] 內含
+     * checkAccess；[SecurityIdentity] 為 request scope，無法帶入 async 執行緒），
+     * 解析完成後才進 [CompletableFuture.runAsync] 交由 [WorkflowEngine] 背景執行。
+     */
+    @POST
+    @Path("/execute")
+    @RestStreamElementType(MediaType.TEXT_PLAIN)
+    fun execute(dto: WorkflowDTO): Multi<String> {
+        val id = dto.id ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
+        // request scope 內先完成擁有權檢核與 userId 解析，再進背景執行
+        workflowService.get(id)
+        val userId = securityValidator.validateLoggedInUser()
+        val input: Map<String, Any?>? = dto.inputPayload?.let { workflowService.jsonObjectToMap(it) }
+
+        return Multi.createFrom().emitter { emitter ->
+            val cancelled = AtomicBoolean(false)
+            emitter.onTermination { cancelled.set(true) }
+            CompletableFuture.runAsync {
+                try {
+                    workflowEngine.execute(id, userId, input, { event -> emitter.emit(event.toJson()) }) { cancelled.get() }
+                    emitter.complete()
+                } catch (e: Exception) {
+                    logger.error("workflow 執行失敗: $id", e)
+                    emitter.fail(e)
+                }
+            }
+        }
     }
 }

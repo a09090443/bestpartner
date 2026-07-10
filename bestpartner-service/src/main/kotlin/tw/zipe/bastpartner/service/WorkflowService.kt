@@ -424,9 +424,12 @@ class WorkflowService(
 
     /**
      * JsonObject -> Map（經 kotlinx 序列化為字串後以 Jackson 解析）。
+     *
+     * internal 可見性：供 [tw.zipe.bastpartner.resource.WorkflowResource] 的
+     * `/execute` 端點轉換 `inputPayload` 使用，避免在 resource 層重複實作同款轉換。
      */
     @Suppress("UNCHECKED_CAST")
-    private fun jsonObjectToMap(obj: JsonObject): Map<String, Any?> {
+    internal fun jsonObjectToMap(obj: JsonObject): Map<String, Any?> {
         val str = json.encodeToString(JsonObject.serializer(), obj)
         return objectMapper.readValue(str, Map::class.java) as Map<String, Any?>
     }

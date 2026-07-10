@@ -98,6 +98,9 @@ class WorkflowDTO {
 
     /** 畫布中繼資料（任意巢狀 JSON，對應 entity 的 canvasMeta Map；可空） */
     var canvasMeta: JsonObject? = null
+
+    /** 執行輸入（僅 /execute 端點使用，任意巢狀 JSON；可空） */
+    var inputPayload: JsonObject? = null
 }
 
 /**

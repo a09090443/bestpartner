@@ -1,6 +1,6 @@
 # API Endpoints 說明
 
-> 共 13 個模組、67 個 endpoint。
+> 共 13 個模組、68 個 endpoint。
 > 權限標示：無標示 = 公開或依類別預設；括號內為額外限制。
 
 ---
@@ -158,6 +158,7 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta），須傳入 id |
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge），須傳入 id |
 | POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow（啟用前須具備 Trigger 節點、圖無環，且逐節點驗 config 必填欄位——驗不過回報 nodeKey 與缺漏欄位），須傳入 id + active |
+| POST | `/llm/workflow/execute` | 手動執行 workflow（SSE 逐節點事件流：execution.started / node.started / node.completed / node.failed / execution.completed），須傳入 id，可帶 inputPayload |
 
 ---
 
