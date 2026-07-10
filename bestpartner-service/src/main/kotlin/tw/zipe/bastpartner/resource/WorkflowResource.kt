@@ -161,6 +161,8 @@ class WorkflowResource(
         val id = dto.id ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
         // request scope 內先完成擁有權檢核與 userId 解析，再進背景執行
         workflowService.get(id)
+        // 執行前預檢（同引擎內驗證邏輯）：失敗於 request scope 直接回 400，不建立執行紀錄
+        workflowEngine.validateForExecution(id)
         val userId = securityValidator.validateLoggedInUser()
         val input: Map<String, Any?>? = dto.inputPayload?.let { workflowService.jsonObjectToMap(it) }
         // CDI proxy 不可直接跨執行緒傳遞（會經 CurrentIdentityAssociation 自我遞迴造成 StackOverflowError），

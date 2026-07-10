@@ -27,6 +27,7 @@ import tw.zipe.bastpartner.repository.WorkflowNodeExecutionRepository
 import tw.zipe.bastpartner.repository.WorkflowNodeRepository
 import tw.zipe.bastpartner.repository.WorkflowRepository
 import tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor
+import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
 
 /**
@@ -80,19 +81,7 @@ class WorkflowEngine(
         val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
         val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
 
-        if (nodes.none { it.type == NodeType.TRIGGER }) {
-            throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_REQUIRED)
-        }
-        // 執行前驗證：型別 + 必填（同啟用等級）
-        nodes.forEach { n ->
-            val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
-            val parsed = runCatching { NodeConfigRegistry.parse(n.type, configObj) }
-                .getOrElse { e -> throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty()) }
-            val missing = parsed.missingRequiredFields()
-            if (missing.isNotEmpty()) {
-                throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
-            }
-        }
+        validateNodes(nodes)
 
         val order = topologicalOrder(nodes, edges)
         val startedAt = LocalDateTime.now()
@@ -156,7 +145,11 @@ class WorkflowEngine(
                 persist { nodeExecutionRepository.saveOrUpdate(record) }
                 sink.emit(ExecutionEvent("node.completed", executionId, node.nodeKey, seqNo, "SUCCESS", output, durationMs = duration, ts = now()))
             } catch (e: Exception) {
-                val message = e.message ?: e.javaClass.simpleName
+                val message = if (e is VariableNotFoundException) {
+                    MessageUtil.get(AppMessage.WORKFLOW_VARIABLE_NOT_FOUND, e.path)
+                } else {
+                    e.message ?: e.javaClass.simpleName
+                }
                 logger.error("節點 ${node.nodeKey} 執行失敗", e)
                 record.apply {
                     status = NodeExecutionStatus.FAILED
@@ -212,6 +205,34 @@ class WorkflowEngine(
             )
         )
         return executionId
+    }
+
+    /**
+     * 執行前驗證（載入 workflow 存在性、無 TRIGGER 節點檢查、逐節點 config 型別 + 必填），
+     * 供 resource 於 request scope 內預檢——失敗即拋 [ServiceException]，由 GlobalExceptionMapper
+     * 轉為 HTTP 400，避免先建立執行紀錄再失敗（spec §5）。
+     */
+    fun validateForExecution(workflowId: String) {
+        workflowRepository.findOptionalById(workflowId)
+            ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
+        val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
+        validateNodes(nodes)
+    }
+
+    /** 無 TRIGGER 節點檢查 + 逐節點 parse/必填驗證（同啟用等級） */
+    private fun validateNodes(nodes: List<WorkflowNodeEntity>) {
+        if (nodes.none { it.type == NodeType.TRIGGER }) {
+            throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_REQUIRED)
+        }
+        nodes.forEach { n ->
+            val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
+            val parsed = runCatching { NodeConfigRegistry.parse(n.type, configObj) }
+                .getOrElse { e -> throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty()) }
+            val missing = parsed.missingRequiredFields()
+            if (missing.isNotEmpty()) {
+                throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
+            }
+        }
     }
 
     /** OUTPUT 節點輸出合併；恰一個直接用；零個取拓撲序最後節點輸出 */
