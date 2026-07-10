@@ -286,17 +286,30 @@ class EmbeddingService(
 
     /**
      * 從向量資料庫中搜尋
+     * @param maxResults 回傳筆數上限（null 沿用 langchain4j 預設）
+     * @param minScore 相似度下限（null 沿用 langchain4j 預設）
+     * @param embeddingModelId 指定 embedding 模型；null 時落回知識庫既定的 llmEmbeddingId
      */
-    fun embeddingStoreSearch(knowledgeId: String, content: String): List<KnowledgeDTO>? {
+    fun embeddingStoreSearch(
+        knowledgeId: String,
+        content: String,
+        maxResults: Int? = null,
+        minScore: Double? = null,
+        embeddingModelId: String? = null
+    ): List<KnowledgeDTO>? {
         return llmKnowledgeRepository.findById(knowledgeId)?.let { knowledge ->
             val embeddingStore = this.buildVectorStore(knowledge.vectorStoreId)
             val embeddingModel =
-                llmService.buildLLM(knowledge.llmEmbeddingId, ModelType.EMBEDDING).let { it as EmbeddingModel }
+                llmService.buildLLM(embeddingModelId ?: knowledge.llmEmbeddingId, ModelType.EMBEDDING)
+                    .let { it as EmbeddingModel }
             val embedding = embeddingModel.embed(content).content()
             val filter: Filter = MetadataFilterBuilder.metadataKey(KNOWLEDGE).isEqualTo(knowledgeId)
 
-            val resultList =
-                embeddingStore.search(EmbeddingSearchRequest.builder().queryEmbedding(embedding).filter(filter).build())
+            val searchRequest = EmbeddingSearchRequest.builder().queryEmbedding(embedding).filter(filter)
+                .apply { maxResults?.let { maxResults(it) } }
+                .apply { minScore?.let { minScore(it) } }
+                .build()
+            val resultList = embeddingStore.search(searchRequest)
             resultList.matches().map { segment ->
                 val embedded = segment.embedded()
                 embedded.metadata().toMap().let {
