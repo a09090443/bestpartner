@@ -2,6 +2,7 @@ package tw.zipe.bastpartner.service.workflow
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.enterprise.context.control.ActivateRequestContext
 import jakarta.enterprise.inject.Instance
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -49,9 +50,12 @@ class WorkflowEngine(
 
     /**
      * 執行整條 workflow。同步阻塞直到完成；事件經 sink 即時發出。
+     * 呼叫端多在背景執行緒（如 CompletableFuture.runAsync）呼叫，故以 [ActivateRequestContext]
+     * 自行啟用 CDI request context，避免 Panache 查詢拋 ContextNotActiveException。
      * @param cancelled 每節點執行前檢查；true 則中止並標 CANCELLED
      * @return 落庫後的 execution id
      */
+    @ActivateRequestContext
     fun execute(
         workflowId: String,
         userId: String,

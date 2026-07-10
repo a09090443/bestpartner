@@ -22,6 +22,7 @@ import tw.zipe.bastpartner.dto.WorkflowSwitchStatusRequestDTO
 import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.WorkflowService
+import tw.zipe.bastpartner.service.workflow.ExecutionEvent
 import tw.zipe.bastpartner.service.workflow.WorkflowEngine
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.MessageUtil
@@ -159,7 +160,18 @@ class WorkflowResource(
                     emitter.complete()
                 } catch (e: Exception) {
                     logger.error("workflow 執行失敗: $id", e)
-                    emitter.fail(e)
+                    runCatching {
+                        emitter.emit(
+                            ExecutionEvent(
+                                event = "execution.completed",
+                                executionId = "",
+                                status = "FAILED",
+                                error = e.message ?: e.javaClass.simpleName,
+                                ts = java.time.LocalDateTime.now().toString()
+                            ).toJson()
+                        )
+                    }
+                    emitter.complete()
                 }
             }
         }
