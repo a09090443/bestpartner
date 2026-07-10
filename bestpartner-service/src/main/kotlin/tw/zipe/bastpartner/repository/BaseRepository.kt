@@ -418,6 +418,11 @@ abstract class BaseRepository<T : Any, ID : Any> : PanacheRepositoryBase<T, ID> 
         private fun setEnumValue(field: Field, instance: Any, value: Any, fieldType: Class<*>) {
             @Suppress("UNCHECKED_CAST")
             val enumClass = fieldType as Class<Enum<*>>
+            // JPQL 查詢的 enum 欄位回傳 enum 實例本身（native SQL 才是字串），直接設值
+            if (enumClass.isInstance(value)) {
+                field[instance] = value
+                return
+            }
             field[instance] = when (value) {
                 is String, is Char -> {
                     val str = value.toString()

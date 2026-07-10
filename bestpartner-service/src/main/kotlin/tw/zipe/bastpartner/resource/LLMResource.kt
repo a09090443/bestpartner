@@ -114,6 +114,11 @@ class LLMResource(
 
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
             logger.debug("[REQ:$requestId] 開始自定義助手串流聊天")
+            // streamingChat 為非同步：MCP 客戶端須待串流終止（完成/失敗/取消）才關閉，
+            // 否則工具呼叫發生時 MCP 行程已被提早結束
+            emitter.onTermination {
+                CompletableFuture.runAsync { closeMcpClients(mcpClients, requestId) }
+            }
             try {
                 aiService.build().streamingChat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty())
                     .onPartialResponse { emitter.emit(it) }
@@ -134,8 +139,6 @@ class LLMResource(
             } catch (e: Exception) {
                 logger.error("[REQ:$requestId] 處理自定義助手串流聊天請求時發生異常", e)
                 emitter.fail(e)
-            }finally {
-                mcpClients.forEach { mcpServer -> mcpServer.close() }
             }
         }
     }

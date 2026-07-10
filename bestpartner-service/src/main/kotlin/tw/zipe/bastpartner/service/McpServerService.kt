@@ -47,6 +47,7 @@ class McpServerService(
             name = mcpDTO.name.orEmpty()
             commandSetting = mcpCommandSetting
             type = mcpDTO.type ?: McpType.STDIO
+            description = mcpDTO.description
             llmMcpServerRepository.saveOrUpdate(this)
         }.let { mcpDTO.mcpId = it.id }
     }
@@ -264,6 +265,7 @@ class McpServerService(
             env = entity.commandSetting.env
             envDesc = entity.commandSetting.envDesc
             type = entity.type
+            description = entity.description
             this
         }
     }

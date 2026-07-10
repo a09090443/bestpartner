@@ -49,4 +49,10 @@ class LLMMcpServerEntity : BaseEntity() {
     @Enumerated(EnumType.STRING)
     lateinit var type: McpType
 
+    /**
+     * 描述
+     */
+    @Column(name = "description")
+    var description: String? = null
+
 }
