@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { getNodeTypeMeta } from '../../constants/nodeTypes'
+import { useExecutionStore } from '../../stores/execution'
 import type { NodeType } from '../../types/workflow'
 
 interface NodeData {
@@ -14,6 +15,14 @@ const props = defineProps<{
   id: string
   data: NodeData
 }>()
+
+const executionStore = useExecutionStore()
+
+/** 依 execution store 的執行狀態（以 nodeKey = props.id 查詢）掛上對應色彩 class */
+const execClass = computed(() => {
+  const status = executionStore.nodeStates[props.id]?.status
+  return status ? `is-exec-${status.toLowerCase()}` : ''
+})
 
 const meta = computed(() => getNodeTypeMeta(props.data.type))
 const label = computed(() => meta.value?.label ?? props.data.type)
@@ -59,7 +68,11 @@ function portTop(index: number, total: number): string {
 </script>
 
 <template>
-  <div class="workflow-node" :class="{ 'is-trigger': isTrigger }" :style="nodeStyle">
+  <div
+    class="workflow-node"
+    :class="[{ 'is-trigger': isTrigger }, execClass]"
+    :style="nodeStyle"
+  >
     <!-- 輸入埠（左緣）；TRIGGER 的 inputs 為空故不渲染 -->
     <Handle
       v-for="(port, i) in inputs"

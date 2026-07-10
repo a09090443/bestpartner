@@ -18,6 +18,7 @@ import { layoutGraph } from '../composables/useCanvasLayout'
 import { computeFitZoom } from '../composables/useDefaultZoom'
 import { validateGraph } from '../composables/useGraphValidation'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
+import { useExecutionStore } from '../stores/execution'
 import { extractApiMessage } from '../api/http'
 import { getNodeRequiredFields } from '../api/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
@@ -31,6 +32,7 @@ const nodeTypes = { workflow: markRaw(WorkflowNode) } as unknown as NodeTypesObj
 
 const route = useRoute()
 const store = useWorkflowStore()
+const executionStore = useExecutionStore()
 
 const {
   onConnect,
@@ -205,7 +207,11 @@ function beforeUnloadHandler(event: BeforeUnloadEvent) {
   }
 }
 onMounted(() => window.addEventListener('beforeunload', beforeUnloadHandler))
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadHandler))
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+  executionStore.stop()
+  executionStore.reset()
+})
 
 onConnect((connection: Connection) => {
   const id = makeEdgeId(
@@ -317,6 +323,24 @@ async function handleActiveToggle(value: string | number | boolean) {
   } catch (err) {
     ElMessage.error(extractApiMessage(err) ?? '切換狀態失敗')
   }
+}
+
+// 執行/停止：執行中按鈕轉為停止；否則需先存檔（有 id 且無未存變更）才能開始執行
+async function handleRun() {
+  if (executionStore.running) {
+    executionStore.stop()
+    return
+  }
+  const id = store.current?.id
+  if (!id) {
+    ElMessage.warning('請先存檔後再執行')
+    return
+  }
+  if (store.dirty) {
+    ElMessage.warning('有未存變更，請先存檔再執行')
+    return
+  }
+  executionStore.start(id)
 }
 
 // 整理版面：以 dagre 重排節點位置，更新畫布並置中檢視
@@ -445,6 +469,14 @@ async function handleSave() {
           />
         </div>
 
+        <button
+          type="button"
+          class="btn primary"
+          data-test="run-button"
+          @click="handleRun"
+        >
+          {{ executionStore.running ? '■ 停止' : '▶ 執行' }}
+        </button>
         <button type="button" class="btn ghost" data-test="tidy-button" @click="handleTidyUp">
           整理版面
         </button>

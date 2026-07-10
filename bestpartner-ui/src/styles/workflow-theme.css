@@ -62,3 +62,27 @@
   stroke: var(--wf-accent);
   stroke-width: 2;
 }
+
+/* ---- 執行狀態上色（依 execution store 的 nodeStates 即時掛上，class 綁在 .workflow-node 本身） ---- */
+.wf-editor .workflow-node.is-exec-running {
+  border-color: #e6a23c !important;
+  animation: exec-pulse 1.2s infinite;
+}
+
+.wf-editor .workflow-node.is-exec-success {
+  border-color: #67c23a !important;
+}
+
+.wf-editor .workflow-node.is-exec-failed {
+  border-color: #f56c6c !important;
+}
+
+.wf-editor .workflow-node.is-exec-skipped {
+  opacity: 0.45;
+}
+
+@keyframes exec-pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(230, 162, 60, 0.25);
+  }
+}

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import WorkflowNode from '../WorkflowNode.vue'
 
 // Vue Flow 的 Handle 需 VueFlow context，單元測試以 stub 取代。
@@ -12,6 +13,9 @@ const globalConfig = {
     },
   },
 }
+
+// WorkflowNode 內用 useExecutionStore 讀取執行狀態上色，需先啟用 Pinia
+beforeEach(() => setActivePinia(createPinia()))
 
 function handles(wrapper: ReturnType<typeof mount>, type: 'source' | 'target') {
   return wrapper.findAll(`.handle-stub[data-htype="${type}"]`)
