@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.resource
 
 import io.quarkus.security.Authenticated
+import io.smallrye.common.annotation.Blocking
 import io.smallrye.mutiny.Multi
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.Consumes
@@ -141,6 +142,7 @@ class WorkflowResource(
     @POST
     @Path("/execute")
     @RestStreamElementType(MediaType.TEXT_PLAIN)
+    @Blocking
     fun execute(dto: WorkflowDTO): Multi<String> {
         val id = dto.id ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
         // request scope 內先完成擁有權檢核與 userId 解析，再進背景執行
