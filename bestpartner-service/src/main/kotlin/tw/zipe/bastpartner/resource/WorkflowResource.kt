@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.resource
 
 import io.quarkus.security.Authenticated
+import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.common.annotation.Blocking
 import io.smallrye.mutiny.Multi
 import jakarta.enterprise.context.ApplicationScoped
@@ -44,7 +45,8 @@ import tw.zipe.bastpartner.util.logger
 class WorkflowResource(
     private val workflowService: WorkflowService,
     private val workflowEngine: WorkflowEngine,
-    private val securityValidator: SecurityValidator
+    private val securityValidator: SecurityValidator,
+    private val securityIdentity: SecurityIdentity
 ) {
 
     private val logger = logger()
@@ -139,6 +141,12 @@ class WorkflowResource(
      * 擁有權檢核與 userId 解析須在 request scope 內先完成（[workflowService.get] 內含
      * checkAccess；[SecurityIdentity] 為 request scope，無法帶入 async 執行緒），
      * 解析完成後才進 [CompletableFuture.runAsync] 交由 [WorkflowEngine] 背景執行。
+     *
+     * [WorkflowEngine.execute] 以 `@ActivateRequestContext` 另啟一個 request context，
+     * 其中的 [SecurityIdentity] 預設為 anonymous，會導致下游依賴登入身分的邏輯（如
+     * LLM 節點的 [tw.zipe.bastpartner.service.LLMService.buildAIService]）誤判未登入。
+     * 因此在此 request scope 內先取出呼叫端 identity，隨呼叫傳入引擎，由引擎於其
+     * 背景 request context 啟用後還原該身分。
      */
     @POST
     @Path("/execute")
@@ -150,13 +158,14 @@ class WorkflowResource(
         workflowService.get(id)
         val userId = securityValidator.validateLoggedInUser()
         val input: Map<String, Any?>? = dto.inputPayload?.let { workflowService.jsonObjectToMap(it) }
+        val callerIdentity = securityIdentity
 
         return Multi.createFrom().emitter { emitter ->
             val cancelled = AtomicBoolean(false)
             emitter.onTermination { cancelled.set(true) }
             CompletableFuture.runAsync {
                 try {
-                    workflowEngine.execute(id, userId, input, { event -> emitter.emit(event.toJson()) }) { cancelled.get() }
+                    workflowEngine.execute(id, userId, input, callerIdentity, { event -> emitter.emit(event.toJson()) }) { cancelled.get() }
                     emitter.complete()
                 } catch (e: Exception) {
                     logger.error("workflow 執行失敗: $id", e)

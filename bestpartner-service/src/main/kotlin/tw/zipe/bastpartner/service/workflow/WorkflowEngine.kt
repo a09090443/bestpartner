@@ -1,6 +1,8 @@
 package tw.zipe.bastpartner.service.workflow
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.quarkus.security.identity.CurrentIdentityAssociation
+import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.context.control.ActivateRequestContext
 import jakarta.enterprise.inject.Instance
@@ -41,7 +43,8 @@ class WorkflowEngine(
     private val workflowEdgeRepository: WorkflowEdgeRepository,
     private val executionRepository: WorkflowExecutionRepository,
     private val nodeExecutionRepository: WorkflowNodeExecutionRepository,
-    private val executors: Instance<NodeExecutor>
+    private val executors: Instance<NodeExecutor>,
+    private val currentIdentityAssociation: CurrentIdentityAssociation
 ) {
     private val logger = logger()
     private val objectMapper = ObjectMapper()
@@ -52,6 +55,13 @@ class WorkflowEngine(
      * 執行整條 workflow。同步阻塞直到完成；事件經 sink 即時發出。
      * 呼叫端多在背景執行緒（如 CompletableFuture.runAsync）呼叫，故以 [ActivateRequestContext]
      * 自行啟用 CDI request context，避免 Panache 查詢拋 ContextNotActiveException。
+     *
+     * 新啟用的 request context 中 [SecurityIdentity] 預設為 anonymous，下游依賴登入身分的
+     * 服務（如 LLM 節點）會因此誤判未登入。因此呼叫端須將 request scope 內取得的呼叫者
+     * identity 一併傳入，本方法啟用 request context 後第一件事即以 [currentIdentityAssociation]
+     * 還原該身分，確保背景執行緒內的服務能正確取得目前使用者。
+     *
+     * @param identity 呼叫端（request scope）取得的呼叫者身分，用於還原背景 request context 的登入狀態
      * @param cancelled 每節點執行前檢查；true 則中止並標 CANCELLED
      * @return 落庫後的 execution id
      */
@@ -60,9 +70,11 @@ class WorkflowEngine(
         workflowId: String,
         userId: String,
         input: Map<String, Any?>?,
+        identity: SecurityIdentity,
         sink: ExecutionEventSink,
         cancelled: () -> Boolean
     ): String {
+        currentIdentityAssociation.setIdentity(identity)
         val workflow = workflowRepository.findOptionalById(workflowId)
             ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
         val nodes = workflowNodeRepository.findByWorkflowId(workflowId)

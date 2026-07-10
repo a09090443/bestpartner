@@ -1,5 +1,8 @@
 package tw.zipe.bastpartner.service.workflow
 
+import io.quarkus.security.runtime.QuarkusPrincipal
+import io.quarkus.security.runtime.QuarkusSecurityIdentity
+import io.quarkus.security.runtime.SecurityIdentityAssociation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -102,6 +105,11 @@ class WorkflowEngineTest {
         targetNodeKey = target
     }
 
+    private fun testIdentity() = QuarkusSecurityIdentity.builder()
+        .setPrincipal(QuarkusPrincipal(USER_ID))
+        .setAnonymous(false)
+        .build()
+
     private fun triggerNode() = node("trigger", NodeType.TRIGGER, mapOf("triggerType" to "MANUAL"))
     private fun toolNode(key: String = "A") = node(key, NodeType.TOOL, mapOf("toolId" to "t1"))
     private fun outputNode(key: String = "out") = node(key, NodeType.OUTPUT, mapOf("template" to "x"))
@@ -120,7 +128,8 @@ class WorkflowEngineTest {
             FakeWorkflowEdgeRepository(edges),
             executionRepo,
             nodeExecutionRepo,
-            FakeNodeExecutorInstance(executors)
+            FakeNodeExecutorInstance(executors),
+            SecurityIdentityAssociation()
         )
         return Triple(engine, executionRepo, nodeExecutionRepo)
     }
@@ -137,7 +146,7 @@ class WorkflowEngineTest {
         val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
         val sink = CollectingSink()
 
-        val executionId = engine.execute(WORKFLOW_ID, USER_ID, mapOf("q" to "hi"), sink) { false }
+        val executionId = engine.execute(WORKFLOW_ID, USER_ID, mapOf("q" to "hi"), testIdentity(), sink) { false }
 
         assertTrue(executionId.isNotBlank())
         val sequence = sink.events.map { it.event to it.nodeKey }
@@ -179,7 +188,7 @@ class WorkflowEngineTest {
         val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
         val sink = CollectingSink()
 
-        engine.execute(WORKFLOW_ID, USER_ID, null, sink) { false }
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
 
         val sequence = sink.events.map { it.event to it.nodeKey }
         assertEquals(
@@ -213,7 +222,7 @@ class WorkflowEngineTest {
         val (engine, _, _) = buildEngine(nodes, edges, executors)
         val sink = CollectingSink()
 
-        engine.execute(WORKFLOW_ID, USER_ID, null, sink) { true }
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { true }
 
         val sequence = sink.events.map { it.event to it.nodeKey }
         assertEquals(
@@ -242,7 +251,7 @@ class WorkflowEngineTest {
         val (engine, _, _) = buildEngine(nodes, edges, executors)
         val sink = CollectingSink()
 
-        engine.execute(WORKFLOW_ID, USER_ID, null, sink) { false }
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
 
         val failedEvent = sink.events.first { it.event == "node.failed" }
         assertEquals("cond", failedEvent.nodeKey)
@@ -264,7 +273,7 @@ class WorkflowEngineTest {
         val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
         val sink = CollectingSink()
 
-        engine.execute(WORKFLOW_ID, USER_ID, null, sink) { false }
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
 
         val completedEvent = sink.events.last()
         assertEquals("execution.completed", completedEvent.event)
