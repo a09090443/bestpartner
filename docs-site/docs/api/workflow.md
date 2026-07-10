@@ -34,6 +34,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta）|
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge）|
 | POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow |
+| POST | `/llm/workflow/execute` | 執行 workflow，以 SSE 事件流回報進度與結果 |
 
 ---
 
@@ -91,7 +92,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ## 節點 config 契約
 
-每個節點的 `config` 在後端以**強型別 DTO** 定義契約：10 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
+每個節點的 `config` 在後端以**強型別 DTO** 定義契約：11 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
 
 - **save（含 DRAFT）**：依 NodeType 嚴格反序列化——**未知欄位**或**結構性型別錯誤**（如陣列欄位給字串、非法 enum 值）回 400（`workflow.node.config.invalid`，訊息含 nodeKey 與原因）；必填欄位缺席**放行**，允許存不完整草稿。數字/布林形式的字串（如 `"topK": "5"`）會被寬鬆轉型接受。
 - **switchStatus 啟用**：逐節點檢查必填欄位，驗不過回 400（`workflow.node.config.required.missing`，訊息含 nodeKey 與缺漏欄位清單）。
@@ -101,7 +102,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 > ⚠️ 因未知欄位會被拒，前端表單寫入的欄位名必須與 DTO 完全一致；以 `JsonConfigEditor` 自由編輯的 config 若含契約外的鍵，存檔會被 400 擋下（錯誤訊息會指出節點與原因）。
 
-下列 4 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
+下列 5 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
 
 ### LLM_ASSISTANT（LLM 助手）
 
@@ -173,7 +174,16 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `minScore` | number | | 相似度下限 |
 | `outputKey` | string | | 輸出鍵名 |
 
-> 前端 `ToolForm`、`McpServerForm` 與 `KnowledgeRagForm` 已涵蓋上述必填與主要選填欄位，`arguments`（物件型別）以 JSON 文字輸入（僅接受合法 JSON 物件，非物件或壞 JSON 不寫入 config）。
+### OUTPUT（輸出）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `template` | string | ✓* | 輸出模板，支援 `{{nodeKey.path}}` 插值；結果放在 `result` 鍵 |
+| `mappings` | object | ✓* | key=value 對映（value 支援插值），逐鍵組成輸出物件 |
+
+> `template` 與 `mappings` **擇一必填**（任一有值即滿足）。OUTPUT 節點**無輸出埠**，為流程終點，其輸出即為執行結果的最終呈現。
+
+> 前端 `ToolForm`、`McpServerForm`、`KnowledgeRagForm` 與 `OutputForm` 已涵蓋上述必填與主要選填欄位，`arguments`（物件型別）以 JSON 文字輸入（僅接受合法 JSON 物件，非物件或壞 JSON 不寫入 config）。
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
@@ -219,7 +229,8 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
     "LOOP": ["inputArrayPath", "loopBodyEntryNodeKey"],
     "CODE": ["language", "source"],
     "HTTP_REQUEST": ["method", "url"],
-    "DATA_TRANSFORM": ["mappings|template"]
+    "DATA_TRANSFORM": ["mappings|template"],
+    "OUTPUT": ["template|mappings"]
   }
 }
 ```
@@ -260,3 +271,51 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 ```
 
 `active=true` 設為 `ACTIVE`、`false` 設為 `INACTIVE`。啟用前須具備 `TRIGGER` 節點且圖無環，否則回 `workflow.trigger.node.required` 或 `workflow.graph.has.cycle`。
+
+## 執行 Workflow
+
+`POST /llm/workflow/execute`
+
+需登入（`@Authenticated`）。以 **SSE（`text/plain`）事件流**回傳執行進度與結果，每行為 `data:{json}` 格式。
+
+**Request**
+
+```json
+{
+  "id": "workflow-id",
+  "inputPayload": { "message": "選填的觸發輸入" }
+}
+```
+
+**Response（SSE 事件流範例）**
+
+```text
+data:{"event":"execution.started","executionId":"exec-1","workflowId":"workflow-id"}
+data:{"event":"node.started","nodeKey":"trigger-1","nodeType":"TRIGGER"}
+data:{"event":"node.completed","nodeKey":"trigger-1","output":{"message":"選填的觸發輸入"}}
+data:{"event":"node.started","nodeKey":"assistant-1","nodeType":"LLM_ASSISTANT"}
+data:{"event":"node.completed","nodeKey":"assistant-1","output":{"reply":"AI 回覆內容"}}
+data:{"event":"node.started","nodeKey":"output-1","nodeType":"OUTPUT"}
+data:{"event":"node.completed","nodeKey":"output-1","output":{"result":"最終輸出"}}
+data:{"event":"execution.completed","status":"COMPLETED"}
+```
+
+**事件類型**
+
+| 事件 | 說明 |
+|------|------|
+| `execution.started` | 整體執行開始 |
+| `node.started` | 單一節點開始執行 |
+| `node.completed` | 單一節點執行成功（含 `output`） |
+| `node.failed` | 單一節點執行失敗（含錯誤訊息） |
+| `execution.completed` | 整體執行結束（含最終 `status`） |
+
+**行為說明**
+
+- **已存檔即可執行**：不需將 workflow 切為 `ACTIVE`，DRAFT / INACTIVE 只要已存檔皆可執行。
+- **執行前驗必填**：開始執行前會逐節點檢查 config 必填欄位（與啟用驗證同一份契約），驗不過即回報錯誤。
+- **失敗語意**：單一節點失敗（`node.failed`）時，其**下游節點標記 `SKIPPED`**，整體執行以 `FAILED` 結束。
+- **取消語意**：client 中途斷線時，執行標記為 `CANCELLED`。
+- **變數插值**：全引擎統一使用 `{{nodeKey.path}}` 語法引用上游節點輸出；**引用不存在的節點該節點執行失敗**。
+- **Phase 1 支援節點**：`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`；`CONDITION` / `LOOP` / `CODE` / `DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
+- **執行紀錄**：整體與逐節點執行紀錄分別寫入 `llm_workflow_execution` 與 `llm_workflow_node_execution` 資料表。

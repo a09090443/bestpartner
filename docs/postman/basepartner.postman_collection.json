@@ -3480,6 +3480,28 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "execute",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"afea1019-f335-4770-9095-98e7b1aa7f36\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/execute",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "execute" ]
+            }
+          },
+          "response": []
         }
       ]
     }

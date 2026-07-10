@@ -8,7 +8,7 @@ keywords: [Workflow, 工作流, n8n, 視覺化, 節點, Node, Edge, 自動化]
 
 BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節點（Node）＋連線（Edge）」的方式，在畫布上自訂 AI 自動化流程。
 
-> **目前進度**：後端已完成 Workflow 定義的 CRUD 與畫布驗證；前端編輯器已具備多連接點節點（分支）、完整畫布操作、型別化節點設定表單、自動排版與深色 n8n 風格介面。執行引擎與觸發器將於後續階段推出。
+> **目前進度**：後端已完成 Workflow 定義的 CRUD、畫布驗證與**執行引擎 Phase 1（手動執行）**；前端編輯器已具備多連接點節點（分支）、完整畫布操作、型別化節點設定表單、自動排版、深色 n8n 風格介面，以及**執行按鈕、節點即時狀態與結果面板**。條件／迴圈等控制流節點的執行與更多觸發器將於 Phase 2 推出。
 
 ## 核心概念
 
@@ -21,9 +21,11 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 ## 節點類型（NodeType）
 
-`TRIGGER`、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`。
+`TRIGGER`、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
 
-> 目前僅儲存節點定義；各節點的實際執行邏輯於後續階段實作。
+> `OUTPUT`（輸出）為流程終點節點，**無輸出埠**，config 以 `template`（支援 `{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一組成最終輸出。
+>
+> Phase 1 已支援 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT` 的實際執行；`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
 
 ## 前端編輯器
 
@@ -52,6 +54,7 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 | `TRIGGER` | —（無輸入） | `out:main` |
 | `CONDITION` | `in:main` | `out:true`（True）／`out:false`（False） |
 | `LOOP` | `in:main` | `out:loop`（迴圈）／`out:done`（結束） |
+| `OUTPUT` | `in:main` | —（無輸出，流程終點） |
 | 其餘型別 | `in:main` | `out:main` |
 
 多輸出埠沿右緣平均分布，並在節點框內顯示埠標籤（如 True / False），使用者未拉線也能辨識分支。Edge 的 `id` 帶入 handle（如 `e-c1:out:true-t1:in:main`），避免同一對節點的不同分支互相撞 id。
@@ -71,6 +74,7 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 | `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填）、`arguments`（JSON 物件，選填，支援插值）、`outputKey`（選填） | `GET /llm/tool/list` |
 | `MCP_SERVER` | `mcpId`（下拉，必填）、`toolName`（文字，必填；MCP 工具清單為執行期發現，無查詢端點故不做下拉）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移）、`arguments`（JSON 物件，選填，支援插值）、`outputKey`（選填） | `GET /llm/mcpServer/list` |
 | `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`embeddingModelId`（下拉，必填，僅列 EMBEDDING 型別）、`query`（textarea，必填，支援插值）、`topK`（數字，預設 4）、`minScore`（數字，選填 0–1）、`outputKey`（選填） | `POST /llm/vector/getKnowledgeStore`、`POST /llm/setting/get`（過濾 `modelType=EMBEDDING`） |
+| `OUTPUT` | `template`（textarea，支援插值）或 `mappings`（key=value 對映）**擇一必填**（`OutputForm`） | — |
 | 其餘 6 種 | 通用 JSON 編輯器（fallback） | — |
 
 下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次（登出時連同 LLM 設定快取一併清除，避免跨使用者殘留）。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料；空值鍵一律移除以維持 config 精簡。`arguments`（JSON 物件）以文字輸入，僅接受合法 JSON 物件——非物件或壞 JSON 不寫入 config，避免後端反序列化失敗。
@@ -82,6 +86,23 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 ## 自動排版
 
 工具列的「整理版面」以 [`@dagrejs/dagre`](https://github.com/dagrejs/dagre) 對畫布做左至右（LR）排版：依連線關係計算各節點座標、重新佈局後置中檢視。排版為純函式（`layoutGraph`），只更新節點位置、不動其餘欄位。
+
+## 手動執行（Phase 1）
+
+Workflow 執行引擎 Phase 1 提供**手動觸發**的執行能力（`POST /llm/workflow/execute`，SSE 事件流）：
+
+- **執行按鈕**：畫布工具列提供執行按鈕，**已存檔即可執行**——不需先切為 `ACTIVE`，DRAFT / INACTIVE 皆可跑；執行前後端會逐節點驗 config 必填欄位（與啟用驗證同一份契約）。
+- **節點即時狀態**：執行過程中前端依 SSE 事件（`node.started` / `node.completed` / `node.failed`）為畫布節點**即時上色**，一眼看出每個節點跑到哪、成功或失敗。
+- **結果面板（ExecutionResultDrawer）**：執行結束後開啟結果抽屜，逐節點檢視輸入輸出與錯誤訊息，以及整體執行狀態。
+- **OUTPUT 節點**：以 `OUTPUT` 節點定義流程的最終輸出——`template`（`{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一。
+- **失敗與取消語意**：單一節點失敗時其下游節點標記 `SKIPPED`、整體 `FAILED`；client 中途斷線則標記 `CANCELLED`。執行紀錄落地 `llm_workflow_execution` / `llm_workflow_node_execution` 資料表。
+- **變數插值**：全引擎統一 `{{nodeKey.path}}` 語法引用上游輸出；引用不存在的節點該節點執行失敗。
+
+**Phase 1 支援執行的節點**：`TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`。
+
+> **Phase 2 預告**：`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 目前執行時回報「尚未支援執行」，控制流與資料轉換的執行邏輯將於 Phase 2 實作。
+
+> 執行 API 規格與 SSE 事件格式見 [Workflow API — 執行 Workflow](../api/workflow.md#執行-workflow)。
 
 ## Workflow 狀態（WorkflowStatus）
 
