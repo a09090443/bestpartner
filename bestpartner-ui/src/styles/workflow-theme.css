@@ -81,6 +81,20 @@
   opacity: 0.45;
 }
 
+/* 取消/停止後仍在跑的節點：灰橘斜紋 + 虛線邊框，與 SKIPPED 的單純半透明區隔 */
+.wf-editor .workflow-node.is-exec-cancelled {
+  border-style: dashed !important;
+  border-color: #b88a4a !important;
+  opacity: 0.7;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(230, 162, 60, 0.12),
+    rgba(230, 162, 60, 0.12) 6px,
+    rgba(120, 120, 130, 0.1) 6px,
+    rgba(120, 120, 130, 0.1) 12px
+  );
+}
+
 @keyframes exec-pulse {
   50% {
     box-shadow: 0 0 0 6px rgba(230, 162, 60, 0.25);

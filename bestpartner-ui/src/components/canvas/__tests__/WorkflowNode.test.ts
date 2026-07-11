@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import WorkflowNode from '../WorkflowNode.vue'
+import { useExecutionStore } from '../../../stores/execution'
 
 // Vue Flow 的 Handle 需 VueFlow context，單元測試以 stub 取代。
 // stub 暴露 id/type 為 data 屬性，供斷言埠數量與 handle id。
@@ -94,6 +95,16 @@ describe('WorkflowNode', () => {
     })
     const style = wrapper.find('.workflow-node').attributes('style') ?? ''
     expect(style).toContain('--node-color: #409eff')
+  })
+
+  it('節點於 execution store 為 CANCELLED 時掛上 is-exec-cancelled class', () => {
+    const store = useExecutionStore()
+    store.nodeStates['n1'] = { status: 'CANCELLED' }
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'n1', data: { type: 'LLM_ASSISTANT' } },
+      global: globalConfig,
+    })
+    expect(wrapper.find('.workflow-node').classes()).toContain('is-exec-cancelled')
   })
 
   it('副標顯示 config 首個原始值；無 config 時退回型別小寫', () => {
