@@ -12,7 +12,7 @@
 | 建置工具 | Gradle | - |
 | JS 沙箱 | GraalJS（org.graalvm.polyglot） | 24.2.1 |
 
-> GraalJS 用於 Workflow `CODE` 節點的 JavaScript sandbox（`allowAllAccess(false)`、禁 host class/IO、逾時與輸出上限）。版本進 `gradle.properties`（`graalJsVersion`），並以 `resolutionStrategy` 對齊 `org.graalvm.*`。truffle-api 為 multi-release jar 且含 `META-INF/resources`，會觸發 Quarkus 3.21 `StaticResourcesProcessor` 越界，`build.gradle.kts` 以 artifact transform 剝除該類 jar 的 `META-INF/resources` 避開。
+> GraalJS 用於 Workflow `CODE` 節點的 JavaScript sandbox（`allowAllAccess(false)`、禁 host class/IO、逾時與輸出上限）。版本進 `gradle.properties`（`graalJsVersion`），並以 `resolutionStrategy` 對齊 `org.graalvm.*`。truffle-api 為 multi-release jar 且含 `META-INF/resources`，會觸發 Quarkus 3.21 `StaticResourcesProcessor` 越界。`build.gradle.kts` 以獨立 configuration（`trufflePristine`）解析原始 truffle-api，於 `stripTruffleResources` 任務剝除 `META-INF/resources` 產出乾淨 jar，並自應用 classpath 排除原始 truffle-api、改掛剝除版檔案依賴避開。**不可改用 artifact transform**：transform 屬性一旦套到 Quarkus `quarkusDev*` classpath configuration，會擾動 dev 模式依賴解析，使 `CapabilityAggregationStep` 將同一 jar 誤判為多提供者而啟動失敗。
 
 **當前服務版本**: 0.1.8-SNAPSHOT
 

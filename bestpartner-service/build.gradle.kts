@@ -1,13 +1,3 @@
-import org.gradle.api.artifacts.transform.InputArtifact
-import org.gradle.api.artifacts.transform.TransformAction
-import org.gradle.api.artifacts.transform.TransformOutputs
-import org.gradle.api.artifacts.transform.TransformParameters
-import org.gradle.api.artifacts.type.ArtifactTypeDefinition
-import org.gradle.api.attributes.Attribute
-import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -59,25 +49,56 @@ configurations.all {
 // （Truffle native attach 函式庫，JVM interpreter 模式非必要）。Quarkus 3.21 的
 // StaticResourcesProcessor 掃描 web 靜態資源時，對「Multi-Release + META-INF/resources 並存」
 // 的 jar 計算 multi-release 版本路徑相對位移時 substring 越界（StringIndexOutOfBoundsException），
-// 導致 uber-jar 建置失敗。以 artifact transform 剝除此類 jar 的 META-INF/resources，
-// 使掃描不進 multi-release 分支即可避開。命中條件精準（同時具兩者），實務上僅 truffle-api。
-val strippedStaticResources = Attribute.of("stripped-static-resources", Boolean::class.javaObjectType)
+// 導致建置/啟動失敗。
+//
+// 早期以 Gradle artifact transform（依 attribute 請求剝除變體）處理，但該屬性一旦套到
+// Quarkus 的 quarkusDev* classpath configuration，會擾動 dev 模式的依賴解析，使
+// CapabilityAggregationStep 將同一 jar（quarkus-arc/agroal/hibernate-orm 等）誤判為多個
+// 提供者而啟動失敗；只套 prod 又會讓 dev 模式重新踩到 substring 越界。兩者不可兼得。
+//
+// 改為不動 variant 解析的作法：以獨立 configuration 解析原始 truffle-api，於建置時剝除
+// META-INF/resources 產出乾淨 jar，並自「應用」classpath 排除原始 truffle-api、改掛剝除版檔案。
+// 依賴圖維持正常，dev / prod augmentation 皆掃到已剝除的 jar。
+val trufflePristine: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
 
 dependencies {
-    attributesSchema.attribute(strippedStaticResources)
-    artifactTypes.getByName("jar").attributes.attribute(strippedStaticResources, false)
-    registerTransform(StripMultiReleaseStaticResources::class) {
-        from.attribute(strippedStaticResources, false)
-            .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
-        to.attribute(strippedStaticResources, true)
-            .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
+    trufflePristine("org.graalvm.truffle:truffle-api:$graalJsVersion")
+}
+
+val strippedTruffleJar = layout.buildDirectory.file("stripped-truffle/truffle-api-stripped.jar")
+val stripTruffleResources = tasks.register("stripTruffleResources") {
+    group = "build"
+    description = "剝除 truffle-api 的 META-INF/resources，避開 Quarkus StaticResourcesProcessor 越界"
+    val sourceJars = trufflePristine
+    val outputJar = strippedTruffleJar
+    inputs.files(sourceJars).withPropertyName("truffleApi")
+    outputs.file(outputJar).withPropertyName("strippedJar")
+    doLast {
+        val input = sourceJars.singleFile
+        val output = outputJar.get().asFile
+        output.parentFile.mkdirs()
+        ZipFile(input).use { zip ->
+            ZipOutputStream(output.outputStream().buffered()).use { out ->
+                for (entry in zip.entries()) {
+                    if (entry.name.startsWith("META-INF/resources/")) continue
+                    out.putNextEntry(ZipEntry(entry.name))
+                    if (!entry.isDirectory) {
+                        zip.getInputStream(entry).use { it.copyTo(out) }
+                    }
+                    out.closeEntry()
+                }
+            }
+        }
     }
 }
 
-configurations.all {
-    if (isCanBeResolved) {
-        attributes.attribute(strippedStaticResources, true)
-    }
+// 自「應用」classpath 排除原始 truffle-api（trufflePristine 除外，其仍需解析原始 jar 以供剝除）。
+configurations.matching { it.name != "trufflePristine" }.configureEach {
+    exclude(group = "org.graalvm.truffle", module = "truffle-api")
 }
 
 dependencies {
@@ -133,6 +154,8 @@ dependencies {
     // GraalJS sandbox（CODE 節點；js-community 為 pom 型別聚合依賴，Gradle 以 module metadata 解析）
     implementation("org.graalvm.polyglot:polyglot:$graalJsVersion")
     implementation("org.graalvm.polyglot:js-community:$graalJsVersion")
+    // 原始 truffle-api 已於上方自 classpath 排除，改掛剝除 META-INF/resources 後的 jar
+    implementation(files(strippedTruffleJar).builtBy(stripTruffleResources))
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-test-security")
@@ -172,53 +195,4 @@ tasks.named<JavaCompile>("compileJava") {
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("-parameters")
-}
-
-/**
- * 剝除「同時具 Multi-Release manifest 與 META-INF/resources 目錄」之 jar 的 META-INF/resources，
- * 其餘 jar 原樣通過。用於避開 Quarkus StaticResourcesProcessor 對此類 jar 的 multi-release
- * 路徑掃描越界（見上方 strippedStaticResources 說明）。命中者實務上僅 GraalJS 的 truffle-api。
- */
-abstract class StripMultiReleaseStaticResources : TransformAction<TransformParameters.None> {
-
-    @get:PathSensitive(PathSensitivity.NAME_ONLY)
-    @get:InputArtifact
-    abstract val inputArtifact: Provider<FileSystemLocation>
-
-    override fun transform(outputs: TransformOutputs) {
-        val input = inputArtifact.get().asFile
-        if (!input.name.endsWith(".jar", ignoreCase = true) || !input.isFile) {
-            outputs.file(inputArtifact)
-            return
-        }
-
-        val (multiRelease, hasResources) = ZipFile(input).use { zip ->
-            val mr = zip.getEntry("META-INF/MANIFEST.MF")?.let { entry ->
-                zip.getInputStream(entry).bufferedReader().useLines { lines ->
-                    lines.any { it.trim().equals("Multi-Release: true", ignoreCase = true) }
-                }
-            } ?: false
-            val hr = zip.entries().asSequence().any { it.name.startsWith("META-INF/resources/") }
-            mr to hr
-        }
-
-        if (!(multiRelease && hasResources)) {
-            outputs.file(inputArtifact)
-            return
-        }
-
-        val output = outputs.file(input.nameWithoutExtension + "-stripped-resources.jar")
-        ZipFile(input).use { zip ->
-            ZipOutputStream(output.outputStream().buffered()).use { out ->
-                for (entry in zip.entries()) {
-                    if (entry.name.startsWith("META-INF/resources/")) continue
-                    out.putNextEntry(ZipEntry(entry.name))
-                    if (!entry.isDirectory) {
-                        zip.getInputStream(entry).use { it.copyTo(out) }
-                    }
-                    out.closeEntry()
-                }
-            }
-        }
-    }
 }
