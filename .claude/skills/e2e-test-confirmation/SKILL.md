@@ -115,5 +115,9 @@ E2E 建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，測試�
 
 ## 維護規則
 
+- **程式碼修改後必檢視測試清單（強制）**：任何前端 UI／workflow 節點型別／執行事件／後端 API 的程式變更，**宣告完成前**必須檢視本清單是否需新增或調整確認項目——
+  - 新增或改動使用者可操作的畫面／流程 → 檢查是否要新增旅程案例（Jx-nn）或修改既有案例的預期。
+  - 若需要，先更新 `docs/e2e-test-plan.md` 的旅程矩陣，再同步 `e2e-test-checklist.md` 模板，最後才據以測試。
+  - 判定「不需新增」時，仍須在該次變更說明中明述已檢視且無需調整，不得略過。
 - `docs/e2e-test-plan.md` 的旅程／案例異動時，本 skill 的 `e2e-test-checklist.md` 模板須同步更新（由 `documentation-sync` 把關）。
 - 涉及 API 契約變更時，另同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。

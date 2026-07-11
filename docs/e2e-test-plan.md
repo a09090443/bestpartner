@@ -207,6 +207,7 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 
 ## 9. 維護規則
 
+- **程式碼修改後必檢視測試清單（強制）**：任何前端 UI / workflow 節點型別 / 執行事件 / 後端 API 的程式變更，宣告完成前必須檢視本計畫的旅程矩陣（§3）與 `e2e-test-confirmation` skill 的清單模板是否需新增或調整確認項目；需要則先更新本文件再同步模板，判定不需調整時亦須於變更說明中明述已檢視。
 - 新增或修改 UI 路由 / workflow 節點型別 / 執行事件時，本文件與對應 spec 須同步更新（由 `documentation-sync` skill 把關）。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
 - 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
