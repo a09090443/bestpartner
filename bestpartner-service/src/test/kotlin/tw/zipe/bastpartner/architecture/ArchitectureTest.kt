@@ -103,6 +103,19 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `repository 套件的類別必須繼承 BaseRepository`() {
+        // 繼承不變量（對照 .claude/rules/naming-conventions.md）：資料存取層一律繼承 BaseRepository。
+        // 現狀 100% 通過（22/22），零基線。BaseRepository 本身可指派給自己，故無需另行排除。
+        classes()
+            .that().resideInAPackage("..repository..")
+            .and().areTopLevelClasses()
+            .should().beAssignableTo("tw.zipe.bastpartner.repository.BaseRepository")
+            .because("資料存取層一律繼承 BaseRepository 以共用 Panache 操作（修正方式：讓類別繼承 BaseRepository）")
+            .allowEmptyShould(true)
+            .check(importedClasses)
+    }
+
+    @Test
     fun `標註 @Entity 的類別必須放在 entity 套件`() {
         // 位置不變量：@Entity 一律落在 entity 套件。
         // 註：此處只強制「位置」，不強制「命名」——既有基線 LLMMcpUserSetting 帶 @Entity 卻無 Entity 後綴，

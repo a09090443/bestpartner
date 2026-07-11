@@ -112,6 +112,27 @@ foreach ($f in (Get-ChildItem $sqlDir -Filter *.sql -ErrorAction SilentlyContinu
 }
 if (-not $secretHit) { Add-Finding '金鑰外洩' 'OK' 'SQL 無真實金鑰' '—' }
 
+# 規則 7：AGENTS.md 與 .claude/CLAUDE.md 內容必須一致（兩份供不同 AI CLI 讀取）
+# 兩檔位於不同目錄深度，連結前綴必然不同（根目錄用 .claude/rules/、.claude/ 內用 rules/）；
+# 正規化：從兩份內容剝除字面 '.claude/' 後逐位元組比對。無基線——不一致任何時候都應攔下。
+$agentsMd  = Join-Path $root 'AGENTS.md'
+$claudeMd  = Join-Path $root '.claude/CLAUDE.md'
+if ((Test-Path $agentsMd) -and (Test-Path $claudeMd)) {
+    $normalize = {
+        param($path)
+        (Get-Content -Path $path -Raw -Encoding utf8).Replace("`r`n", "`n").Replace('.claude/', '')
+    }
+    $aNorm = & $normalize $agentsMd
+    $cNorm = & $normalize $claudeMd
+    if ($aNorm -eq $cNorm) {
+        Add-Finding '導覽一致性' 'OK' 'AGENTS.md ≡ .claude/CLAUDE.md（正規化後）' '—'
+    } else {
+        Add-Finding '導覽一致性' 'NEW' 'AGENTS.md 與 .claude/CLAUDE.md 內容分歧' '兩份導覽須逐字一致（僅連結前綴例外），請同步後再推送'
+    }
+} else {
+    Add-Finding '導覽一致性' 'NEW' '缺少 AGENTS.md 或 .claude/CLAUDE.md' '兩份導覽文件皆須存在'
+}
+
 # ---- 輸出 ----
 Write-Host ''
 Write-Host '=== BestPartner Harness 漂移掃描 ===' -ForegroundColor Cyan

@@ -2,6 +2,8 @@
 
 > 本檔是給 AI agent 的**導覽地圖**，不是百科。細節一律連回 `.claude/rules/` 與 `docs-site/`，此處只負責「往哪查、別踩什麼雷」。
 > 規範以 `.claude/rules/` 為單一事實來源（source of truth）；本檔若與其衝突，以 rules 為準。
+>
+> **⚠️ 本檔與另一份導覽文件（`AGENTS.md` ⇄ `.claude/CLAUDE.md`）內容必須逐字一致**，僅連結前綴因所在目錄不同（根目錄用 `.claude/rules/`、`.claude/` 內用 `rules/`）。兩者供不同 AI CLI 讀取，改動時**兩份都要改**；漂移掃描會正規化前綴後逐位元組比對，不一致即擋下 CI。
 
 ## 這是什麼專案
 
@@ -58,11 +60,31 @@ java -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 
 ## API
 
-12 模組、59 個 endpoint，清單 → [`api-endpoints.md`](.claude/rules/api-endpoints.md)。
+13 模組、68 個 endpoint，清單 → [`api-endpoints.md`](.claude/rules/api-endpoints.md)。
 Swagger UI 僅 dev/sit 開放（`/swagger-ui`）→ [`api-documentation.md`](.claude/rules/api-documentation.md)。
 JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.claude/rules/authentication-and-security.md)。
 
+## 完整規則索引（`.claude/rules/`）
+
+| 規則檔案 | 說明 |
+|---------|------|
+| [tech-stack-and-versions.md](.claude/rules/tech-stack-and-versions.md) | 技術堆疊版本、支援 AI 平台、向量資料庫、內建工具 |
+| [architecture-and-packages.md](.claude/rules/architecture-and-packages.md) | 專案模組結構、各 package 職責、完整目錄樹 |
+| [naming-conventions.md](.claude/rules/naming-conventions.md) | 套件命名（`bastpartner` 注意）、各層檔案命名規則 |
+| [build-and-run.md](.claude/rules/build-and-run.md) | Gradle 建置指令、uber-jar 生成、執行方式 |
+| [gradle-conventions.md](.claude/rules/gradle-conventions.md) | Gradle 版本管理、gradle.properties、build.gradle.kts 規範 |
+| [configuration-and-profiles.md](.claude/rules/configuration-and-profiles.md) | application.properties 設定項、dev/sit/prod 差異、資料庫設定 |
+| [authentication-and-security.md](.claude/rules/authentication-and-security.md) | JWT 認證、公私鑰、登入端點、RBAC |
+| [api-documentation.md](.claude/rules/api-documentation.md) | Swagger UI 路徑、OpenAPI spec、Bearer 認證整合 |
+| [api-endpoints.md](.claude/rules/api-endpoints.md) | 各模組 API endpoint 清單與功能說明 |
+| [api-testing.md](.claude/rules/api-testing.md) | Postman Collection、API 測試計畫、P0/P1/P2 定義 |
+| [development-notes.md](.claude/rules/development-notes.md) | MCP Server 範例、日誌路徑、開關控制 |
+| [i18n-messages.md](.claude/rules/i18n-messages.md) | i18n 訊息管理、AppMessage enum、MessageUtil 使用方式 |
+| [documentation-update-policy.md](.claude/rules/documentation-update-policy.md) | 套件／API／欄位變更時必須更新的文件清單 |
+
 ## 強制工作流程（skill，違反視同違規）
+
+> 註：以下 skill 為 Claude Code 專屬；其他 CLI 讀到僅供參考，規範本體請見連結的 rules 文件。
 
 | 何時 | 必須呼叫的 skill |
 |------|-----------------|
@@ -76,11 +98,12 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 
 ## 機械化強制（ArchUnit）
 
-結構慣例由 `bestpartner-service/src/test/kotlin/.../architecture/ArchitectureTest.kt` 自動驗證（ArchUnit，純 bytecode 分析、非 @QuarkusTest）。目前 7 條不變量：
+結構慣例由 `bestpartner-service/src/test/kotlin/.../architecture/ArchitectureTest.kt` 自動驗證（ArchUnit，純 bytecode 分析、非 @QuarkusTest）。目前 9 條不變量：
 
 - 分層依賴方向：`service`/`repository`/`entity` 不可反向依賴上層
-- 命名：`@Path`→`*Resource`、`repository` 套件→`*Repository`、`service` 套件→`*Service`
+- 命名：`@Path`→`*Resource`、`repository` 套件→`*Repository`、`service` 套件→`*Service`、`workflow.executor` 套件→`*Executor`
 - 位置：`@Entity` 一律放在 `entity` 套件
+- 繼承：`repository` 套件類別一律繼承 `BaseRepository`
 
 執行：
 ```bash
@@ -99,7 +122,7 @@ cd bestpartner-service
 pwsh ./harness-drift-scan.ps1
 ```
 
-涵蓋：套件拼字（`bastpartner`）、i18n 寫死字串、`build.gradle.kts` 版本硬編碼、`@Entity` 命名後綴、service/repository 的 `@ApplicationScoped`。既有基線（如 `jsqlparser` 硬編碼版本、`LLMResource.kt` 寫死例外訊息）已登錄於腳本 `$Baseline`，新增程式碼若擴大漂移會被標為 `NEW`。
+涵蓋：套件拼字（`bastpartner`）、i18n 寫死字串、`build.gradle.kts` 版本硬編碼、`@Entity` 命名後綴、service/repository 的 `@ApplicationScoped`、SQL 金鑰外洩、**AGENTS.md 與 `.claude/CLAUDE.md` 一致性**。既有基線（如 `jsqlparser` 硬編碼版本、`LLMResource.kt` 寫死例外訊息）已登錄於腳本 `$Baseline`，新增程式碼若擴大漂移會被標為 `NEW`。
 
 ## CI 把關
 
