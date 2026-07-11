@@ -1,3 +1,17 @@
+import org.gradle.api.artifacts.transform.InputArtifact
+import org.gradle.api.artifacts.transform.TransformAction
+import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.artifacts.transform.TransformParameters
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
+import org.gradle.api.attributes.Attribute
+import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
 plugins {
     kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "2.1.0"
@@ -38,6 +52,31 @@ configurations.all {
                 because("GraalJS sandbox 需 polyglot/truffle 版本對齊 $graalJsVersion")
             }
         }
+    }
+}
+
+// GraalJS 的 truffle-api 為 multi-release jar 且含 META-INF/resources/engine/libtruffleattach/**
+// （Truffle native attach 函式庫，JVM interpreter 模式非必要）。Quarkus 3.21 的
+// StaticResourcesProcessor 掃描 web 靜態資源時，對「Multi-Release + META-INF/resources 並存」
+// 的 jar 計算 multi-release 版本路徑相對位移時 substring 越界（StringIndexOutOfBoundsException），
+// 導致 uber-jar 建置失敗。以 artifact transform 剝除此類 jar 的 META-INF/resources，
+// 使掃描不進 multi-release 分支即可避開。命中條件精準（同時具兩者），實務上僅 truffle-api。
+val strippedStaticResources = Attribute.of("stripped-static-resources", Boolean::class.javaObjectType)
+
+dependencies {
+    attributesSchema.attribute(strippedStaticResources)
+    artifactTypes.getByName("jar").attributes.attribute(strippedStaticResources, false)
+    registerTransform(StripMultiReleaseStaticResources::class) {
+        from.attribute(strippedStaticResources, false)
+            .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
+        to.attribute(strippedStaticResources, true)
+            .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
+    }
+}
+
+configurations.all {
+    if (isCanBeResolved) {
+        attributes.attribute(strippedStaticResources, true)
     }
 }
 
@@ -133,4 +172,53 @@ tasks.named<JavaCompile>("compileJava") {
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("-parameters")
+}
+
+/**
+ * 剝除「同時具 Multi-Release manifest 與 META-INF/resources 目錄」之 jar 的 META-INF/resources，
+ * 其餘 jar 原樣通過。用於避開 Quarkus StaticResourcesProcessor 對此類 jar 的 multi-release
+ * 路徑掃描越界（見上方 strippedStaticResources 說明）。命中者實務上僅 GraalJS 的 truffle-api。
+ */
+abstract class StripMultiReleaseStaticResources : TransformAction<TransformParameters.None> {
+
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    @get:InputArtifact
+    abstract val inputArtifact: Provider<FileSystemLocation>
+
+    override fun transform(outputs: TransformOutputs) {
+        val input = inputArtifact.get().asFile
+        if (!input.name.endsWith(".jar", ignoreCase = true) || !input.isFile) {
+            outputs.file(inputArtifact)
+            return
+        }
+
+        val (multiRelease, hasResources) = ZipFile(input).use { zip ->
+            val mr = zip.getEntry("META-INF/MANIFEST.MF")?.let { entry ->
+                zip.getInputStream(entry).bufferedReader().useLines { lines ->
+                    lines.any { it.trim().equals("Multi-Release: true", ignoreCase = true) }
+                }
+            } ?: false
+            val hr = zip.entries().asSequence().any { it.name.startsWith("META-INF/resources/") }
+            mr to hr
+        }
+
+        if (!(multiRelease && hasResources)) {
+            outputs.file(inputArtifact)
+            return
+        }
+
+        val output = outputs.file(input.nameWithoutExtension + "-stripped-resources.jar")
+        ZipFile(input).use { zip ->
+            ZipOutputStream(output.outputStream().buffered()).use { out ->
+                for (entry in zip.entries()) {
+                    if (entry.name.startsWith("META-INF/resources/")) continue
+                    out.putNextEntry(ZipEntry(entry.name))
+                    if (!entry.isDirectory) {
+                        zip.getInputStream(entry).use { it.copyTo(out) }
+                    }
+                    out.closeEntry()
+                }
+            }
+        }
+    }
 }
