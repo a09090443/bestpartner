@@ -392,10 +392,10 @@ class WorkflowEngineTest {
 
     @Test
     fun `CONDITION 條件插值引用上游輸出決定分支`() {
-        // trigger 輸出 score=80，cond 判斷 {{trigger.input.score}} gt 60 → 走 true 側
+        // trigger 輸出 score=80（Task 8 扁平化後一層可取），cond 判斷 {{trigger.score}} gt 60 → 走 true 側
         val nodes = listOf(
             triggerNode(),
-            conditionNode(left = "{{trigger.input.score}}", op = "gt", right = "60"),
+            conditionNode(left = "{{trigger.score}}", op = "gt", right = "60"),
             toolNode("A"),
             outputNode("B")
         )
@@ -428,7 +428,7 @@ class WorkflowEngineTest {
     /** 建立 LOOP 節點（config 由引擎經 NodeConfigRegistry 解析） */
     private fun loopNode(
         key: String = "loop",
-        inputArrayPath: String = "{{trigger.input.list}}",
+        inputArrayPath: String = "{{trigger.list}}",
         entry: String = "B1",
         maxIterations: Int? = null,
         itemAlias: String? = null,
@@ -505,7 +505,7 @@ class WorkflowEngineTest {
         assertEquals("FAILED", sink.events.last().status)
         val failed = sink.events.single { it.event == "node.failed" }
         assertEquals("loop", failed.nodeKey)
-        assertTrue(failed.error!!.contains("{{trigger.input.list}}"), "訊息應含 path：${failed.error}")
+        assertTrue(failed.error!!.contains("{{trigger.list}}"), "訊息應含 path：${failed.error}")
         // 子圖節點未執行且不落紀錄；out:done 下游 D 落 SKIPPED
         assertTrue(nodeExecutionRepo.saved.none { it.nodeKey == "B1" })
         assertEquals(
@@ -698,6 +698,87 @@ class WorkflowEngineTest {
 
         val failed = sink.events.single { it.event == "node.failed" }
         assertTrue(failed.error!!.contains("no.such.path"), "訊息應含變數路徑：${failed.error}")
+    }
+
+    // ---------- trigger 扁平化 + memory 清理（Task 8） ----------
+
+    @Test
+    fun `trigger 輸出扁平化後下游一層插值即可取得 input 欄位`() {
+        // input {name: gary} → 下游以 {{trigger.name}} 直接取值，不再需要 .input. 一層
+        val nodes = listOf(triggerNode(), toolNode())
+        val edges = listOf(edge("trigger", "A"))
+        val executors = listOf(
+            tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx -> mapOf("greet" to ctx.resolveTemplate("hi {{trigger.name}}")) }
+        )
+        val (engine, executionRepo, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, mapOf("name" to "gary"), testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertEquals(mapOf<String, Any?>("greet" to "hi gary"), executionRepo.lastSaved?.outputResult)
+        // trigger 節點輸出即 input map 本身（無 input 包裝層）
+        assertEquals(mapOf<String, Any?>("name" to "gary"), nodeExecutionRepo.saved.single { it.nodeKey == "trigger" }.output)
+    }
+
+    @Test
+    fun `trigger input 為 null 時輸出空 map`() {
+        val nodes = listOf(triggerNode())
+        val executors = listOf<NodeExecutor>(tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor())
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, emptyList(), executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertEquals(emptyMap<String, Any?>(), nodeExecutionRepo.saved.single { it.nodeKey == "trigger" }.output)
+    }
+
+    @Test
+    fun `執行成功後以 executionId 註冊的 memory 被清除`() {
+        // fake executor 模擬 LLM 節點：以 executionId 為 memoryId 於 PersistentChatMemoryStore 累積訊息
+        val store = tw.zipe.bastpartner.config.PersistentChatMemoryStore()
+        val nodes = listOf(triggerNode(), toolNode())
+        val edges = listOf(edge("trigger", "A"))
+        var memoryDuringExecution = 0
+        val executors = listOf(
+            tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx ->
+                store.updateMessages(ctx.executionId, mutableListOf(dev.langchain4j.data.message.UserMessage.from("hi")))
+                memoryDuringExecution = store.getMessages(ctx.executionId).size
+                mapOf("r" to "ok")
+            }
+        )
+        val (engine, _, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        val executionId = engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertEquals(1, memoryDuringExecution, "執行中 memory 應有累積")
+        assertTrue(store.getMessages(executionId).isEmpty(), "執行結束後 memory 應被清除")
+    }
+
+    @Test
+    fun `執行失敗後以 executionId 註冊的 memory 亦被清除`() {
+        val store = tw.zipe.bastpartner.config.PersistentChatMemoryStore()
+        val nodes = listOf(triggerNode(), toolNode())
+        val edges = listOf(edge("trigger", "A"))
+        val executors = listOf(
+            tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { ctx ->
+                store.updateMessages(ctx.executionId, mutableListOf(dev.langchain4j.data.message.UserMessage.from("hi")))
+                throw RuntimeException("boom")
+            }
+        )
+        val (engine, _, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        val executionId = engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertEquals("FAILED", sink.events.last().status)
+        assertTrue(store.getMessages(executionId).isEmpty(), "失敗結束後 memory 應被清除")
     }
 
     @Test

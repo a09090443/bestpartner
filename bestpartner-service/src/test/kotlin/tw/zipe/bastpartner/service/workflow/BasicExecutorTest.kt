@@ -14,11 +14,19 @@ class BasicExecutorTest {
     private fun node(key: String) = WorkflowNodeEntity().apply { nodeKey = key }
 
     @Test
-    fun `TriggerExecutor 將 input payload 作為輸出`() {
+    fun `TriggerExecutor 將 input payload 扁平化作為輸出`() {
+        // Task 8：__input__ 即 input map 本身，trigger 輸出不再包 input 一層
         val ctx = ExecutionContext("exec-1", "user-1")
-        ctx.putOutput("__input__", mapOf("input" to mapOf("q" to "hello")))
+        ctx.putOutput("__input__", mapOf("q" to "hello"))
         val out = TriggerExecutor().execute(node("trigger"), TriggerNodeConfig(TriggerType.MANUAL), ctx)
-        assertEquals(mapOf("input" to mapOf("q" to "hello")), out)
+        assertEquals(mapOf("q" to "hello"), out)
+    }
+
+    @Test
+    fun `TriggerExecutor 無 input payload 時輸出空 map`() {
+        val ctx = ExecutionContext("exec-1", "user-1")
+        val out = TriggerExecutor().execute(node("trigger"), TriggerNodeConfig(TriggerType.MANUAL), ctx)
+        assertEquals(emptyMap<String, Any?>(), out)
     }
 
     @Test

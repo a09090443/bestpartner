@@ -3,6 +3,7 @@ package tw.zipe.bastpartner.service.workflow.executor
 import dev.langchain4j.mcp.McpToolProvider
 import dev.langchain4j.mcp.client.McpClient
 import jakarta.enterprise.context.ApplicationScoped
+import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.dto.ChatRequestDTO
 import tw.zipe.bastpartner.dto.Memory
 import tw.zipe.bastpartner.dto.workflow.config.LlmAssistantNodeConfig
@@ -67,6 +68,18 @@ class LlmAssistantExecutor(
             return mapOf((cfg.outputKey ?: "reply") to reply)
         } finally {
             mcpClients.forEach { c -> runCatching { c.close() }.onFailure { logger.warn("MCP client 關閉失敗", it) } }
+        }
+    }
+
+    companion object {
+        /**
+         * 清除以 executionId 註冊的 memory（追記第 6 項）：未指定 memoryId 的 LLM 節點以
+         * executionId 為 memoryId 於 [PersistentChatMemoryStore]（單例 store）累積訊息，
+         * 引擎於執行結束（成功/失敗/取消皆然）收尾呼叫本方法釋放。
+         * 使用者自訂 memoryId（enableMemory）為跨執行記憶，刻意不清除。
+         */
+        fun clearMemory(executionId: String) {
+            PersistentChatMemoryStore().deleteMessages(executionId)
         }
     }
 }
