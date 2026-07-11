@@ -10,6 +10,9 @@
 | JDK | OpenJDK | 21 |
 | 資料庫 | PostgreSQL | - |
 | 建置工具 | Gradle | - |
+| JS 沙箱 | GraalJS（org.graalvm.polyglot） | 24.2.1 |
+
+> GraalJS 用於 Workflow `CODE` 節點的 JavaScript sandbox（`allowAllAccess(false)`、禁 host class/IO、逾時與輸出上限）。版本進 `gradle.properties`（`graalJsVersion`），並以 `resolutionStrategy` 對齊 `org.graalvm.*`。truffle-api 為 multi-release jar 且含 `META-INF/resources`，會觸發 Quarkus 3.21 `StaticResourcesProcessor` 越界，`build.gradle.kts` 以 artifact transform 剝除該類 jar 的 `META-INF/resources` 避開。
 
 **當前服務版本**: 0.1.8-SNAPSHOT
 

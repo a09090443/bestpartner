@@ -8,7 +8,7 @@ keywords: [Workflow, 工作流, n8n, 視覺化, 節點, Node, Edge, 自動化]
 
 BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節點（Node）＋連線（Edge）」的方式，在畫布上自訂 AI 自動化流程。
 
-> **目前進度**：後端已完成 Workflow 定義的 CRUD、畫布驗證與**執行引擎 Phase 1（手動執行）**；前端編輯器已具備多連接點節點（分支）、完整畫布操作、型別化節點設定表單、自動排版、深色 n8n 風格介面，以及**執行按鈕、節點即時狀態與結果面板**。條件／迴圈等控制流節點的執行與更多觸發器將於 Phase 2 推出。
+> **目前進度**：後端已完成 Workflow 定義的 CRUD、畫布驗證與**執行引擎（Phase 1 線性節點 + Phase 2 控制流／程式碼／資料轉換）**，全部 11 種節點型別皆可手動執行；前端編輯器已具備多連接點節點（分支）、完整畫布操作、型別化節點設定表單、自動排版、深色 n8n 風格介面，以及**執行按鈕、節點即時狀態與結果面板**。Executions 歷史清單與回放、更多觸發器（CRON／WEBHOOK）將於後續推出。
 
 ## 核心概念
 
@@ -25,7 +25,7 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 > `OUTPUT`（輸出）為流程終點節點，**無輸出埠**，config 以 `template`（支援 `{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一組成最終輸出。
 >
-> Phase 1 已支援 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT` 的實際執行；`TOOL`、`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
+> 全部 11 種節點型別皆已支援實際執行：Phase 1 的 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`，以及 Phase 2 的 `TOOL`（動態呼叫）、`CONDITION`（條件分支）、`LOOP`（迴圈子圖迭代）、`CODE`（GraalJS sandbox）、`DATA_TRANSFORM`（資料轉換）。執行細節見下方[手動執行](#手動執行)。
 
 ## 前端編輯器
 
@@ -87,20 +87,27 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 
 工具列的「整理版面」以 [`@dagrejs/dagre`](https://github.com/dagrejs/dagre) 對畫布做左至右（LR）排版：依連線關係計算各節點座標、重新佈局後置中檢視。排版為純函式（`layoutGraph`），只更新節點位置、不動其餘欄位。
 
-## 手動執行（Phase 1）
+## 手動執行
 
-Workflow 執行引擎 Phase 1 提供**手動觸發**的執行能力（`POST /llm/workflow/execute`，SSE 事件流）：
+Workflow 執行引擎提供**手動觸發**的執行能力（`POST /llm/workflow/execute`，SSE 事件流）：
 
 - **執行按鈕**：畫布工具列提供執行按鈕，**已存檔即可執行**——不需先切為 `ACTIVE`，DRAFT / INACTIVE 皆可跑；執行前後端會逐節點驗 config 必填欄位（與啟用驗證同一份契約）。
-- **節點即時狀態**：執行過程中前端依 SSE 事件（`node.started` / `node.completed` / `node.failed`）為畫布節點**即時上色**，一眼看出每個節點跑到哪、成功或失敗。
+- **節點即時狀態**：執行過程中前端依 SSE 事件（`node.started` / `node.completed` / `node.failed`）為畫布節點**即時上色**，一眼看出每個節點跑到哪、成功或失敗；client 中途停止／斷線時，仍在執行中的節點轉為 `CANCELLED` 終止態視覺。
 - **結果面板（ExecutionResultDrawer）**：執行結束後開啟結果抽屜，逐節點檢視輸入輸出與錯誤訊息，以及整體執行狀態。
 - **OUTPUT 節點**：以 `OUTPUT` 節點定義流程的最終輸出——`template`（`{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一。
 - **失敗與取消語意**：單一節點失敗時其下游節點標記 `SKIPPED`、整體 `FAILED`；client 中途斷線則標記 `CANCELLED`。執行紀錄落地 `llm_workflow_execution` / `llm_workflow_node_execution` 資料表。
-- **變數插值**：全引擎統一 `{{nodeKey.path}}` 語法引用上游輸出；引用不存在的節點該節點執行失敗。
+- **變數插值**：全引擎統一 `{{nodeKey.path}}` 語法引用上游輸出；引用不存在的節點該節點執行失敗。`TRIGGER` 節點輸出即為 input payload 本身（`{{triggerKey.欄位}}`，不再多包一層 `.input`）。
 
-**Phase 1 支援執行的節點**：`TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`。
+**支援執行的節點**：全部 11 種節點型別皆可執行——`TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
 
-> **Phase 2 預告**：`TOOL`、`CONDITION`、`LOOP`、`CODE`、`DATA_TRANSFORM` 目前執行時回報「尚未支援執行」，工具動態呼叫、控制流與資料轉換的執行邏輯將於 Phase 2 實作。
+### 控制流與進階節點（Phase 2）
+
+- **CONDITION（條件分支）**：依 config `conditions`（欄位／運算子／比較值，左右值支援插值）以 `logic`（and／or，預設 and）聚合求值，true 走 `out:true`、false 走 `out:false`；未走到的分支其下游整段標記 `SKIPPED`。支援運算子 `eq`／`ne`／`gt`／`gte`／`lt`／`lte`／`contains`／`notContains`／`isEmpty`／`isNotEmpty`（兩側可轉數值時以數值比較，否則字串比較）。
+- **LOOP（迴圈）**：`inputArrayPath` 插值取得陣列後逐項迭代，當前項以 `{{item}}`（可自訂 `itemAlias`）注入 context；自 `loopBodyEntryNodeKey` 起、不越過 LOOP 本身的子圖每迭代執行一次（節點紀錄帶 `loop_index`），各迭代輸出彙集於 `collectOutputKey`（預設 `items`），迭代完走 `out:done`；`maxIterations` 預設 100，暫不支援巢狀 LOOP。
+- **CODE（程式碼）**：GraalJS sandbox 執行 JavaScript，`allowAllAccess(false)` 禁 host class／IO 存取，單次執行逾時強制中斷（預設 10s）、輸出上限 256KB；腳本以 `input`（上游 context 已插值資料）為輸入，最後表達式的值即節點輸出。
+- **DATA_TRANSFORM（資料轉換）**：以 `template`（插值文字）或 `mappings`（`targetKey` / `expression`，純 `{{path}}` 保留原生型別、否則轉字串）轉換上游資料。
+- **TOOL（工具動態呼叫）**：依 `toolId`（+ 可選 `toolSettingId`）實例化並呼叫工具的 `@Tool` 方法，`arguments` 各值插值後依方法簽名轉型傳入。
+- **節點逾時**：每節點以 config `timeoutMs`（HTTP／CODE 型別）或預設 120s 為執行上限，逾時視同該節點失敗（下游 `SKIPPED`、整體 `FAILED`）。
 
 > 執行 API 規格與 SSE 事件格式見 [Workflow API — 執行 Workflow](../api/workflow.md#執行-workflow)。
 
@@ -119,7 +126,7 @@ Workflow 執行引擎 Phase 1 提供**手動觸發**的執行能力（`POST /llm
 - **nodeKey 唯一**：同一 workflow 內節點識別鍵不可重複
 - **edge 端點存在**：連線兩端必須對應到實際存在的節點
 - **節點數上限**：預設 100（可由 `workflow.max-nodes` 設定）
-- **無非法環**：以拓樸排序偵測有向環（Phase 1 一律視環為非法）
+- **無非法環**：以拓樸排序偵測有向環（一律視環為非法；LOOP 的迴圈語意由子圖迭代達成，圖本身仍須無環）
 - **節點 config 型別（save）**：每個節點的 config 依 NodeType 強型別反序列化——未知欄位、結構性型別錯誤、非法 enum 值回 400 並指出 nodeKey 與原因；必填缺席放行（草稿可不完整）
 - **啟用前置**：啟用 workflow 前須具備至少一個 `TRIGGER` 節點、圖無環，且**逐節點驗 config 必填欄位**（如 LLM 助手的 `llmId`），驗不過回報哪個節點缺哪些欄位——前述「必填未選不擋存檔」正是留待此處把關
 - **ACTIVE 重存驗必填**：對**已啟用（ACTIVE）**的 workflow 執行 save 時，同步套用上述必填驗證（維持「ACTIVE ⟺ 通過啟用驗證」不變式）；要存不完整的半成品須先停用（switchStatus false）。DRAFT / INACTIVE 的 save 仍只驗型別、放行缺必填

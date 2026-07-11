@@ -136,7 +136,8 @@ JPA Entity 對應資料庫表格，Repository 使用 Hibernate Panache 提供 CR
 ### `dto/` / `form/` / `model/` — 資料傳輸物件
 
 - `dto/`：API 回應資料物件
-  - `dto/workflow/config/`：workflow 節點 config 的強型別契約（`NodeConfig.kt`——10 種 NodeType 各一個 `@Serializable` DTO + `NodeConfigRegistry`，為節點 config schema 的唯一事實來源）
+  - `dto/workflow/config/`：workflow 節點 config 的強型別契約（`NodeConfig.kt`——11 種 NodeType 各一個 `@Serializable` DTO + `NodeConfigRegistry`，為節點 config schema 的唯一事實來源）
+  - `service/workflow/`：執行引擎（`WorkflowEngine` 編排＋拓撲活化遍歷、`ExecutionContext` 插值、`executor/` 下 11 種 NodeExecutor，含 CONDITION 分支、LOOP 子圖迭代、CODE GraalJS sandbox、DATA_TRANSFORM、TOOL 動態呼叫）
 - `form/`：API 請求參數物件
 - `model/`：業務模型物件
 

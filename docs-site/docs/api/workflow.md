@@ -174,7 +174,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `minScore` | number | | 相似度下限 |
 | `outputKey` | string | | 輸出鍵名 |
 
-> ⚠️ `topK` / `minScore` / `embeddingModelId` 於 Phase 1 執行時**未生效**（Phase 2 實作），僅供存檔與畫布驗證使用。
+> `topK`（預設 5）／ `minScore`（預設 0.0）／ `embeddingModelId` 於執行時實際傳入相似度檢索（Phase 2 起生效）。
 
 ### OUTPUT（輸出）
 
@@ -189,7 +189,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
-`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填；⚠️ `headers` / `secretHeaders` / `timeoutMs` 於 Phase 1 執行時未生效，Phase 2 實作）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
+`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填；`headers` / `secretHeaders` 執行時逐值插值後套用、`timeoutMs` 作為呼叫逾時，Phase 2 起生效）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
 
 完整欄位定義見 `docs/workflow-engine/system-design.md` §2；程式碼事實來源為 `dto/workflow/config/NodeConfig.kt`。以 JSON 編輯器輸入時，鍵名拼錯或型別不符會在存檔時被 400 擋下。
 
@@ -321,5 +321,6 @@ data:{"event":"execution.completed","executionId":"exec-1","status":"SUCCESS","o
 - **失敗語意**：單一節點失敗（`node.failed`）時，其**下游節點標記 `SKIPPED`**，整體執行以 `FAILED` 結束。
 - **取消語意**：client 中途斷線時，執行標記為 `CANCELLED`。
 - **變數插值**：全引擎統一使用 `{{nodeKey.path}}` 語法引用上游節點輸出；**引用不存在的節點該節點執行失敗**（錯誤訊息 i18n 化，含變數完整路徑）。
-- **Phase 1 支援節點**：`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`；`TOOL` / `CONDITION` / `LOOP` / `CODE` / `DATA_TRANSFORM` 執行時回報「尚未支援執行」（Phase 2 實作）。
+- **支援節點**：全部 11 種節點型別皆可執行——`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`TOOL`（動態呼叫）、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`（條件分支，未走分支下游 `SKIPPED`）、`LOOP`（子圖迭代，紀錄帶 `loop_index`）、`CODE`（GraalJS sandbox）、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
+- **節點逾時**：每節點以 config `timeoutMs`（HTTP／CODE）或預設 120s 為上限，逾時視同節點失敗。
 - **執行紀錄**：整體與逐節點執行紀錄分別寫入 `llm_workflow_execution` 與 `llm_workflow_node_execution` 資料表。

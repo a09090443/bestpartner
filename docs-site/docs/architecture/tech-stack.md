@@ -15,6 +15,7 @@ keywords: [技術選型, Quarkus, Kotlin, LangChain4J, 版本, 技術堆疊]
 | **LangChain4J** | 1.13.0 | AI 模型整合框架 |
 | **Hibernate Panache** | — | ORM 資料庫存取 |
 | **SmallRye JWT** | — | JWT 認證與授權 |
+| **GraalJS**（org.graalvm.polyglot） | 24.2.1 | Workflow `CODE` 節點的 JavaScript sandbox（禁 host 存取、逾時與輸出上限） |
 
 ## AI 模型支援
 
