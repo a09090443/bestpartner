@@ -172,8 +172,13 @@ bestpartner-ui/
 
 - **SSE 串流**：execute 為 `text/plain` SSE。以 Playwright 監看 UI（ExecutionResultDrawer 狀態轉移）為主，必要時輔以 `page.waitForResponse` / 攔截網路事件驗證事件序列。
 - **真實 LLM 逾時**：J5 單案例逾時放寬至 60–120s（可經 config 調整），並加入重試容忍（retries=1）以吸收偶發網路抖動；**斷言不依賴輸出文字**。
-- **拖拉互動**：Vue Flow 拖放建議用 `dragTo` / 滑鼠序列（mousedown→move→up），並在放置後斷言 store / DOM 節點數，避免 flaky。
-- **選擇器策略**：優先 `getByRole` / `getByTestId`，避免文字耦合 i18n。
+- **拖拉互動（兩種機制，勿混用；已實測驗證）**：
+  - **palette → 畫布新增節點**是 **HTML5 原生 DnD**（palette item `draggable=true` + `dragstart` 寫 `dataTransfer`，畫布 `.canvas` 監 `drop`）。Playwright 須**合成 DnD 事件**：於 `page.evaluate` 內建一個**共用 `DataTransfer`**，依序 `dispatchEvent` `dragstart`(source) → `dragenter`/`dragover`/`drop`(`.canvas`，帶 `clientX/clientY`)。**`mousedown→move→up` 驅動不了原生 DnD，勿用**。
+  - **節點連線**才是 pointer/滑鼠序列：`mouse.move(sourceHandle)→down→move(targetHandle,{steps})→up`，handle 以 `[data-node-type="X"] .vue-flow__handle[data-handleid="in:tool"]` 定位。
+  - 每步後斷言 `.vue-flow__node` / `.vue-flow__edge` 數量再繼續，避免競態。
+- **選擇器策略**：專案用 `data-test`（非 Playwright 預設 `data-testid`），config 須設 `testIdAttribute:'data-test'`。節點根已加 `data-node-type` 供依型別定位；優先 `getByRole`/`getByTestId`，避免耦合 i18n 文字。
+- **登入**：email 欄位為 `type=email`（原生驗證擋非 email），須用真實 email（admin 為 `admin@bestpartner.com.tw`）而非裸 `admin`。
+- **ID 動態解析（重要）**：運行 dev DB 的 `llmId`/`toolId` 與 `docs/sql` 種子檔會漂移（實測 OpenRouter CHAT 於本機為 `1ee80ffa…`、種子檔為 `583b9222…`）。**禁止硬編 ID**；於 `global-setup` 以 API 依 alias/platform/name 解析當前 DB 真實 ID，寫入 `.artifacts/seed.json` 供 spec 讀取（`E2E_LLM_ID` 可覆寫，缺則 J5 skip）。
 - **隔離性**：各 spec 自建自清資料；storageState 唯讀復用，不被測試改寫。
 
 ---
@@ -215,3 +220,16 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 - 新增或修改 UI 路由 / workflow 節點型別 / 執行事件時，本文件與對應 spec 須同步更新（由 `documentation-sync` skill 把關）。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
 - 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
+
+---
+
+## 10. 首條切片實測發現（2026-07-12）
+
+首條 J5 垂直切片已落地並在真實 stack（port 80 + Postgres + 真實 OpenRouter）跑通，harness 位於 `bestpartner-ui/e2e/`（`playwright.config.ts` / `global-setup.ts` / `global-teardown.ts` / `fixtures/db.ts` / `specs/j5-openrouter-date-json.spec.ts`）。此切片：TRIGGER → LLM_ASSISTANT(OpenRouter, JSON) ←in:tool← TOOL(DateTool) → OUTPUT(JSON)，並直連 Postgres 斷言 `llm_workflow_execution` / `llm_workflow_node_execution` 落庫。
+
+**已驗證**：HTML5 DnD 合成事件可靠、TRIGGER 無表單走 `JsonConfigEditor` raw 填 `triggerType`、`data-test` 選擇器、DB 落庫、ID 動態解析（見 §6）。
+
+**待後端釐清（不阻擋 E2E，但影響斷言語意）**：
+
+1. **TOOL(date) 節點會被引擎「獨立執行」且需 `arguments.zoneId`**：`ToolNodeExecutor` 直接呼叫 `DateTool`，未帶 `zoneId` 時 `ZoneId.of(null)` 拋 `ZoneRulesException` 使整條 FAILED；且該節點會落 `nodeType=TOOL` 執行紀錄——與「連 `in:tool` 僅為能力掛載、不獨立執行」的描述矛盾。
+2. **連到 `in:tool` 的 date 工具未真正掛給 LLM 當能力**：實測 LLM 回「此環境未提供可查詢即時時間的工具」，代表 Agent 模式的 langchain4j 工具集未納入該 TOOL 節點。故 J5 此切片**只斷言 plumbing / SSE `SUCCESS` / OUTPUT 為 JSON / DB 落庫，不斷言 LLM 實際呼叫了工具**，待後端修復後再強化。

@@ -72,6 +72,7 @@ function portTop(index: number, total: number): string {
     class="workflow-node"
     :class="[{ 'is-trigger': isTrigger }, execClass]"
     :style="nodeStyle"
+    :data-node-type="data.type"
   >
     <!-- 輸入埠（左緣）；TRIGGER 的 inputs 為空故不渲染 -->
     <Handle
