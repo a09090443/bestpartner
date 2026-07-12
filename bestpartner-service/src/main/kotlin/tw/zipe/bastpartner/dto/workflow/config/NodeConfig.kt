@@ -37,6 +37,13 @@ data class TriggerNodeConfig(
     }
 }
 
+/**
+ * LLM 助手節點（Agent 模式）：只負責呼叫指定 LLM。
+ * 工具、MCP、Skill 改為獨立節點（TOOL / MCP_SERVER / SKILL），透過連線掛載到本節點的
+ * 專用工具輸入埠（targetHandle = `in:tool`），由引擎於執行前解析為能力清單，
+ * 交本節點 executor 於推論前組裝成 langchain4j 工具集，由 LLM 自主決定何時呼叫。
+ * 故此 config 不再內嵌 toolIds/mcpIds/skillIds/knowledgeId/files。
+ */
 @Serializable
 data class LlmAssistantNodeConfig(
     val llmId: String? = null,
@@ -44,19 +51,27 @@ data class LlmAssistantNodeConfig(
     val userPrompt: String? = null,
     val enableMemory: Boolean? = null,
     val memoryId: String? = null,
-    val toolIds: List<String>? = null,
-    val toolSettingIds: List<String>? = null,
-    val mcpIds: List<String>? = null,
-    val mcpSettingIds: List<String>? = null,
-    val skillIds: List<String>? = null,
-    val knowledgeId: String? = null,
-    val files: List<String>? = null,
     val responseFormat: String? = null,
     val outputSchema: JsonObject? = null,
     val outputKey: String? = null
 ) : NodeConfig {
     override fun missingRequiredFields() = buildList {
         if (llmId.isNullOrBlank()) add("llmId")
+    }
+}
+
+/**
+ * Skill 節點：能力提供者。作為獨立節點連到 LLM 節點的 `in:tool` 埠，
+ * 由 [LlmAssistantNodeConfig] 對應的 executor 延遲讀取 skillId 掛載，本身不獨立執行、不落執行紀錄。
+ */
+@Serializable
+data class SkillNodeConfig(
+    val skillId: String? = null,
+    /** 保留以維持 config 形狀一致性；能力掛載模式下不使用 */
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (skillId.isNullOrBlank()) add("skillId")
     }
 }
 
@@ -210,6 +225,7 @@ object NodeConfigRegistry {
         NodeType.LLM_ASSISTANT -> strictJson.decodeFromJsonElement<LlmAssistantNodeConfig>(config)
         NodeType.TOOL -> strictJson.decodeFromJsonElement<ToolNodeConfig>(config)
         NodeType.MCP_SERVER -> strictJson.decodeFromJsonElement<McpServerNodeConfig>(config)
+        NodeType.SKILL -> strictJson.decodeFromJsonElement<SkillNodeConfig>(config)
         NodeType.KNOWLEDGE_RAG -> strictJson.decodeFromJsonElement<KnowledgeRagNodeConfig>(config)
         NodeType.CONDITION -> strictJson.decodeFromJsonElement<ConditionNodeConfig>(config)
         NodeType.LOOP -> strictJson.decodeFromJsonElement<LoopNodeConfig>(config)

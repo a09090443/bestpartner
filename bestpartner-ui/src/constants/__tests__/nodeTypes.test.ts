@@ -55,7 +55,7 @@ describe('nodeTypes 分類（category）', () => {
     for (const t of ['TOOL', 'MCP_SERVER', 'HTTP_REQUEST'] as const) {
       expect(getNodeTypeMeta(t)!.category).toBe('Action')
     }
-    for (const t of ['LLM_ASSISTANT', 'KNOWLEDGE_RAG'] as const) {
+    for (const t of ['LLM_ASSISTANT', 'SKILL', 'KNOWLEDGE_RAG'] as const) {
       expect(getNodeTypeMeta(t)!.category).toBe('AI')
     }
     for (const t of ['CONDITION', 'LOOP', 'CODE', 'DATA_TRANSFORM'] as const) {
@@ -63,7 +63,7 @@ describe('nodeTypes 分類（category）', () => {
     }
   })
 
-  it('getNodesByCategory 涵蓋全部 11 種型別且不重複', () => {
+  it('getNodesByCategory 涵蓋全部型別且不重複', () => {
     const all = NODE_CATEGORIES.flatMap((c) => getNodesByCategory(c).map((m) => m.type))
     expect(all).toHaveLength(NODE_TYPE_METAS.length)
     expect(new Set(all).size).toBe(NODE_TYPE_METAS.length)

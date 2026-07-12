@@ -23,10 +23,29 @@ class NodeConfigTest {
         val config = buildJsonObject {
             put("llmId", "llm-uuid")
             put("systemPrompt", "你是客服助手")
-            putJsonArray("toolIds") { add(JsonPrimitive("tool-1")) }
         }
         val parsed = NodeConfigRegistry.parse(NodeType.LLM_ASSISTANT, config)
         assertTrue(parsed is LlmAssistantNodeConfig)
+        assertEquals(emptyList<String>(), parsed.missingRequiredFields())
+    }
+
+    @Test
+    fun `LLM_ASSISTANT 已廢欄位 toolIds 被視為未知欄位而被拒`() {
+        // 工具/MCP/Skill 已改為獨立節點掛載，LLM 節點 config 不再接受這些欄位
+        val config = buildJsonObject {
+            put("llmId", "llm-uuid")
+            putJsonArray("toolIds") { add(JsonPrimitive("tool-1")) }
+        }
+        assertThrows(SerializationException::class.java) {
+            NodeConfigRegistry.parse(NodeType.LLM_ASSISTANT, config)
+        }
+    }
+
+    @Test
+    fun `SKILL 合法 config 解析成功且無缺必填`() {
+        val config = buildJsonObject { put("skillId", "skill-1") }
+        val parsed = NodeConfigRegistry.parse(NodeType.SKILL, config)
+        assertTrue(parsed is SkillNodeConfig)
         assertEquals(emptyList<String>(), parsed.missingRequiredFields())
     }
 
@@ -49,13 +68,12 @@ class NodeConfigTest {
     }
 
     @Test
-    fun `型別錯誤被拒 - toolIds 給字串而非陣列`() {
+    fun `型別錯誤被拒 - conditions 給字串而非陣列`() {
         val config = buildJsonObject {
-            put("llmId", "llm-uuid")
-            put("toolIds", "not-an-array")
+            put("conditions", "not-an-array")
         }
         assertThrows(SerializationException::class.java) {
-            NodeConfigRegistry.parse(NodeType.LLM_ASSISTANT, config)
+            NodeConfigRegistry.parse(NodeType.CONDITION, config)
         }
     }
 
@@ -98,7 +116,7 @@ class NodeConfigTest {
     }
 
     @Test
-    fun `全部 10 種 NodeType 空 config 皆可解析`() {
+    fun `全部 NodeType 空 config 皆可解析`() {
         NodeType.entries.forEach { type ->
             NodeConfigRegistry.parse(type, buildJsonObject { })
         }
@@ -110,6 +128,7 @@ class NodeConfigTest {
         assertEquals(listOf("triggerType"), NodeConfigRegistry.parse(NodeType.TRIGGER, empty).missingRequiredFields())
         assertEquals(listOf("toolId"), NodeConfigRegistry.parse(NodeType.TOOL, empty).missingRequiredFields())
         assertEquals(listOf("mcpId", "toolName"), NodeConfigRegistry.parse(NodeType.MCP_SERVER, empty).missingRequiredFields())
+        assertEquals(listOf("skillId"), NodeConfigRegistry.parse(NodeType.SKILL, empty).missingRequiredFields())
         assertEquals(
             listOf("knowledgeId", "embeddingModelId", "query"),
             NodeConfigRegistry.parse(NodeType.KNOWLEDGE_RAG, empty).missingRequiredFields()

@@ -108,6 +108,7 @@ enum class AppMessage(val key: String) {
     WORKFLOW_CODE_TIMEOUT("workflow.code.timeout"),
     WORKFLOW_CODE_OUTPUT_TOO_LARGE("workflow.code.output.too.large"),
     WORKFLOW_CODE_SCRIPT_ERROR("workflow.code.script.error"),
+    WORKFLOW_SKILL_NODE_NOT_MOUNTED("workflow.skill.node.not.mounted"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),

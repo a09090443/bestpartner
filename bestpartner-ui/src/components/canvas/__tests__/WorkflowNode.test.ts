@@ -47,12 +47,22 @@ describe('WorkflowNode', () => {
     expect(wrapper.text()).toContain('觸發')
   })
 
-  it('預設型別渲染單一 target 與單一 source handle', () => {
+  it('預設型別（TOOL）渲染單一 target 與單一 source handle', () => {
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'n1', data: { type: 'TOOL' } },
+      global: globalConfig,
+    })
+    expect(handles(wrapper, 'target')).toHaveLength(1)
+    expect(handles(wrapper, 'source')).toHaveLength(1)
+  })
+
+  it('LLM_ASSISTANT 渲染兩個 target handle（in:main / in:tool）', () => {
     const wrapper = mount(WorkflowNode, {
       props: { id: 'n1', data: { type: 'LLM_ASSISTANT' } },
       global: globalConfig,
     })
-    expect(handles(wrapper, 'target')).toHaveLength(1)
+    const ids = handles(wrapper, 'target').map((h) => h.attributes('data-hid'))
+    expect(ids).toEqual(['in:main', 'in:tool'])
     expect(handles(wrapper, 'source')).toHaveLength(1)
   })
 

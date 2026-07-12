@@ -4,6 +4,7 @@ import JsonConfigEditor from './JsonConfigEditor.vue'
 import LlmAssistantForm from './forms/LlmAssistantForm.vue'
 import ToolForm from './forms/ToolForm.vue'
 import McpServerForm from './forms/McpServerForm.vue'
+import SkillForm from './forms/SkillForm.vue'
 import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
 import OutputForm from './forms/OutputForm.vue'
 import { NODE_CATEGORIES, getNodeTypeMeta, getNodesByCategory } from '../../constants/nodeTypes'
@@ -41,6 +42,7 @@ const TYPED_FORMS = markRaw({
   LLM_ASSISTANT: LlmAssistantForm,
   TOOL: ToolForm,
   MCP_SERVER: McpServerForm,
+  SKILL: SkillForm,
   KNOWLEDGE_RAG: KnowledgeRagForm,
   OUTPUT: OutputForm,
 })

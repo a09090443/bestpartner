@@ -92,7 +92,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ## 節點 config 契約
 
-每個節點的 `config` 在後端以**強型別 DTO** 定義契約：11 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
+每個節點的 `config` 在後端以**強型別 DTO** 定義契約：12 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
 
 - **save（含 DRAFT）**：依 NodeType 嚴格反序列化——**未知欄位**或**結構性型別錯誤**（如陣列欄位給字串、非法 enum 值）回 400（`workflow.node.config.invalid`，訊息含 nodeKey 與原因）；必填欄位缺席**放行**，允許存不完整草稿。數字/布林形式的字串（如 `"topK": "5"`）會被寬鬆轉型接受。
 - **switchStatus 啟用**：逐節點檢查必填欄位，驗不過回 400（`workflow.node.config.required.missing`，訊息含 nodeKey 與缺漏欄位清單）。
@@ -102,7 +102,9 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 > ⚠️ 因未知欄位會被拒，前端表單寫入的欄位名必須與 DTO 完全一致；以 `JsonConfigEditor` 自由編輯的 config 若含契約外的鍵，存檔會被 400 擋下（錯誤訊息會指出節點與原因）。
 
-下列 5 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
+下列 6 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
+
+> **Agent 模式（LLM 節點簡化）**：`LLM_ASSISTANT` 只保留 LLM 呼叫本身的欄位；工具、MCP、Skill、知識庫改為獨立節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`），以輸出連到 LLM 節點的工具輸入埠 `in:tool` 掛載，由 LLM 自主呼叫。舊有含 `toolIds` / `mcpIds` / `skillIds` / `knowledgeId` / `files` 的 LLM config 因嚴格 JSON 會被拒（開發期以重建種子資料處理）。
 
 ### LLM_ASSISTANT（LLM 助手）
 
@@ -113,16 +115,11 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `userPrompt` | string | | 使用者提示，支援變數插值引用上游輸出 |
 | `enableMemory` | boolean | | 是否啟用對話 Memory |
 | `memoryId` | string | | Memory 識別；留空則單次執行內共享（僅 `enableMemory=true` 時寫入） |
-| `toolIds` | string[] | | 綁定的工具 id 清單 |
-| `toolSettingIds` | string[] | | 對應工具的使用者設定 id（需 API key 的工具用此欄） |
-| `mcpIds` | string[] | | 綁定的 MCP 伺服器 id 清單 |
-| `mcpSettingIds` | string[] | | 對應 MCP 的使用者設定 id |
-| `skillIds` | string[] | | 綁定的 Skill id 清單 |
-| `knowledgeId` | string | | RAG 知識庫 id（自動增強） |
-| `files` | string[] | | 附加的已上傳檔名，支援插值 |
 | `responseFormat` | `"TEXT"` \| `"JSON"` | | 回應格式，預設 `TEXT` |
 | `outputSchema` | object | | `responseFormat=JSON` 時的輸出 JSON Schema |
 | `outputKey` | string | | 輸出鍵名，預設 `reply` |
+
+> 工具 / MCP / Skill 不再是本節點欄位——改由 `TOOL` / `MCP_SERVER` / `SKILL` 獨立節點連到 `in:tool` 埠掛載（Agent 模式，見上）。
 
 **範例**
 
@@ -137,7 +134,6 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
     "llmId": "3f2a...",
     "systemPrompt": "你是專業客服",
     "userPrompt": "請回覆：{{trigger.message}}",
-    "toolIds": ["tool-google"],
     "responseFormat": "TEXT",
     "outputKey": "reply"
   }
@@ -162,6 +158,14 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `toolName` | string | ✓ | 要呼叫的 MCP 工具名稱（啟用時必填） |
 | `arguments` | object | | 工具呼叫參數（支援插值） |
 | `outputKey` | string | | 輸出鍵名 |
+
+### SKILL（Skill 能力節點）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `skillId` | string | ✓ | Skill id（對應 `/llm/skill/list`） |
+
+> 能力節點：只連到 `LLM_ASSISTANT` 的 `in:tool` 埠，本身不獨立執行、不落執行紀錄。孤兒 SKILL（未掛載任何 LLM）於 save/switchStatus/execute 前驗證回 `workflow.skill.node.not.mounted`。
 
 ### KNOWLEDGE_RAG（知識庫 RAG）
 
@@ -225,6 +229,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
     "LLM_ASSISTANT": ["llmId"],
     "TOOL": ["toolId"],
     "MCP_SERVER": ["mcpId", "toolName"],
+    "SKILL": ["skillId"],
     "KNOWLEDGE_RAG": ["knowledgeId", "embeddingModelId", "query"],
     "TRIGGER": ["triggerType"],
     "CONDITION": ["conditions"],
@@ -321,6 +326,6 @@ data:{"event":"execution.completed","executionId":"exec-1","status":"SUCCESS","o
 - **失敗語意**：單一節點失敗（`node.failed`）時，其**下游節點標記 `SKIPPED`**，整體執行以 `FAILED` 結束。
 - **取消語意**：client 中途斷線時，執行標記為 `CANCELLED`。
 - **變數插值**：全引擎統一使用 `{{nodeKey.path}}` 語法引用上游節點輸出；**引用不存在的節點該節點執行失敗**（錯誤訊息 i18n 化，含變數完整路徑）。
-- **支援節點**：全部 11 種節點型別皆可執行——`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`TOOL`（動態呼叫）、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`（條件分支，未走分支下游 `SKIPPED`）、`LOOP`（子圖迭代，紀錄帶 `loop_index`）、`CODE`（GraalJS sandbox）、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
+- **支援節點**：除 `SKILL`（能力節點，掛載到 LLM `in:tool` 埠、不獨立執行）外，其餘 11 種皆可執行——`TRIGGER`（`MANUAL`）、`LLM_ASSISTANT`、`TOOL`（動態呼叫）、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`（條件分支，未走分支下游 `SKIPPED`）、`LOOP`（子圖迭代，紀錄帶 `loop_index`）、`CODE`（GraalJS sandbox）、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
 - **節點逾時**：每節點以 config `timeoutMs`（HTTP／CODE）或預設 120s 為上限，逾時視同節點失敗。
 - **執行紀錄**：整體與逐節點執行紀錄分別寫入 `llm_workflow_execution` 與 `llm_workflow_node_execution` 資料表。

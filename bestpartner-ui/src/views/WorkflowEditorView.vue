@@ -17,7 +17,8 @@ import { getNodeTypeMeta } from '../constants/nodeTypes'
 import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
 import { layoutGraph } from '../composables/useCanvasLayout'
 import { computeFitZoom } from '../composables/useDefaultZoom'
-import { validateGraph } from '../composables/useGraphValidation'
+import { validateGraph, CAPABILITY_SOURCE_TYPES } from '../composables/useGraphValidation'
+import { IN_TOOL } from '../constants/handles'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import { useExecutionStore } from '../stores/execution'
 import { extractApiMessage } from '../api/http'
@@ -215,6 +216,15 @@ onBeforeUnmount(() => {
 })
 
 onConnect((connection: Connection) => {
+  // Agent 模式相容性：LLM 工具埠（in:tool）只接受 TOOL / MCP_SERVER / SKILL 來源
+  if (connection.targetHandle === IN_TOOL) {
+    const sourceType = (flowNodesRef?.value ?? []).find((n) => n.id === connection.source)?.data
+      ?.type as NodeType | undefined
+    if (!sourceType || !CAPABILITY_SOURCE_TYPES.has(sourceType)) {
+      ElMessage.warning('僅工具、MCP、Skill 節點可連到 LLM 的工具埠')
+      return
+    }
+  }
   const id = makeEdgeId(
     connection.source,
     connection.target,

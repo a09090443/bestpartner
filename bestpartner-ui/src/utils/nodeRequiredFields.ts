@@ -13,6 +13,7 @@ const FIELD_LABELS: Record<string, string> = {
   llmId: 'LLM 設定',
   toolId: '工具',
   mcpId: 'MCP 伺服器',
+  skillId: 'Skill',
   toolName: '工具名稱',
   knowledgeId: '知識庫',
   embeddingModelId: 'Embedding 模型',

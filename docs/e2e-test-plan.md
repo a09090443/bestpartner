@@ -82,6 +82,7 @@
 |:---:|------|------|
 | P0 | 從 NodePalette 拖拉節點入畫布（TRIGGER / LLM_ASSISTANT / OUTPUT） | 節點出現於畫布，nodeKey 唯一 |
 | P0 | 連線 edge（來源 handle → 目標 handle） | edge 建立，兩端點存在 |
+| P1 | 能力掛載：拖 TOOL / SKILL 節點，`out:main` 連到 LLM 的 `in:tool` 埠並 save | edge 建立（`targetHandle=in:tool`）；重載後畫布還原、連線保留 |
 | P0 | 選節點 → InspectorPanel 填 config | 表單值寫回節點 |
 | P0 | save 整張覆寫 | version+1；重載後畫布還原（nodes/edges/config 一致） |
 | P1 | 重新整理頁面後 get 還原 | 畫布與 Inspector 內容與存檔一致 |
@@ -93,6 +94,8 @@
 | P1 | 缺 TRIGGER 節點時 switchStatus 啟用 | 400，顯示對應訊息 |
 | P1 | 圖有環時啟用 | 400，顯示對應訊息 |
 | P1 | 節點缺必填 config 啟用（如 LLM_ASSISTANT 缺 `llmId`） | 400，`workflow.node.config.required.missing`，UI 顯示 nodeKey 與缺漏欄位 |
+| P1 | 孤兒 SKILL 節點（未連任何 LLM `in:tool`）save/啟用 | 400，`workflow.skill.node.not.mounted`，UI 顯示 nodeKey |
+| P1 | 非 TOOL/MCP/SKILL 節點拉線到 LLM `in:tool` 埠 | 拉線即被擋（toast），存檔驗證回 `INCOMPATIBLE_CONNECTION` |
 | P1 | 合法圖 switchStatus 啟用 | 狀態轉 ACTIVE |
 
 ### J5 執行 workflow（P0，**真實 LLM**）
@@ -100,6 +103,7 @@
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
 | P0 | 合法 workflow（TRIGGER → LLM_ASSISTANT → OUTPUT，DRAFT 即可）execute | ExecutionResultDrawer 依序反映 SSE：`execution.started` → 各節點 `node.started` / `node.completed` → `execution.completed`（SUCCESS）；`llm_workflow_execution` / `llm_workflow_node_execution` 有紀錄 |
+| P1 | Agent 模式：TOOL / SKILL 節點以 `out:main → LLM in:tool` 掛載後 execute | LLM 可自主呼叫掛載工具並回覆；能力節點**不產生**獨立 `node.started` / `node.completed` 事件、`node_execution` 無其紀錄（僅 LLM 節點內部呼叫） |
 | P1 | 某節點設定錯誤導致失敗 | 該節點顯示 `node.failed` 狀態與錯誤；執行標記失敗 |
 | P1 | 執行中途 client 斷線（關抽屜 / 離開頁面） | 執行標記 `CANCELLED`，未執行下游節點標記 `SKIPPED`（對應 commit b24c128 的視覺行為） |
 
@@ -111,8 +115,8 @@
 
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
-| P1 | LlmAssistantForm 選 `llmId`（下拉來自 LLM setting） | 值寫回並可存檔 |
-| P1 | ToolForm / McpServerForm / KnowledgeRagForm / OutputForm 填寫 | 各節點 config 正確寫回；save 後重載一致 |
+| P1 | LlmAssistantForm 選 `llmId`（下拉來自 LLM setting；表單已精簡，無工具/MCP/Skill/知識庫欄位） | 值寫回並可存檔；不再出現 `tool-ids` / `mcp-ids` / `skill-ids` / `knowledge-id` 欄位 |
+| P1 | ToolForm / McpServerForm / SkillForm / KnowledgeRagForm / OutputForm 填寫 | 各節點 config 正確寫回；save 後重載一致（SkillForm 選 `skillId`，下拉來自 `/llm/skill/list`） |
 | P2 | settingSchema 動態表單（sensitive 欄位遮罩） | 依 schema 正確渲染欄位型別 |
 
 ### J7 契約錯誤（P2）

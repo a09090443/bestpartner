@@ -9,6 +9,7 @@ export type NodeType =
   | 'LLM_ASSISTANT'
   | 'TOOL'
   | 'MCP_SERVER'
+  | 'SKILL'
   | 'KNOWLEDGE_RAG'
   | 'CONDITION'
   | 'LOOP'

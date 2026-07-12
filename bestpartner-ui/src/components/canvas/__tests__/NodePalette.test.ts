@@ -5,10 +5,10 @@ import { DRAG_NODE_TYPE_KEY } from '../dragKeys'
 import { NODE_CATEGORIES } from '../../../constants/nodeTypes'
 
 describe('NodePalette', () => {
-  it('應列出 11 種可拖曳的節點型別', () => {
+  it('應列出 12 種可拖曳的節點型別', () => {
     const wrapper = mount(NodePalette)
     const items = wrapper.findAll('[data-test^="palette-item-"]')
-    expect(items).toHaveLength(11)
+    expect(items).toHaveLength(12)
   })
 
   it('應顯示各型別的 label（例如 TRIGGER → 觸發）', () => {

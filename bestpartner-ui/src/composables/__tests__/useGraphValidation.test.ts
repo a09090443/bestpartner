@@ -104,6 +104,36 @@ describe('validateGraph — handle 規則', () => {
   })
 })
 
+describe('validateGraph — 工具埠相容性（in:tool）', () => {
+  it('TOOL/MCP/SKILL 連到 LLM 工具埠應無相容性錯誤', () => {
+    const llm = node('llm', 'LLM_ASSISTANT')
+    const tool = node('t', 'TOOL')
+    const skill = node('s', 'SKILL')
+    const edges: WorkflowEdgeDTO[] = [
+      { sourceNodeKey: 't', targetNodeKey: 'llm', sourceHandle: 'out:main', targetHandle: 'in:tool' },
+      { sourceNodeKey: 's', targetNodeKey: 'llm', sourceHandle: 'out:main', targetHandle: 'in:tool' },
+    ]
+    const errors = validateGraph([llm, tool, skill], edges)
+    expect(errors.some((e) => e.type === 'INCOMPATIBLE_CONNECTION')).toBe(false)
+  })
+
+  it('非 TOOL/MCP/SKILL 來源連到工具埠應回報 INCOMPATIBLE_CONNECTION（error）', () => {
+    const llm = node('llm', 'LLM_ASSISTANT')
+    const code = node('c', 'CODE')
+    const e: WorkflowEdgeDTO = {
+      sourceNodeKey: 'c',
+      targetNodeKey: 'llm',
+      sourceHandle: 'out:main',
+      targetHandle: 'in:tool',
+    }
+    const errors = validateGraph([llm, code], [e])
+    const incompatible = errors.find((x) => x.type === 'INCOMPATIBLE_CONNECTION')
+    expect(incompatible).toBeDefined()
+    expect(incompatible?.severity).toBe('error')
+    expect(incompatible?.key).toBe('c')
+  })
+})
+
 describe('validateGraph — 必填欄位規則', () => {
   const requiredFields: NodeRequiredFields = {
     LLM_ASSISTANT: ['llmId'],

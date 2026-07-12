@@ -1,9 +1,18 @@
 package tw.zipe.bastpartner.service.workflow
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
+import tw.zipe.bastpartner.enumerate.NodeType
 
 /** 插值變數不存在（含完整 path），由引擎轉為該節點 FAILED */
 class VariableNotFoundException(val path: String) : RuntimeException(path)
+
+/**
+ * 掛載到某 LLM 節點的能力（Agent 模式）：由 TOOL / MCP_SERVER / SKILL 節點經
+ * `in:tool` 邊連上 LLM 節點而來。引擎於執行前解析為此結構並注入 [ExecutionContext]，
+ * 交 LLM 節點 executor 於推論前組裝成 langchain4j 工具集。
+ */
+data class MountedCapability(val nodeType: NodeType, val config: NodeConfig)
 
 /**
  * 單次執行的變數上下文：nodeKey → 該節點輸出物件。
@@ -17,6 +26,8 @@ class ExecutionContext(
 ) {
     private val outputs = LinkedHashMap<String, Map<String, Any?>>()
     private val values = LinkedHashMap<String, Any?>()
+    /** llmNodeKey → 掛載到該 LLM 節點的能力清單（Agent 模式），由引擎於執行前注入 */
+    private val capabilities = LinkedHashMap<String, List<MountedCapability>>()
     private val objectMapper = ObjectMapper()
 
     companion object {
@@ -40,6 +51,15 @@ class ExecutionContext(
     fun removeValue(key: String) {
         values.remove(key)
     }
+
+    /** 引擎於執行前一次注入所有 LLM 節點的能力掛載清單 */
+    fun setCapabilities(map: Map<String, List<MountedCapability>>) {
+        capabilities.clear()
+        capabilities.putAll(map)
+    }
+
+    /** 取得掛載到指定 LLM 節點的能力清單；未掛載則回空清單 */
+    fun capabilitiesFor(llmNodeKey: String): List<MountedCapability> = capabilities[llmNodeKey].orEmpty()
 
     fun resolvePath(path: String): Any? {
         val segments = path.split(".")

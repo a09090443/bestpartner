@@ -88,7 +88,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 
 | 何時 | 必須呼叫的 skill |
 |------|-----------------|
-| 改動 API / entity / 資料表 / 設定鍵後，宣告完成前 | `documentation-sync` → [`documentation-update-policy.md`](.claude/rules/documentation-update-policy.md) |
+| 改動 API / entity / 資料表 / 設定鍵 / UI / workflow 節點型別 / 執行事件後，宣告完成前 | `documentation-sync`（含測試文件同步檢視：e2e-test-plan / api-test-plan，見 policy「測試文件同步」）→ [`documentation-update-policy.md`](.claude/rules/documentation-update-policy.md) |
 | 執行任何 API 測試前 | `test-confirmation` → [`api-testing.md`](.claude/rules/api-testing.md) |
 | 寫 git commit 訊息 | `git-commit-message`（`<類型>(<範圍>): <主旨>`，繁中主旨） |
 

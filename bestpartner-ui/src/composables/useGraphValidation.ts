@@ -1,5 +1,6 @@
-import type { WorkflowNodeDTO, WorkflowEdgeDTO } from '../types/workflow'
+import type { NodeType, WorkflowNodeDTO, WorkflowEdgeDTO } from '../types/workflow'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
+import { IN_TOOL } from '../constants/handles'
 import { missingRequiredForNode, formatMissingFields } from '../utils/nodeRequiredFields'
 import type { NodeRequiredFields } from '../api/workflow'
 
@@ -9,8 +10,16 @@ export type GraphErrorType =
   | 'EDGE_NODE_NOT_FOUND'
   | 'CYCLE'
   | 'UNKNOWN_HANDLE'
+  | 'INCOMPATIBLE_CONNECTION'
   | 'BRANCH_INCOMPLETE'
   | 'REQUIRED_FIELD_MISSING'
+
+/** 可掛載到 LLM 工具埠（in:tool）的來源節點型別（Agent 模式能力掛載） */
+export const CAPABILITY_SOURCE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>([
+  'TOOL',
+  'MCP_SERVER',
+  'SKILL',
+])
 
 /** 驗證嚴重度：error 擋存檔；warning 可存檔、啟用時再擋 */
 export type GraphErrorSeverity = 'error' | 'warning'
@@ -133,6 +142,20 @@ export function validateGraph(
           message: `未知的輸入埠：${e.targetHandle}（節點 ${e.targetNodeKey}）`,
         })
       }
+    }
+  })
+
+  // 連線相容性：連到 LLM 工具埠（in:tool）的來源只能是 TOOL / MCP_SERVER / SKILL（error）
+  edges.forEach((e) => {
+    if (e.targetHandle !== IN_TOOL) return
+    const source = nodeByKey.get(e.sourceNodeKey)
+    if (source && !CAPABILITY_SOURCE_TYPES.has(source.type)) {
+      errors.push({
+        type: 'INCOMPATIBLE_CONNECTION',
+        severity: 'error',
+        key: e.sourceNodeKey,
+        message: `僅工具、MCP、Skill 節點可連到 LLM 的工具埠：${e.sourceNodeKey}`,
+      })
     }
   })
 

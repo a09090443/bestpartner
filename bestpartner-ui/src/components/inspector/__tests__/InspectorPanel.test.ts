@@ -8,6 +8,7 @@ vi.mock('../../../composables/useNodeOptions', () => ({
     loadLlmOptions: vi.fn().mockResolvedValue([]),
     loadToolOptions: vi.fn().mockResolvedValue([]),
     loadMcpOptions: vi.fn().mockResolvedValue([]),
+    loadSkillOptions: vi.fn().mockResolvedValue([]),
   }),
 }))
 
@@ -15,6 +16,7 @@ import InspectorPanel from '../InspectorPanel.vue'
 import LlmAssistantForm from '../forms/LlmAssistantForm.vue'
 import ToolForm from '../forms/ToolForm.vue'
 import McpServerForm from '../forms/McpServerForm.vue'
+import SkillForm from '../forms/SkillForm.vue'
 import KnowledgeRagForm from '../forms/KnowledgeRagForm.vue'
 import JsonConfigEditor from '../JsonConfigEditor.vue'
 import type { FlowNode } from '../../../composables/useWorkflowSync'
@@ -47,6 +49,10 @@ describe('InspectorPanel 型別分派', () => {
 
   it('MCP_SERVER 渲染 McpServerForm', () => {
     expect(mountWith('MCP_SERVER').findComponent(McpServerForm).exists()).toBe(true)
+  })
+
+  it('SKILL 渲染 SkillForm', () => {
+    expect(mountWith('SKILL').findComponent(SkillForm).exists()).toBe(true)
   })
 
   it('KNOWLEDGE_RAG 渲染 KnowledgeRagForm', () => {

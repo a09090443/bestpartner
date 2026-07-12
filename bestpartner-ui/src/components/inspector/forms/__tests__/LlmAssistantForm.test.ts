@@ -2,18 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
 const loadLlmOptions = vi.fn()
-const loadToolOptions = vi.fn()
-const loadMcpOptions = vi.fn()
-const loadKnowledgeOptions = vi.fn()
-const loadSkillOptions = vi.fn()
 vi.mock('../../../../composables/useNodeOptions', () => ({
-  useNodeOptions: () => ({
-    loadLlmOptions,
-    loadToolOptions,
-    loadMcpOptions,
-    loadKnowledgeOptions,
-    loadSkillOptions,
-  }),
+  useNodeOptions: () => ({ loadLlmOptions }),
 }))
 
 import LlmAssistantForm from '../LlmAssistantForm.vue'
@@ -25,17 +15,6 @@ describe('LlmAssistantForm', () => {
       { value: 's1', label: 'GPT' },
       { value: 's2', label: 'Claude' },
     ])
-    loadToolOptions.mockReset()
-    loadToolOptions.mockResolvedValue([
-      { value: 't1', label: 'Google' },
-      { value: 't2', label: 'Date' },
-    ])
-    loadMcpOptions.mockReset()
-    loadMcpOptions.mockResolvedValue([{ value: 'm1', label: 'filesystem' }])
-    loadKnowledgeOptions.mockReset()
-    loadKnowledgeOptions.mockResolvedValue([{ value: 'k1', label: '產品手冊' }])
-    loadSkillOptions.mockReset()
-    loadSkillOptions.mockResolvedValue([{ value: 'sk1', label: 'pdf-report' }])
   })
 
   it('掛載後以載入的 LLM 設定渲染下拉選項', async () => {
@@ -100,71 +79,6 @@ describe('LlmAssistantForm', () => {
     expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1' })
   })
 
-  it('複選 toolIds 應 emit 陣列；清空則移除該鍵', async () => {
-    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
-    await flushPromises()
-    await wrapper.find('[data-test="tool-ids"]').setValue(['t1', 't2'])
-    let emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', toolIds: ['t1', 't2'] })
-    await wrapper.find('[data-test="tool-ids"]').setValue([])
-    emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1' })
-  })
-
-  it('toolSettingIds 以逗號分隔輸入應 emit 修剪後的陣列', async () => {
-    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
-    await flushPromises()
-    await wrapper.find('[data-test="tool-setting-ids"]').setValue('ts1, ts2 ,')
-    const emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({
-      llmId: 's1',
-      toolSettingIds: ['ts1', 'ts2'],
-    })
-  })
-
-  it('複選 mcpIds 與填寫 mcpSettingIds 應 emit 對應陣列', async () => {
-    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
-    await flushPromises()
-    await wrapper.find('[data-test="mcp-ids"]').setValue(['m1'])
-    await wrapper.find('[data-test="mcp-setting-ids"]').setValue('ms1')
-    const emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({
-      llmId: 's1',
-      mcpIds: ['m1'],
-      mcpSettingIds: ['ms1'],
-    })
-  })
-
-  it('複選 skillIds 應 emit 陣列', async () => {
-    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
-    await flushPromises()
-    await wrapper.find('[data-test="skill-ids"]').setValue(['sk1'])
-    const emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', skillIds: ['sk1'] })
-  })
-
-  it('選取 knowledgeId 應 emit；改回空值則移除該鍵', async () => {
-    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
-    await flushPromises()
-    await wrapper.find('[data-test="knowledge-id"]').setValue('k1')
-    let emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', knowledgeId: 'k1' })
-    await wrapper.find('[data-test="knowledge-id"]').setValue('')
-    emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1' })
-  })
-
-  it('files 以逗號分隔輸入應 emit 修剪後的陣列', async () => {
-    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
-    await flushPromises()
-    await wrapper.find('[data-test="files"]').setValue('a.png, {{trigger.fileName}}')
-    const emitted = wrapper.emitted('update:config')
-    expect(emitted![emitted!.length - 1][0]).toEqual({
-      llmId: 's1',
-      files: ['a.png', '{{trigger.fileName}}'],
-    })
-  })
-
   it('responseFormat 預設 TEXT 不 emit；選 JSON 才顯示 outputSchema 並 emit', async () => {
     const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
     await flushPromises()
@@ -210,7 +124,29 @@ describe('LlmAssistantForm', () => {
     expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', outputKey: 'reply' })
   })
 
-  it('由既有 config 還原各欄位值', async () => {
+  it('編輯時清除已移除的欄位殘留鍵（toolIds/mcpIds/skillIds/knowledgeId/files）', async () => {
+    const wrapper = mount(LlmAssistantForm, {
+      props: {
+        config: {
+          llmId: 's1',
+          toolIds: ['t1'],
+          toolSettingIds: ['ts1'],
+          mcpIds: ['m1'],
+          mcpSettingIds: ['ms1'],
+          skillIds: ['sk1'],
+          knowledgeId: 'k1',
+          files: ['a.png'],
+        },
+      },
+    })
+    await flushPromises()
+    await wrapper.find('[data-test="output-key"]').setValue('reply')
+    const emitted = wrapper.emitted('update:config')
+    // 已移除欄位一律被剝除，避免後端嚴格 JSON 解析失敗
+    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', outputKey: 'reply' })
+  })
+
+  it('由既有 config 還原保留的欄位值', async () => {
     const wrapper = mount(LlmAssistantForm, {
       props: {
         config: {
@@ -218,9 +154,6 @@ describe('LlmAssistantForm', () => {
           userPrompt: 'hi',
           enableMemory: true,
           memoryId: 'mem1',
-          toolIds: ['t2'],
-          skillIds: ['sk1'],
-          knowledgeId: 'k1',
           responseFormat: 'JSON',
           outputSchema: { type: 'object' },
           outputKey: 'reply',
@@ -236,9 +169,6 @@ describe('LlmAssistantForm', () => {
     ).toBe(true)
     expect((wrapper.find('[data-test="memory-id"]').element as HTMLInputElement).value).toBe(
       'mem1',
-    )
-    expect((wrapper.find('[data-test="knowledge-id"]').element as HTMLSelectElement).value).toBe(
-      'k1',
     )
     expect(
       (wrapper.find('[data-test="response-format"]').element as HTMLSelectElement).value,

@@ -12,6 +12,12 @@
 export const IN_MAIN = 'in:main'
 /** 預設輸出埠 */
 export const OUT_MAIN = 'out:main'
+/**
+ * LLM 節點的工具輸入埠（Agent 模式能力掛載）。
+ * TOOL / MCP_SERVER / SKILL 節點以 out:main 連到此埠，代表「掛載為 LLM 可自主呼叫的工具集」，
+ * 而非一般資料流連線。後端 WorkflowEngine 以 targetHandle === 'in:tool' 辨識此語義。
+ */
+export const IN_TOOL = 'in:tool'
 
 /** handle 角色 */
 export type HandleRole = 'in' | 'out'

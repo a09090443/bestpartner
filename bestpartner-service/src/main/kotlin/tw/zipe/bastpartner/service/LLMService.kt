@@ -12,9 +12,12 @@ import dev.langchain4j.model.chat.request.ChatRequest
 import dev.langchain4j.model.embedding.EmbeddingModel
 import dev.langchain4j.rag.DefaultRetrievalAugmentor
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever
+import dev.langchain4j.mcp.McpToolProvider
+import dev.langchain4j.mcp.client.McpClient
 import dev.langchain4j.rag.query.Query
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.tool.ToolExecutor
+import dev.langchain4j.service.tool.ToolProvider
 import dev.langchain4j.store.embedding.filter.Filter
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder
 import jakarta.enterprise.context.ApplicationScoped
@@ -39,6 +42,7 @@ import tw.zipe.bastpartner.enumerate.Platform
 import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.model.LLModel
+import tw.zipe.bastpartner.provider.CompositeToolProvider
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
 import tw.zipe.bastpartner.converter.PasswordEncryptConverter
@@ -270,17 +274,50 @@ class LLMService(
         }
         aiService.chatMemoryProvider(chatMemoryProvider)
 
-        chatRequestDTO.skillIds?.takeIf { it.isNotEmpty() }?.let { ids ->
-            val skills = skillService.buildSkills(ids)
-            aiService.toolProvider(skills.toolProvider())
+        // Skill 與 MCP 的 toolProvider 掛載改由 [applyToolProviders] 統一組裝，
+        // 避免 AiServices.toolProvider 單一插槽互相覆蓋（見該方法說明）。
+        return aiService
+    }
+
+    /**
+     * 統一組裝 Skill 與 MCP 的 [ToolProvider] 並掛到 [aiService]。
+     *
+     * langchain4j `AiServices.toolProvider(...)` 為**單一插槽**，Skill 與 MCP 若各自呼叫會互相覆蓋
+     * （先前 buildAIService 設 Skill provider、呼叫端再設 MCP provider，導致 Skill 被靜默丟棄）。
+     * 故集中於此：兩者皆存在時以 [CompositeToolProvider] 合併後一次掛上；並在有 Skill 時補上
+     * 「可用 skills」的系統提示，引導模型先以 `activate_skill` 啟用。
+     *
+     * MCP client 的生命週期（建立與關閉）仍由呼叫端管理（需於串流/請求結束後關閉），此處只負責掛載。
+     *
+     * @param mcpClients 呼叫端已建立的 MCP client（可空）
+     */
+    fun applyToolProviders(
+        aiService: AiServices<DynamicAssistant>,
+        chatRequestDTO: ChatRequestDTO,
+        mcpClients: List<McpClient>
+    ) {
+        val providers = mutableListOf<ToolProvider>()
+
+        val skills = chatRequestDTO.skillIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+            skillService.buildSkills(ids).also { providers.add(it.toolProvider()) }
+        }
+        if (mcpClients.isNotEmpty()) {
+            providers.add(McpToolProvider.builder().mcpClients(mcpClients).build())
+        }
+
+        when (providers.size) {
+            0 -> Unit
+            1 -> aiService.toolProvider(providers.first())
+            else -> aiService.toolProvider(CompositeToolProvider(providers))
+        }
+
+        skills?.let { s ->
             val basePrompt = chatRequestDTO.promptContent.orEmpty()
-            val skillInfo = skills.formatAvailableSkills()
+            val skillInfo = s.formatAvailableSkills()
             aiService.systemMessageProvider { _ ->
                 "$basePrompt\n\nYou have access to the following skills:\n$skillInfo\nWhen the user's request relates to one of these skills, activate it first using the `activate_skill` tool before proceeding."
             }
         }
-
-        return aiService
     }
 
     /**

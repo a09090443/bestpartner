@@ -4,6 +4,7 @@
 > 對齊既有風格：entity 繼承 `BaseEntity`（提供 `created_at` / `updated_at` / `created_by` / `updated_by`）、PK 為 `varchar(36)` UUID（`@GeneratedValue(strategy = GenerationType.UUID)`）、JSON 欄位以 `@JdbcTypeCode(SqlTypes.JSON)` 儲存、enum 以 `@Enumerated(EnumType.STRING)` 存字串、API 回應包 `ApiResponse<T>`、JWT 權限以 `@Authenticated` / `@RolesAllowed`。
 > 業務 AC 見同目錄 `requirements.md`。
 > 2026-07-03 修訂：§2.2 LLM_ASSISTANT config 補齊為 `ChatRequestDTO` 全集（toolSettingIds / mcpIds+mcpSettingIds / knowledgeId / files / responseFormat+outputSchema / memoryId 語意）；§2.5 補兩條 RAG 路徑取捨；§9 新增 2 個 i18n 訊息鍵。
+> 2026-07-12 修訂：**LLM 節點簡化為 Agent 模式**——§2 新增 `SKILL` 型別與「能力掛載（`in:tool` 埠）」機制；§2.2 移除 LLM config 的 toolIds/mcpIds/skillIds/knowledgeId/files（改由 TOOL/MCP/SKILL 獨立節點連接）；新增 §2.4.1 SKILL；新增 i18n `workflow.skill.node.not.mounted`。
 
 ---
 
@@ -301,7 +302,12 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 
 > `type` 存於 `llm_workflow_node.type`（enum string）；`config` 存於 `llm_workflow_node.config`（JSON 欄位，`@JdbcTypeCode(SqlTypes.JSON)`）。所有 config 內字串值支援 `{{nodeKey.outputPath}}` 變數插值（引用上游 node_execution.output）。
 
-`enum class NodeType { TRIGGER, LLM_ASSISTANT, TOOL, MCP_SERVER, KNOWLEDGE_RAG, CONDITION, LOOP, CODE, HTTP_REQUEST, DATA_TRANSFORM }`
+`enum class NodeType { TRIGGER, LLM_ASSISTANT, TOOL, MCP_SERVER, SKILL, KNOWLEDGE_RAG, CONDITION, LOOP, CODE, HTTP_REQUEST, DATA_TRANSFORM, OUTPUT }`
+
+> **Agent 模式能力掛載（LLM 節點簡化）**：`LLM_ASSISTANT` 節點只負責呼叫指定 LLM。工具、MCP、Skill 改為獨立節點（`TOOL` / `MCP_SERVER` / `SKILL`），以 `out:main` 連到 LLM 節點的**專用工具輸入埠 `in:tool`**（`targetHandle === "in:tool"`）。引擎於執行前把這些「能力節點」解析為掛載清單放入 `ExecutionContext`（`WorkflowEngine.resolveCapabilityMounts`），由 `LlmAssistantExecutor` 於推論前組裝成 langchain4j 工具集，交 LLM 自主決定何時呼叫。
+> - 「純能力節點」（所有出邊皆 `in:tool`）排除主遍歷、不落 `node_execution` 紀錄；仍另接 `out:main` 下游的 TOOL/MCP 為雙用，照常執行並額外充當能力。
+> - `in:tool` 邊不參與活化判斷（`WorkflowEngine` 以 `flowEdges` 排除），只靠工具埠連入的 LLM 不會被誤判 SKIPPED。
+> - `SKILL` 無獨立 executor；孤兒 SKILL（未連任何 LLM 的 `in:tool`）於驗證期回 `WORKFLOW_SKILL_NODE_NOT_MOUNTED`。
 
 ### 2.1 TRIGGER（觸發節點，子型 manual / webhook / cron）
 
@@ -316,9 +322,9 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 }
 ```
 
-### 2.2 LLM_ASSISTANT（LLM / 自定義助手）
+### 2.2 LLM_ASSISTANT（LLM / 自定義助手，Agent 模式）
 
-用途：呼叫既有 `LLMService` 的 customAssistant 能力（同步），支援 Memory / Tool / MCP / Skill / RAG / 多模態檔案 / 結構化輸出整合。config 欄位為 `ChatRequestDTO` 的**全集**（而非子集），Phase 3 executor 可直接映射，確保 workflow 版助手能力不弱於既有 `/llm/customAssistantChat` 端點。
+用途：呼叫指定 LLM（同步）。工具 / MCP / Skill 改由獨立節點連到本節點的 `in:tool` 埠掛載（見 §2 開頭「Agent 模式能力掛載」），本節點 config 只保留 LLM 呼叫本身相關欄位。executor 重用 `LLMService.buildAIService`（Memory + 掛載工具）與 `LLMService.applyToolProviders`（Skill + MCP 合併掛載，解決 `AiServices.toolProvider` 單插槽覆蓋）。
 
 ```json
 {
@@ -327,31 +333,25 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
   "userPrompt": "請回覆：{{trigger.userMessage}}",
   "enableMemory": false,
   "memoryId": "{{trigger.sessionId}}",
-  "toolIds": ["tool-uuid-1"],
-  "toolSettingIds": ["user-tool-setting-uuid-1"],
-  "mcpIds": ["mcp-uuid-1"],
-  "mcpSettingIds": ["mcp-user-setting-uuid-1"],
-  "skillIds": ["skill-uuid-1"],
-  "knowledgeId": "knowledge-uuid",
-  "files": ["{{trigger.fileName}}"],
   "responseFormat": "TEXT",
   "outputSchema": null,
   "outputKey": "reply"
 }
 ```
 
-欄位說明（對照 `ChatRequestDTO` 與 langchain4j 能力）：
+欄位說明：
 
 | 欄位 | 對應能力 | 說明 |
 |------|---------|------|
-| `toolIds` / `toolSettingIds` | Tools | `toolIds` 為免設定即可用的工具（如 Date）；**需 API key 的工具（Google / Tavily）必須以 `toolSettingIds` 帶入使用者工具設定**（走 `ToolService.buildToolWithSetting`），兩者可並用。 |
-| `mcpIds` / `mcpSettingIds` | MCP | 對齊 `ChatRequestDTO.mcpIds` / `mcpSettingIds`；`mcpSettingIds` 走使用者個人 MCP 設定（`McpServerService.buildMcpServer(ids, userId)`）。 |
-| `knowledgeId` | RAG（自動增強） | 掛 `EmbeddingStoreContentRetriever` + `DefaultRetrievalAugmentor`（同 `LLMService.buildAIService` 既有路徑），由 langchain4j 以 LLM 實際 query 自動檢索並注入上下文。與 `KNOWLEDGE_RAG` 節點（顯式檢索）為互補的兩條路徑，取捨見 §2.5。 |
+| `llmId` | LLM（必填） | 指向 `modelType=CHAT` 的 LLM 設定。 |
 | `enableMemory` / `memoryId` | Memory | `enableMemory=true` 且 `memoryId` 為 null 時，預設使用 `execution:{executionId}`（同一次執行內多個 LLM 節點共享、跨執行不共享）；要跨執行延續對話須顯式指定 `memoryId`（支援 `{{變數}}` 插值，例如 webhook 傳入的 sessionId）。 |
-| `files` | 多模態 | 檔案名稱清單（`/llm/uploadFile` 上傳後的檔名，或由上游輸出插值）；executor 依 MIME 型別轉為 `ImageContent` / `PdfFileContent` 等內容附加至 UserMessage，對齊 `ChatRequestDTO.files`。檔案不存在回 `WORKFLOW_LLM_FILE_NOT_FOUND`。 |
-| `responseFormat` / `outputSchema` | Structured Output | `TEXT`（預設）：output 為 `{outputKey: 純文字}`。`JSON`：以 langchain4j 的 JSON schema response format 要求模型回傳符合 `outputSchema`（JSON Schema 物件）的結構化 JSON，解析後寫入 output，供下游以 `{{llm.reply.欄位}}` 取值與 `CONDITION` 精準判斷。解析失敗回 `WORKFLOW_LLM_OUTPUT_PARSE_FAILED`，節點 FAILED。 |
+| `responseFormat` / `outputSchema` | Structured Output | `TEXT`（預設）：output 為 `{outputKey: 純文字}`。`JSON`：以 langchain4j 的 JSON schema response format 要求模型回傳符合 `outputSchema`（JSON Schema 物件）的結構化 JSON。 |
 
-> ⚠️ 已知限制（v1）：LLM 節點一律走同步 `ChatModel`，不支援 `StreamingChatModel` / SSE token 串流（見 requirements.md N9 / N10）；`llmId` 必須指向 `modelType=CHAT` 的 LLM 設定。
+> **工具 / MCP / Skill / 知識庫**：不再是本節點 config 欄位。改以 `TOOL` / `MCP_SERVER` / `SKILL` 獨立節點連到 `in:tool` 埠（能力掛載）；顯式 RAG 用 `KNOWLEDGE_RAG` 節點並以 `{{node.outputKey}}` 插值餵回 `userPrompt`。executor 依掛載的能力節點 config 聚合出 `toolIds` / `toolSettingIds`（TOOL）、`mcpIds` / `mcpSettingIds`（MCP）、`skillIds`（SKILL）。
+>
+> ⚠️ 相容性：`NodeConfigRegistry` 為嚴格 JSON（`ignoreUnknownKeys=false`），舊有含 `toolIds` / `mcpIds` / `skillIds` / `knowledgeId` / `files` 的 LLM 節點 config 會於 parse 拋例外。開發期以重建 / 更新種子資料處理（不寫遷移腳本）；前端表單存檔時亦會主動剝除這些殘留鍵。
+
+> ⚠️ 已知限制（v1）：LLM 節點一律走同步 `ChatModel`，不支援 `StreamingChatModel` / SSE token 串流；`llmId` 必須指向 `modelType=CHAT` 的 LLM 設定。
 
 ### 2.3 TOOL（內建工具節點）
 
@@ -379,6 +379,18 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
   "outputKey": "files"
 }
 ```
+
+### 2.4.1 SKILL（Skill 能力節點，Agent 模式）
+
+用途：作為能力提供者，把一個 Skill 掛載到 LLM 節點。只連到 `LLM_ASSISTANT` 的 `in:tool` 埠，本身無獨立 executor、不落 `node_execution` 紀錄；`LlmAssistantExecutor` 讀取其 `skillId` 併入 `skillIds`，經 `SkillService.buildSkills` + `activate_skill` 工具與系統提示注入。
+
+```json
+{
+  "skillId": "skill-uuid"
+}
+```
+
+必填：`skillId`。孤兒 SKILL（未連任何 LLM 的 `in:tool`）於 save/switchStatus/execute 前驗證回 `WORKFLOW_SKILL_NODE_NOT_MOUNTED`（i18n）。
 
 ### 2.5 KNOWLEDGE_RAG（向量 / RAG 檢索節點）
 

@@ -63,6 +63,16 @@ class WorkflowEngine(
     companion object {
         /** 節點逾時預設值（spec §2.2）：config 未指定 timeoutMs 時套用 */
         const val DEFAULT_NODE_TIMEOUT_MS = 120_000L
+
+        /**
+         * LLM 節點的專用工具輸入埠 handle（Agent 模式能力掛載）。
+         * TOOL / MCP_SERVER / SKILL 節點以此為 targetHandle 連到 LLM 節點，代表「掛載為可呼叫能力」，
+         * 而非一般資料流連線。此類邊不參與活化判斷，來源節點若為純能力節點則排除主遍歷。
+         */
+        const val TOOL_INPUT_HANDLE = "in:tool"
+
+        /** 可作為 LLM 能力掛載來源的節點型別 */
+        private val CAPABILITY_SOURCE_TYPES = setOf(NodeType.TOOL, NodeType.MCP_SERVER, NodeType.SKILL)
     }
 
     private val logger = logger()
@@ -105,6 +115,9 @@ class WorkflowEngine(
         // LOOP 子圖：loopNodeKey → 子圖節點鍵集合；子圖節點不在主遍歷執行，由 LOOP 迭代驅動
         val loopSubgraphs = computeLoopSubgraphs(nodes, edges)
         val loopBodyKeys = loopSubgraphs.values.flatten().toSet()
+        // Agent 模式能力掛載：解析連到 LLM 工具埠的 TOOL/MCP/SKILL 節點
+        // capabilityKeys 為「純能力節點」（所有出邊皆 in:tool），排除主遍歷、不落執行紀錄
+        val (capabilityKeys, capabilityMounts) = resolveCapabilityMounts(nodes, edges)
         val startedAt = LocalDateTime.now()
 
         val execution = WorkflowExecutionEntity().apply {
@@ -124,6 +137,7 @@ class WorkflowEngine(
         try {
             val context = ExecutionContext(executionId, userId)
             context.putOutput(TriggerExecutor.INPUT_KEY, input ?: emptyMap())
+            context.setCapabilities(capabilityMounts)
 
             var failedNode: WorkflowNodeEntity? = null
             var failureMessage: String? = null
@@ -134,8 +148,11 @@ class WorkflowEngine(
             // 活化遍歷（Phase 2）：仍依拓撲序處理，但每節點先判斷是否 active——
             // indegree 0 恆 active；其餘至少一條入邊被活化才 active。
             // 邊被活化 = 來源節點執行成功，且（來源非 CONDITION，或 sourceHandle 等於判定分支）。
-            val incomingEdges = edges.groupBy { it.targetNodeKey }
-            val outgoingEdges = edges.groupBy { it.sourceNodeKey }
+            // 能力掛載邊（targetHandle = in:tool）不參與活化：它代表 LLM 掛載工具而非資料流，
+            // 排除後只靠工具埠連入的 LLM 節點才不會因這些邊永不活化而被誤判 SKIPPED。
+            val flowEdges = edges.filter { it.targetHandle != TOOL_INPUT_HANDLE }
+            val incomingEdges = flowEdges.groupBy { it.targetNodeKey }
+            val outgoingEdges = flowEdges.groupBy { it.sourceNodeKey }
             val activatedEdges = mutableSetOf<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>()
             // seqNo 改為遞增計數器（Phase 2）：LOOP 每迭代的子圖節點紀錄各占一個序號
             val seq = AtomicInteger(0)
@@ -144,6 +161,8 @@ class WorkflowEngine(
                 if (cancelled()) { wasCancelled = true; break }
                 // LOOP 子圖節點由 LOOP 迭代驅動，主遍歷不執行也不落紀錄
                 if (node.nodeKey in loopBodyKeys) continue
+                // 純能力節點（掛載到 LLM 工具埠）由 LLM executor 延遲讀取，主遍歷不執行也不落紀錄
+                if (node.nodeKey in capabilityKeys) continue
                 val seqNo = seq.incrementAndGet()
                 val incoming = incomingEdges[node.nodeKey].orEmpty()
                 if (incoming.isNotEmpty() && incoming.none { it in activatedEdges }) {
@@ -233,7 +252,8 @@ class WorkflowEngine(
             if (failedNode != null || wasCancelled) {
                 order.filter {
                     it.nodeKey !in executedKeys && it.nodeKey !in skippedKeys &&
-                        it.nodeKey !in loopBodyKeys && it.nodeKey != failedNode?.nodeKey
+                        it.nodeKey !in loopBodyKeys && it.nodeKey !in capabilityKeys &&
+                        it.nodeKey != failedNode?.nodeKey
                 }.forEach { skipped ->
                     persist {
                         nodeExecutionRepository.saveOrUpdate(WorkflowNodeExecutionEntity().apply {
@@ -308,13 +328,60 @@ class WorkflowEngine(
                 throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
             }
         }
-        // 巢狀 LOOP 不支援：任一 LOOP 子圖內含另一 LOOP 節點即報錯
+        // SKILL 節點無獨立 executor（純能力提供者），必須連到某 LLM 節點的工具埠（in:tool）
+        // 才會被 LLM executor 延遲讀取；否則會成孤兒節點於主遍歷分派時拋 NOT_SUPPORTED，
+        // 故於此提前以明確訊息擋下。
         val typeByKey = nodes.associate { it.nodeKey to it.type }
+        val mountedSkillKeys = edges.filter {
+            it.targetHandle == TOOL_INPUT_HANDLE && typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT
+        }.map { it.sourceNodeKey }.toSet()
+        nodes.filter { it.type == NodeType.SKILL && it.nodeKey !in mountedSkillKeys }.forEach {
+            throw ServiceException(AppMessage.WORKFLOW_SKILL_NODE_NOT_MOUNTED, it.nodeKey)
+        }
+        // 巢狀 LOOP 不支援：任一 LOOP 子圖內含另一 LOOP 節點即報錯
         computeLoopSubgraphs(nodes, edges).forEach { (_, body) ->
             body.firstOrNull { typeByKey[it] == NodeType.LOOP }?.let { nested ->
                 throw ServiceException(AppMessage.WORKFLOW_LOOP_NESTED_NOT_SUPPORTED, nested)
             }
         }
+    }
+
+    /**
+     * 解析 Agent 模式的能力掛載（spec：LLM 助手節點簡化）。
+     *
+     * 能力掛載邊 = `targetHandle == in:tool` 且 target 為 [NodeType.LLM_ASSISTANT]、
+     * source ∈ {TOOL, MCP_SERVER, SKILL}。依此：
+     * - [capabilityMounts]：llmNodeKey → 掛載的能力節點解析後 config（[MountedCapability]）。
+     * - [capabilityKeys]：「純能力節點」——某能力來源節點的**所有**出邊皆為 in:tool 邊時納入，
+     *   代表它只作為工具掛載、不參與資料流，故排除主遍歷、不落執行紀錄。
+     *   同時作管線用途（另有 out:main 出邊）的 TOOL/MCP 不納入，仍照常執行並額外充當能力。
+     *
+     * @return capabilityKeys 與 capabilityMounts
+     */
+    private fun resolveCapabilityMounts(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+    ): Pair<Set<String>, Map<String, List<MountedCapability>>> {
+        val nodeByKey = nodes.associateBy { it.nodeKey }
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
+        val capabilityEdges = edges.filter {
+            it.targetHandle == TOOL_INPUT_HANDLE &&
+                typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT &&
+                typeByKey[it.sourceNodeKey] in CAPABILITY_SOURCE_TYPES
+        }
+        val outgoingByKey = edges.groupBy { it.sourceNodeKey }
+        // 純能力節點：確實被掛載（≥1 in:tool 出邊）且所有出邊皆為 in:tool
+        val capabilityKeys = capabilityEdges.map { it.sourceNodeKey }.toSet().filter { key ->
+            outgoingByKey[key].orEmpty().all { it.targetHandle == TOOL_INPUT_HANDLE }
+        }.toSet()
+        val capabilityMounts = capabilityEdges.groupBy { it.targetNodeKey }
+            .mapValues { (_, es) ->
+                es.mapNotNull { e -> nodeByKey[e.sourceNodeKey] }.map { src ->
+                    val cfgObj = mapToJsonObject(src.config) ?: JsonObject(emptyMap())
+                    MountedCapability(src.type, NodeConfigRegistry.parse(src.type, cfgObj))
+                }
+            }
+        return capabilityKeys to capabilityMounts
     }
 
     /**
