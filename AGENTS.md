@@ -123,8 +123,8 @@ cd bestpartner-service
 pwsh ./harness-drift-scan.ps1
 ```
 
-涵蓋：套件拼字（`bastpartner`）、i18n 寫死字串、`build.gradle.kts` 版本硬編碼、`@Entity` 命名後綴、service/repository 的 `@ApplicationScoped`、SQL 金鑰外洩、**AGENTS.md 與 `.claude/CLAUDE.md` 一致性**。既有基線（如 `jsqlparser` 硬編碼版本、`LLMResource.kt` 寫死例外訊息）已登錄於腳本 `$Baseline`，新增程式碼若擴大漂移會被標為 `NEW`。
+涵蓋：套件拼字（`bastpartner`）、i18n 寫死字串、`build.gradle.kts` 版本硬編碼、`@Entity` 命名後綴、service/repository 的 `@ApplicationScoped`、SQL 金鑰外洩、**AGENTS.md 與 `.claude/CLAUDE.md` 一致性**、**Workflow NodeType 前後端契約一致**（`NodeType.kt` ≡ `bestpartner-ui` 的 `types/workflow.ts`）、**前端測試命名**（新測試一律 `.test.ts`）。既有基線（如 `jsqlparser` 硬編碼版本、`LLMResource.kt` 寫死例外訊息、3 個既存 `.spec.ts`）已登錄於腳本 `$Baseline`，新增程式碼若擴大漂移會被標為 `NEW`。
 
 ## CI 把關
 
-`.github/workflows/harness.yml` 在 push 與對 `master` 的 PR 上**必跑** ArchUnit 測試與漂移掃描（任一失敗即擋下）。修改結構、命名、依賴版本或業務訊息後，先在本機跑過上述兩項再推送，避免 CI 紅燈。
+`.github/workflows/harness.yml` 在 push 與對 `master` 的 PR 上**必跑** ArchUnit 測試、漂移掃描，以及前端型別檢查（`vue-tsc`）＋單元測試（`vitest`）（任一失敗即擋下）。修改結構、命名、依賴版本、業務訊息或前端程式碼後，先在本機跑過對應項目再推送，避免 CI 紅燈。

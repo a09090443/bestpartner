@@ -7,7 +7,8 @@
     輸出「現況 vs 規範 vs 建議」表，並區分「歷史基線」與「本次新漂移」。
 
     - 結構性不變量（分層依賴、命名、@Entity 位置）由 ArchUnit 在 build 階段強制，
-      本掃描補足 ArchUnit 不易檢查的慣例（i18n 寫死字串、版本硬編碼、套件拼字、CDI 標註）。
+      本掃描補足 ArchUnit 不易檢查的慣例（i18n 寫死字串、版本硬編碼、套件拼字、CDI 標註），
+      並涵蓋前端跨界契約（NodeType 前後端一致）與前端測試命名（.test.ts）。
     - 歷史基線（既存且刻意容忍的漂移）預先登錄於下方 $Baseline，不視為失敗。
     - 偵測到「新漂移」時以 exit code 1 結束，可作為 CI 把關。
 
@@ -19,6 +20,9 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $srcMain = Join-Path $root 'bestpartner-service/src/main/kotlin/tw/zipe/bastpartner'
 $buildGradle = Join-Path $root 'bestpartner-service/build.gradle.kts'
+$uiSrc = Join-Path $root 'bestpartner-ui/src'
+$nodeTypeKt = Join-Path $srcMain 'enumerate/NodeType.kt'
+$nodeTypeTs = Join-Path $uiSrc 'types/workflow.ts'
 
 # ---- 歷史基線（既存且刻意容忍的漂移；新增程式碼不得再擴大）----
 $Baseline = @{
@@ -28,6 +32,8 @@ $Baseline = @{
     I18nHardcodeFiles   = @('LLMStore.kt', 'LLMResource.kt')
     # build.gradle.kts 仍硬編碼版本的依賴 artifact
     VersionHardcodeArts = @('jsqlparser')
+    # 前端既存以 .spec.ts 命名的測試檔（新測試一律 .test.ts，見 frontend-conventions.md）
+    SpecTsBaseline      = @('ExecutionResultDrawer.spec.ts', 'OutputForm.spec.ts', 'execution.spec.ts')
 }
 
 $findings = New-Object System.Collections.Generic.List[object]
@@ -131,6 +137,49 @@ if ((Test-Path $agentsMd) -and (Test-Path $claudeMd)) {
     }
 } else {
     Add-Finding '導覽一致性' 'NEW' '缺少 AGENTS.md 或 .claude/CLAUDE.md' '兩份導覽文件皆須存在'
+}
+
+# 規則 8：Workflow NodeType 跨界一致（後端 NodeType.kt enum ≡ 前端 types/workflow.ts union）
+# 無基線——節點型別是前後端硬契約，任一邊新增/移除卻未同步，畫布與引擎即失聯。
+if ((Test-Path $nodeTypeKt) -and (Test-Path $nodeTypeTs)) {
+    $ktRaw = Get-Content -Path $nodeTypeKt -Raw
+    # 取 enum body（大括號內），再抓大寫識別字（排除 enum class NodeType 標頭本身）
+    $ktBody = if ($ktRaw -match '(?s)enum class NodeType\s*\{(.+?)\}') { $Matches[1] } else { '' }
+    $ktMembers = [regex]::Matches($ktBody, '\b[A-Z][A-Z0-9_]+\b') | ForEach-Object { $_.Value } | Sort-Object -Unique
+    # 前端 union：export type NodeType = 之後的 'XXX' 字面，止於下一個空白行
+    $tsRaw = Get-Content -Path $nodeTypeTs -Raw
+    $tsBody = if ($tsRaw -match "(?s)export type NodeType\s*=(.+?)\r?\n\r?\n") { $Matches[1] } else { '' }
+    $tsMembers = [regex]::Matches($tsBody, "'([A-Z0-9_]+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+
+    $onlyKt = @($ktMembers | Where-Object { $_ -notin $tsMembers })
+    $onlyTs = @($tsMembers | Where-Object { $_ -notin $ktMembers })
+    if ($ktMembers.Count -eq 0 -or $tsMembers.Count -eq 0) {
+        Add-Finding 'NodeType 契約' 'NEW' '無法解析 NodeType 定義' '檢查 NodeType.kt 與 types/workflow.ts 格式'
+    } elseif ($onlyKt.Count -eq 0 -and $onlyTs.Count -eq 0) {
+        Add-Finding 'NodeType 契約' 'OK' "前後端一致（$($ktMembers.Count) 種）" '—'
+    } else {
+        $detail = @()
+        if ($onlyKt) { $detail += "僅後端有：$($onlyKt -join ',')" }
+        if ($onlyTs) { $detail += "僅前端有：$($onlyTs -join ',')" }
+        Add-Finding 'NodeType 契約' 'NEW' ($detail -join '；') '同步後端 NodeType.kt 與前端 types/workflow.ts，兩邊成員須一致'
+    }
+} else {
+    Add-Finding 'NodeType 契約' 'NEW' '缺少 NodeType.kt 或 types/workflow.ts' '兩份節點型別定義皆須存在'
+}
+
+# 規則 9：前端新測試檔一律 .test.ts（既存 .spec.ts 為基線，見 frontend-conventions.md）
+if (Test-Path $uiSrc) {
+    $specFiles = Get-ChildItem $uiSrc -Recurse -Filter *.spec.ts -ErrorAction SilentlyContinue
+    $newSpec = @($specFiles | Where-Object { $Baseline.SpecTsBaseline -notcontains $_.Name })
+    foreach ($s in $newSpec) {
+        Add-Finding '測試命名' 'NEW' $s.Name '新測試檔請以 .test.ts 命名，勿新增 .spec.ts'
+    }
+    $baseSpec = @($specFiles | Where-Object { $Baseline.SpecTsBaseline -contains $_.Name })
+    if ($baseSpec.Count -gt 0 -and $newSpec.Count -eq 0) {
+        Add-Finding '測試命名' 'BASELINE' "$($baseSpec.Count) 個既存 .spec.ts" '新測試改用 .test.ts（不追溯改名既有檔）'
+    } elseif ($newSpec.Count -eq 0) {
+        Add-Finding '測試命名' 'OK' '無新增 .spec.ts' '—'
+    }
 }
 
 # ---- 輸出 ----

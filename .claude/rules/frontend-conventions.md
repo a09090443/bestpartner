@@ -50,7 +50,9 @@ src/
 | `api/`、`constants/`、`types/`、`utils/` | camelCase | `llmSetting.ts`、`nodeRequiredFields.ts` |
 | 測試檔 | 緊鄰原始檔的同層 `__tests__/` 子目錄，副檔名 `.test.ts` | `src/composables/__tests__/useCanvasLayout.test.ts` |
 
-> **已知漂移基線**：極少數測試檔用 `.spec.ts`（`ExecutionResultDrawer.spec.ts`、`OutputForm.spec.ts`、`execution.spec.ts`），新增測試一律用 `.test.ts`，不追溯修改既有檔名。
+> **已知漂移基線**：極少數測試檔用 `.spec.ts`（`ExecutionResultDrawer.spec.ts`、`OutputForm.spec.ts`、`execution.spec.ts`），新增測試一律用 `.test.ts`，不追溯修改既有檔名。此三檔已登錄於 `harness-drift-scan.ps1` 的 `$Baseline.SpecTsBaseline`；新增其他 `.spec.ts` 會被掃描標為 `NEW`。
+>
+> **vitest 執行範圍**：`vitest.config.ts` 以 `include: ['src/**/*.{test,spec}.ts']` 限定只跑 `src/` 下的單元測試，並排除 `e2e/`；`bestpartner-ui/e2e/` 的 Playwright spec 不由 vitest 收集（避免誤跑 Playwright API 而失敗）。CI（`harness.yml` 的 frontend job）跑 `npm run build`（`vue-tsc` 型別檢查）＋ `npm run test`（vitest）。
 
 ## 元件撰寫慣例
 

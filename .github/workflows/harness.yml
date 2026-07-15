@@ -2,7 +2,8 @@ name: Harness Checks
 
 # Harness 原則 3/6 的自動化把關：
 #   - ArchUnit 結構不變量（分層依賴、命名、@Entity 位置）
-#   - 漂移掃描（i18n 寫死字串、版本硬編碼、套件拼字、CDI 標註）
+#   - 漂移掃描（i18n 寫死字串、版本硬編碼、套件拼字、CDI 標註、NodeType 前後端契約、前端測試命名）
+#   - 前端型別檢查（vue-tsc）與單元測試（vitest）
 # 任一失敗即擋下，讓違規在 CI 階段就紅，而非靠人工 review 或 agent 自律。
 
 on:
@@ -50,3 +51,29 @@ jobs:
           name: harness-test-report
           path: bestpartner-service/build/reports/tests/
           if-no-files-found: ignore
+
+  frontend:
+    name: 前端型別檢查 + 單元測試
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: bestpartner-ui/package-lock.json
+
+      - name: 安裝相依（乾淨還原）
+        working-directory: bestpartner-ui
+        run: npm ci
+
+      - name: 機械化強制 — 型別檢查 + 建置（vue-tsc）
+        working-directory: bestpartner-ui
+        run: npm run build
+
+      - name: 單元測試（vitest）
+        working-directory: bestpartner-ui
+        run: npm run test
