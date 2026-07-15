@@ -81,6 +81,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](rul
 | [development-notes.md](rules/development-notes.md) | MCP Server 範例、日誌路徑、開關控制 |
 | [i18n-messages.md](rules/i18n-messages.md) | i18n 訊息管理、AppMessage enum、MessageUtil 使用方式 |
 | [documentation-update-policy.md](rules/documentation-update-policy.md) | 套件／API／欄位變更時必須更新的文件清單 |
+| [frontend-conventions.md](rules/frontend-conventions.md) | 前端（bestpartner-ui）技術棧、目錄命名、元件/API/狀態管理慣例 |
 
 ## 強制工作流程（skill，違反視同違規）
 
