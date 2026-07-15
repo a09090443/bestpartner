@@ -36,6 +36,8 @@ bestpartner/
 
 技術棧：Pinia、Vue Router、Element Plus、Vue Flow（`@vue-flow/core` 及 `background`/`minimap`/`controls`）、`@dagrejs/dagre`（自動排版）、axios、nanoid；測試使用 Vitest + `@vue/test-utils`。
 
+> 完整前端架構（開發啟動、核心設計慣例、測試策略）見 [前端架構（bestpartner-ui）](./frontend.md)。
+
 ## bestpartner-service 核心 Package
 
 ### `resource/` — REST API 端點層

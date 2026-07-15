@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
         'architecture/modules',
         'architecture/tech-stack',
         'architecture/i18n-messages',
+        'architecture/frontend',
       ],
     },
     {
