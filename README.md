@@ -362,10 +362,13 @@ docker run -d -p 80:80 \
 搬遷至其他機器：
 
 ```bash
-docker save -o bestpartner-service-0.1.8-SNAPSHOT-docker.tar bestpartner-service:latest
+docker save -o bestpartner-service-0.1.8-SNAPSHOT-prod.tar bestpartner-service:latest
 # 目標機器
-docker load -i bestpartner-service-0.1.8-SNAPSHOT-docker.tar
+docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod.tar
 ```
+
+> 檔名的 `-prod` 是**建置 profile**，不是部署目標。這份 tar 全環境通用，
+> 跑哪個環境由 `QUARKUS_PROFILE` 與 `.env.<profile>` 決定。
 
 > ⚠️ tar 內含 JWT 簽章私鑰（`privateKey.pem` 隨 uber-jar 打包），等同憑證，勿在不受控管道流通。
 

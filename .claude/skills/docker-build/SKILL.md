@@ -98,8 +98,16 @@ docker stop bestpartner-verify && docker rm bestpartner-verify
 驗證通過即自動匯出，不必等使用者要求：
 
 ```bash
-docker save -o build/bestpartner-service-${version}-docker.tar bestpartner-service:latest
+docker save -o build/bestpartner-service-${version}-prod.tar bestpartner-service:latest
 ```
+
+檔名格式：`bestpartner-service-<版本>-<建置profile>.tar`
+
+> ⚠️ **`-prod` 指的是「建置時使用的 profile」，不是「只能部署到 prod」。**
+> 這份 tar 是**全環境通用**的——同一份 image 靠 `-e QUARKUS_PROFILE=<profile>`
+> ＋ `--env-file .env.<profile>` 跑 dev / docker / sit / uat / prod。
+> 因 Step 3 規定建置 profile 固定為 `prod`，此後綴實務上恆為 `-prod`。
+> **不得**為個別環境產出 `-uat.tar`、`-sit.tar`——那些檔案會位元組完全相同，徒增誤解。
 
 輸出路徑固定在 `bestpartner-service/build/`（該目錄已在 `.gitignore` 排除，不會誤入版控）；不得另建 `dist/`、`docker-export/` 等目錄。完成後確認檔案存在並記下檔案大小。
 
@@ -116,9 +124,10 @@ docker save -o build/bestpartner-service-${version}-docker.tar bestpartner-servi
 4. 目標機器匯入與執行指令：
 
 ```bash
-docker load -i bestpartner-service-${version}-docker.tar
+docker load -i bestpartner-service-${version}-prod.tar
 
-# 依環境指定 profile 與 env 檔（.env.<profile> 需先備妥於目標機器）
+# 檔名的 -prod 是建置 profile；同一份 tar 可跑任何環境，
+# 由 QUARKUS_PROFILE 與 .env.<profile> 決定（需先備妥於目標機器）
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
   --env-file .env.uat \
@@ -154,4 +163,5 @@ docker run -d -p 80:80 \
 | 驗證用的暫存容器忘記清理 | Step 5 結尾強制 stop + rm |
 | 等使用者要求才匯出 tar | Step 6 為強制且自動執行，驗證通過就直接匯出 |
 | tar 檔存到 `build/` 以外的路徑 | 固定存 `bestpartner-service/build/` |
+| 為每個環境各產一份 `-uat.tar` / `-sit.tar` | 只產一份 `-prod.tar`；後綴是建置 profile，內容全環境通用（Step 6） |
 | image tag 沿用舊版本號或憑記憶猜測 | 每次從 `build.gradle.kts` 重新讀取版本（Step 2） |

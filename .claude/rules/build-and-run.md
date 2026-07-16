@@ -66,10 +66,16 @@ profile 對照與環境變數清單 → [`configuration-and-profiles.md`](config
 ### 匯出至其他機器
 
 ```bash
-docker save -o build/bestpartner-service-0.1.8-SNAPSHOT-docker.tar bestpartner-service:latest
+docker save -o build/bestpartner-service-0.1.8-SNAPSHOT-prod.tar bestpartner-service:latest
 # 目標機器
-docker load -i bestpartner-service-0.1.8-SNAPSHOT-docker.tar
+docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod.tar
 ```
+
+檔名格式：`bestpartner-service-<版本>-<建置profile>.tar`
+
+> **`-prod` 是建置 profile，不是部署目標。** 這份 tar 全環境通用，跑哪個環境由
+> `-e QUARKUS_PROFILE=<profile>` ＋ `--env-file .env.<profile>` 決定。
+> 不要為個別環境另存 `-uat.tar` / `-sit.tar`——內容會位元組相同，只會造成誤解。
 
 > ⚠️ **tar 檔內含 JWT 簽章私鑰**（`privateKey.pem` 隨 uber-jar 打包），等同憑證，不可在不受控管道流通。
 
