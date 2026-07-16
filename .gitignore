@@ -33,7 +33,11 @@ nb-configuration.xml
 *.rej
 
 # Local environment
-.env
+# 各環境的實際值不進版控，只保留 .env.example 範本。
+# 路徑錨定根目錄（開頭的 /），避免影響已追蹤的 bestpartner-ui/.env.development
+/.env
+/.env.*
+!/.env.example
 
 # Plugin directory
 /.quarkus/cli/plugins/
