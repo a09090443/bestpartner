@@ -103,7 +103,7 @@
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
 | P0 | 合法 workflow（TRIGGER → LLM_ASSISTANT → OUTPUT，DRAFT 即可）execute | ExecutionResultDrawer 依序反映 SSE：`execution.started` → 各節點 `node.started` / `node.completed` → `execution.completed`（SUCCESS）；`llm_workflow_execution` / `llm_workflow_node_execution` 有紀錄 |
-| P1 | Agent 模式：TOOL / SKILL 節點以 `out:main → LLM in:tool` 掛載後 execute | LLM 可自主呼叫掛載工具並回覆；能力節點**不產生**獨立 `node.started` / `node.completed` 事件、`node_execution` 無其紀錄（僅 LLM 節點內部呼叫） |
+| P1 | Agent 模式：TOOL / MCP_SERVER / SKILL 節點以 `out:main → LLM in:tool` 掛載後 execute | LLM 可自主呼叫掛載工具並回覆；能力節點**不產生**獨立 `node.started` / `node.completed` 事件、`node_execution` 無其紀錄（僅 LLM 節點內部呼叫） |
 | P1 | 某節點設定錯誤導致失敗 | 該節點顯示 `node.failed` 狀態與錯誤；執行標記失敗 |
 | P1 | 執行中途 client 斷線（關抽屜 / 離開頁面） | 執行標記 `CANCELLED`，未執行下游節點標記 `SKIPPED`（對應 commit b24c128 的視覺行為） |
 
@@ -225,7 +225,7 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 
 ## 10. 首條切片實測發現（2026-07-12）
 
-首條 J5 垂直切片已落地並在真實 stack（port 80 + Postgres + 真實 OpenRouter）跑通，harness 位於 `bestpartner-ui/e2e/`（`playwright.config.ts` / `global-setup.ts` / `global-teardown.ts` / `fixtures/db.ts` / `specs/j5-openrouter-date-json.spec.ts`）。此切片：TRIGGER → LLM_ASSISTANT(OpenRouter, JSON) ←in:tool← TOOL(DateTool) → OUTPUT(JSON)，並直連 Postgres 斷言 `llm_workflow_execution` / `llm_workflow_node_execution` 落庫。
+首條 J5 垂直切片已落地並在真實 stack（port 80 + Postgres + 真實 OpenRouter）跑通，harness 位於 `bestpartner-ui/e2e/`（`playwright.config.ts` / `global-setup.ts` / `global-teardown.ts` / `fixtures/db.ts` / `fixtures/canvas.ts`（畫布 DnD／連線共用 helper） / `specs/j5-openrouter-date-json.spec.ts` / `specs/j5-openrouter-date-mcp-json.spec.ts`）。此切片：TRIGGER → LLM_ASSISTANT(OpenRouter, JSON) ←in:tool← TOOL(DateTool) → OUTPUT(JSON)，並直連 Postgres 斷言 `llm_workflow_execution` / `llm_workflow_node_execution` 落庫。
 
 **已驗證**：HTML5 DnD 合成事件可靠、TRIGGER 無表單走 `JsonConfigEditor` raw 填 `triggerType`、`data-test` 選擇器、DB 落庫、ID 動態解析（見 §6）。
 
@@ -233,3 +233,14 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 
 1. **TOOL(date) 節點會被引擎「獨立執行」且需 `arguments.zoneId`**：`ToolNodeExecutor` 直接呼叫 `DateTool`，未帶 `zoneId` 時 `ZoneId.of(null)` 拋 `ZoneRulesException` 使整條 FAILED；且該節點會落 `nodeType=TOOL` 執行紀錄——與「連 `in:tool` 僅為能力掛載、不獨立執行」的描述矛盾。
 2. **連到 `in:tool` 的 date 工具未真正掛給 LLM 當能力**：實測 LLM 回「此環境未提供可查詢即時時間的工具」，代表 Agent 模式的 langchain4j 工具集未納入該 TOOL 節點。故 J5 此切片**只斷言 plumbing / SSE `SUCCESS` / OUTPUT 為 JSON / DB 落庫，不斷言 LLM 實際呼叫了工具**，待後端修復後再強化。
+
+---
+
+## 11. 第二切片實測發現（2026-07-16，MCP 變體）
+
+E2E 週期 202607162121 以 webwright 驗證後固化為 `specs/j5-openrouter-date-mcp-json.spec.ts`：TRIGGER → LLM_ASSISTANT(OpenRouter, JSON) ←in:tool← **MCP_SERVER(date, STDIO `java -jar D:/MCP/date.jar`)** → OUTPUT(JSON)。`mcpId` 由 `global-setup` 依 name（預設 `date`，`E2E_MCP_NAME` 可覆寫）解析入 `seed.json`（`dateMcpId`），缺席時該 spec skip。
+
+1. **execute 前置驗證也驗能力節點必填欄位**：`WorkflowEngine.validateForExecution` 逐節點驗 `nodeRequiredFields` 契約，MCP_SERVER 缺 `toolName` 時 execute 直接回 400 `missing required config fields: toolName`——即使該節點為 `in:tool` 純能力掛載（Agent 模式僅聚合 `mcpId`/`userSettingId`，不使用 `toolName`）。spec 以 `E2E_MCP_TOOL_NAME`（預設 `getTodayDate`；date.jar 共 6 個 tools）填入通過驗證。**UI 面**：驗證擋下時畫面僅顯示「HTTP 400」，未帶出後端訊息的 nodeKey 與缺漏欄位，列為 UI 改善候選。
+2. **§10 待修事項 1 已修復（正面回歸確認）**：能力節點不再獨立執行、不落 `node_execution`（實測 node_execution 僅 TRIGGER/LLM_ASSISTANT/OUTPUT）；兩支 J5 spec 均以 `not.toContain(...)` 斷言此行為。
+3. **MCP 路徑的工具掛載有效**（對照 §10 待修事項 2）：LLM 回覆可感知 date MCP 工具集（主動提及可列出可用時區），代表 MCP 經 `in:tool` 掛載進 Agent 工具集正常；TOOL 路徑是否仍有掛載問題，待另行驗證後再強化斷言。
+4. **畫布座標陷阱**：viewport 內拖放座標若落在右側 Workflow Overview 面板底下（1280 寬時 x≳950；本 harness viewport 1680×950 時 x≳1370），節點 handle 會被面板攔截 pointer 事件導致連線靜默失敗。spec 逐條連線後斷言 edge 數即可即刻定位。

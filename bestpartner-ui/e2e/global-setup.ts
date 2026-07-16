@@ -26,6 +26,8 @@ export interface ResolvedSeed {
   llmId: string | null
   /** 內建 DateTool 的 toolId */
   dateToolId: string | null
+  /** date MCP server（STDIO java -jar date.jar）的 mcpId；解析不到則為 null（MCP 切片 spec 會 skip） */
+  dateMcpId: string | null
 }
 
 export default async function globalSetup() {
@@ -62,7 +64,13 @@ export default async function globalSetup() {
     const dateToolId = tools.find((t) => t.name === 'DateTool')?.id ?? null
     if (!dateToolId) throw new Error('種子檢查失敗：找不到內建 DateTool')
 
-    const seed: ResolvedSeed = { llmId, dateToolId }
+    // 5) 解析 date MCP server 的 mcpId（依 name；E2E_MCP_NAME 可覆寫，缺則 MCP 切片 skip）
+    const mcpName = process.env.E2E_MCP_NAME || 'date'
+    const mcpResp = await ctx.get('/llm/mcpServer/list', { headers: auth })
+    const mcps = ((await mcpResp.json())?.data ?? []) as Array<{ mcpId?: string; name?: string }>
+    const dateMcpId = mcps.find((m) => m.name === mcpName)?.mcpId ?? null
+
+    const seed: ResolvedSeed = { llmId, dateToolId, dateMcpId }
     mkdirSync(ARTIFACT_DIR, { recursive: true })
     writeFileSync(SEED_FILE, JSON.stringify(seed, null, 2))
     // eslint-disable-next-line no-console
