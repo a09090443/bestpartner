@@ -71,7 +71,7 @@ BestPartner project
 - 支援 RAG（檢索增強生成）
 - 視覺化 Workflow 引擎（n8n-like，節點＋連線自訂流程；定義 CRUD、畫布驗證與執行引擎已完成，12 種節點型別含條件分支／迴圈／GraalJS 程式碼／資料轉換；LLM 節點採 Agent 模式，工具／MCP／Skill 以獨立節點掛載到工具埠由 LLM 自主呼叫）
 - RBAC 權限管理
-- Swagger UI（dev / sit 環境）
+- Swagger UI（dev / docker / sit 環境；uat / prod 關閉）
 
 ## 內建 Tools 工具
 
@@ -190,22 +190,36 @@ bestpartner/
 
 ## 程式執行注意事項
 
-- 目前使用 PostgreSQL Database，可在 `application.properties` 中設定連線資訊
-- 無自動 Flyway 遷移（`migrate-at-start=false`），需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
+- 目前使用 PostgreSQL Database，連線資訊由 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 環境變數設定（見下方 `.env` 說明）
+- 無 Flyway，需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
 
-### 敏感金鑰管理（.env 檔案）
+### 環境設定與敏感金鑰（.env 檔案）
 
-專案使用 `.env` 管理 API Key 等敏感設定，避免明文寫入版本控制：
+專案以 `.env` 管理**跨環境會變動的設定**（連線位址、路徑）與 **API Key 等機密**，避免明文寫入版本控制：
 
 ```bash
 # 1. 複製範本
 cp .env.example .env
 
-# 2. 編輯 .env，填入實際金鑰
+# 2. 編輯 .env，填入實際值
 # OPENROUTER_API_KEY=your-openrouter-api-key-here
 ```
 
-`.env` 已列入 `.gitignore`，不會被提交；`.env.example` 為範本，提交至版本控制供參考。Quarkus 啟動時會自動載入 `.env`。
+`application.properties` 以 `${ENV_VAR:預設值}` 引用，**不設定任何環境變數也能直接啟動**（每個鍵都有本機開發預設值）。
+
+多環境各用一份 `.env.<profile>`：
+
+| 檔案 | profile | 用途 |
+|------|---------|------|
+| `.env` | dev | 本機開發（Quarkus 自動載入） |
+| `.env.docker` | docker | 本機容器測試 |
+| `.env.sit` | sit | 整合測試 |
+| `.env.uat` | uat | 使用者驗收 |
+| `.env.prod` | prod | 生產 |
+
+`.env` 與 `.env.*` 已列入 `.gitignore`；只有 `.env.example` 進版控，該檔列出所有可用變數與預設值。
+
+> ⚠️ `CRYPTO_SECRET_KEY` 在 sit 以上環境務必替換為高強度隨機字串，且各環境不同。變更此值會使既有加密資料無法解密。
 
 ---
 
@@ -304,7 +318,7 @@ npm run build    # vue-tsc 型別檢查 + production 建置
    ```bash
    ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
    ```
-   `${profile}` 可替換為 `dev`、`sit`、`prod`
+   `${profile}` 可替換為 `dev`、`docker`、`sit`、`uat`、`prod`
 
 2. 打包完成後，JAR 位於：
    ```
@@ -317,6 +331,45 @@ npm run build    # vue-tsc 型別檢查 + production 建置
    ```
 
 服務預設埠：**port 80**
+
+---
+
+## Docker 部署
+
+**一份 image 跑所有環境**，環境差異由 runtime 決定，不為個別環境重建 image。
+
+```bash
+# 1. 建 uber-jar —— profile 固定 prod（安全預設）
+cd bestpartner-service
+./gradlew clean build -x test -Dquarkus.package.type=uber-jar \
+  -Dorg.gradle.daemon=false -Dquarkus.profile=prod
+
+# 2. 建 image
+docker build -f src/main/docker/Dockerfile.uber-jar \
+  -t bestpartner-service:latest .
+
+# 3. 依環境執行
+docker run -d -p 80:80 \
+  -e QUARKUS_PROFILE=uat \
+  --env-file .env.uat \
+  -v bestpartner-data:/opt/bestpartner \
+  bestpartner-service:latest
+```
+
+> 建置 profile 固定用 `prod`：它會成為 image 的預設 runtime profile，
+> 讓部署時漏帶 `QUARKUS_PROFILE` 也落在「Swagger 關閉、log INFO」的安全側。
+
+搬遷至其他機器：
+
+```bash
+docker save -o bestpartner-service-0.1.8-SNAPSHOT-docker.tar bestpartner-service:latest
+# 目標機器
+docker load -i bestpartner-service-0.1.8-SNAPSHOT-docker.tar
+```
+
+> ⚠️ tar 內含 JWT 簽章私鑰（`privateKey.pem` 隨 uber-jar 打包），等同憑證，勿在不受控管道流通。
+
+存活探測請用 `/view/chat`；`/q/openapi` 與 `/swagger-ui` 在 prod 回 404 屬正確行為。
 
 ---
 

@@ -22,24 +22,52 @@ psql -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
 psql -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
 ```
 
-## 3. 建立 .env 檔案（敏感金鑰）
+## 3. 建立 .env 檔案（環境設定與敏感金鑰）
 
-專案使用 `.env` 檔案管理敏感的 API Key，避免明文寫入版本控制。
+專案以 `.env` 檔案管理**跨環境會變動的設定**（連線位址、路徑）與**敏感金鑰**，避免明文寫入版本控制。
 
 ```bash
 cp .env.example .env
 ```
 
-編輯 `.env`，填入實際金鑰：
+`.env.example` 是唯一進版控的範本，列出所有可用的環境變數與預設值。編輯 `.env` 填入本機實際值：
 
 ```dotenv
-# OpenRouter API Key
 OPENROUTER_API_KEY=your-openrouter-api-key-here
+CRYPTO_SECRET_KEY=changeme-please-replace-in-production
 ```
 
-> `.env` 已列入 `.gitignore`，不會被提交。`.env.example` 為範本，提交至版本控制供參考。
+Quarkus 啟動時會自動載入 `.env`，`application.properties` 中以 `${VARIABLE_NAME:預設值}` 引用。
+**未設定任何環境變數也能直接啟動**——每個鍵都帶有本機開發用的預設值。
 
-Quarkus 啟動時會自動載入 `.env`，`application.properties` 中以 `${VARIABLE_NAME}` 引用對應的值。
+### 多環境設定
+
+不同環境各自使用一份 `.env.<profile>`：
+
+```bash
+cp .env.example .env.uat    # 再填入 uat 的連線位址與金鑰
+```
+
+| 檔案 | 對應 profile | 用途 |
+|------|-------------|------|
+| `.env` | dev | 本機開發（Quarkus 自動載入） |
+| `.env.docker` | docker | 本機容器測試 |
+| `.env.sit` | sit | 整合測試 |
+| `.env.uat` | uat | 使用者驗收 |
+| `.env.prod` | prod | 生產 |
+
+容器執行時以 `--env-file` 指定：
+
+```bash
+docker run -d -p 80:80 -e QUARKUS_PROFILE=uat --env-file .env.uat bestpartner-service:latest
+```
+
+:::caution
+- `.env` 與 `.env.*` 皆已列入 `.gitignore`，不會被提交；只有 `.env.example` 進版控。
+- `--env-file` **不做 shell 引號處理**：值一律不加引號，且不支援 `${VAR}` 巢狀展開。
+- `CRYPTO_SECRET_KEY` 在 sit 以上環境務必替換為高強度隨機字串，且各環境不同。
+  變更此值會使既有加密資料（如 `llm_setting.api_key`）無法解密。
+:::
 
 ---
 
@@ -51,16 +79,29 @@ Quarkus 啟動時會自動載入 `.env`，`application.properties` 中以 `${VAR
 cd bestpartner-service/src/main/resources
 ```
 
-編輯 `application.properties`（或依環境編輯 `application-sit.properties` / `application-prod.properties`）：
+專案**只有一份** `application.properties`（無 `application-sit.properties` 之類的分檔）。
+環境差異由兩個機制處理：
+
+- **profile 區塊**（`%dev.` / `%docker.` / `%sit.` / `%uat.` / `%prod.` 前綴）：行為差異，如 log 等級、Swagger 開關
+- **環境變數**（`${ENV_VAR:預設值}`）：連線位址與機密，由 `.env.<profile>` 提供
+
+一般情況下**不需要改這個檔案**——調整 `.env` 即可。
 
 ### 資料庫設定
 
+連線資訊已參數化，改 `.env` 而非改此檔：
+
 ```properties
 quarkus.datasource.db-kind=postgresql
-quarkus.datasource.username=pguser
-quarkus.datasource.password=pgpass
-quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/pgdb
+quarkus.datasource.username=${DB_USERNAME:pguser}
+quarkus.datasource.password=${DB_PASSWORD:pgpass}
+quarkus.datasource.jdbc.url=${DB_URL:jdbc:postgresql://localhost:5432/pgdb?currentSchema=bestpartner}
 ```
+
+:::caution 容器環境
+容器內的 `localhost` 指向容器自己。連宿主機的 PostgreSQL 要用 `host.docker.internal`，
+連 compose 內的 DB 則用服務名稱。
+:::
 
 ### AI 模型設定
 
@@ -127,9 +168,28 @@ smallrye.jwt.sign.key.location=privateKey.pem
 
 ```properties
 # 敏感欄位（如向量資料庫密碼）AES-GCM 加密金鑰
-# ⚠️ 正式環境請務必替換為高強度隨機字串（建議 32 字元以上），且不同環境使用不同金鑰
-crypto.secret-key=changeme-please-replace-in-production
+# 預設值僅供本機開發；正式環境以 CRYPTO_SECRET_KEY 環境變數覆寫
+crypto.secret-key=${CRYPTO_SECRET_KEY:changeme-please-replace-in-production}
 ```
+
+:::warning
+正式環境請務必以 `CRYPTO_SECRET_KEY` 替換為高強度隨機字串（建議 32 字元以上），且不同環境使用不同金鑰。
+:::
+
+### 檔案路徑設定
+
+```properties
+quarkus.log.file.path=${LOG_DIR:D:/tmp/bestpartner}/bestpartner.log
+file.upload.dir=${FILE_UPLOAD_DIR:D:/tmp/bestpartner/upload}
+```
+
+:::caution 容器環境
+預設值為 Windows 路徑。容器／Linux 務必以 `LOG_DIR`、`FILE_UPLOAD_DIR` 覆寫為 POSIX 路徑，
+否則會產生名為 `D:` 的字面目錄。
+
+容器以 uid 185（jboss）執行：`/var/log` **不可寫**，請用 `/opt`、`/tmp` 或 `/deployments`。
+檔案需保存時搭配具名 volume（`-v bestpartner-data:/opt/bestpartner`）。
+:::
 
 ## 5. 建置專案
 

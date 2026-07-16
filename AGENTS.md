@@ -29,7 +29,9 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.13.0 · JDK 21 · PostgreSQL · 
 - **版本號禁止硬編碼在 `build.gradle.kts`**，一律定義於 `gradle.properties` 並以 `$xxxVersion` 引用（plugins 區塊例外）。→ [`gradle-conventions.md`](.claude/rules/gradle-conventions.md)
 - **業務訊息禁止寫死字串**，一律走 `AppMessage` enum + i18n properties（en_US 為預設語言）。→ [`i18n-messages.md`](.claude/rules/i18n-messages.md)
 - **無 Flyway 自動遷移**，schema 變更須手動跑 `docs/sql/` 的 SQL。
-- 服務預設 **port 80**；敏感欄位用 `crypto.secret-key` AES-GCM 加密。
+- **跨環境會變動的設定一律寫成 `${ENV_VAR:預設值}`**（預設值＝本機 Windows 開發值），機密與連線位址不寫死；各環境以 `.env.<profile>` 覆寫，範本為根目錄 `.env.example`。→ [`configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)
+- **不可對 build-time 設定加 `%profile.` 前綴**（image 一律以 prod 建置，會被求值成關閉並烤進 image，連 dev/sit 都失效）。已知 build-time：`swagger-ui.always-include`、`hibernate-orm.log.sql`、`hibernate-orm.log.bind-parameters`。一律「build-time 全域開能力、runtime 控實際輸出」（`swagger-ui.enable`、`log.category."...".level`）。→ [`configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)
+- 服務預設 **port 80**；敏感欄位用 `crypto.secret-key` AES-GCM 加密（預設值僅供本機開發，sit 以上務必以 `CRYPTO_SECRET_KEY` 替換）。
 
 ## 程式碼放哪（分層 + 命名）
 
@@ -52,16 +54,18 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.13.0 · JDK 21 · PostgreSQL · 
 ```bash
 cd bestpartner-service
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
-# profile: dev(預設) / sit / prod
+# profile: dev(預設) / docker / sit / uat / prod
 java -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 ```
+
+**Docker 一份 image 跑所有環境**：固定以 `-Dquarkus.profile=prod` 建置（建置 profile 會成為 image 預設 runtime profile，用 prod 才能讓漏帶 `QUARKUS_PROFILE` 時落在「Swagger 關閉、log INFO」的安全側）；環境差異靠 runtime `-e QUARKUS_PROFILE=<profile>` ＋ `--env-file .env.<profile>` 決定，不為個別環境重建 image。存活探測用 `/view/chat`（`/q/openapi`、`/swagger-ui` 在 prod 回 404 是正確行為）。
 
 設定檔與 profile 差異 → [`configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)、[`build-and-run.md`](.claude/rules/build-and-run.md)
 
 ## API
 
 13 模組、68 個 endpoint，清單 → [`api-endpoints.md`](.claude/rules/api-endpoints.md)。
-Swagger UI 僅 dev/sit 開放（`/swagger-ui`）→ [`api-documentation.md`](.claude/rules/api-documentation.md)。
+Swagger UI 與 OpenAPI spec 僅 dev/docker/sit 開放（`/swagger-ui`、`/q/openapi`），uat/prod 與未指定 profile 皆回 404 → [`api-documentation.md`](.claude/rules/api-documentation.md)。
 JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.claude/rules/authentication-and-security.md)。
 
 ## 完整規則索引（`.claude/rules/`）
@@ -73,7 +77,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 | [naming-conventions.md](.claude/rules/naming-conventions.md) | 套件命名（`bastpartner` 注意）、各層檔案命名規則 |
 | [build-and-run.md](.claude/rules/build-and-run.md) | Gradle 建置指令、uber-jar 生成、執行方式 |
 | [gradle-conventions.md](.claude/rules/gradle-conventions.md) | Gradle 版本管理、gradle.properties、build.gradle.kts 規範 |
-| [configuration-and-profiles.md](.claude/rules/configuration-and-profiles.md) | application.properties 設定項、dev/sit/prod 差異、資料庫設定 |
+| [configuration-and-profiles.md](.claude/rules/configuration-and-profiles.md) | 環境變數對照表、profile 差異（dev/docker/sit/uat/prod）、build-time vs runtime 設定、容器路徑、資料庫設定 |
 | [authentication-and-security.md](.claude/rules/authentication-and-security.md) | JWT 認證、公私鑰、登入端點、RBAC |
 | [api-documentation.md](.claude/rules/api-documentation.md) | Swagger UI 路徑、OpenAPI spec、Bearer 認證整合 |
 | [api-endpoints.md](.claude/rules/api-endpoints.md) | 各模組 API endpoint 清單與功能說明 |
@@ -92,6 +96,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 | 改動 API / entity / 資料表 / 設定鍵 / UI / workflow 節點型別 / 執行事件後，宣告完成前 | `documentation-sync`（含測試文件同步檢視：e2e-test-plan / api-test-plan，見 policy「測試文件同步」）→ [`documentation-update-policy.md`](.claude/rules/documentation-update-policy.md) |
 | 執行任何 API 測試前 | `test-confirmation` → [`api-testing.md`](.claude/rules/api-testing.md) |
 | 寫 git commit 訊息 | `git-commit-message`（`<類型>(<範圍>): <主旨>`，繁中主旨） |
+| 建立 / 匯出 Docker image | `docker-build`（固定 prod profile 建置 → 啟動驗證 → 自動匯出 tar；tar 內含 JWT 私鑰，勿隨意流通） |
 
 ## SQL 資料備份鐵則
 
