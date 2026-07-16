@@ -337,24 +337,42 @@ npm run build    # vue-tsc 型別檢查 + production 建置
 ## Docker 部署
 
 **一份 image 跑所有環境**，環境差異由 runtime 決定，不為個別環境重建 image。
+**打包指令不隨環境變化**——環境是在 `docker run` 時才選的。
+
+### 打包
 
 ```bash
-# 1. 建 uber-jar —— profile 固定 prod（安全預設）
+pwsh ./docker-package.ps1
+```
+
+一支腳本涵蓋建置、啟動驗證、清理與帶時戳匯出 tar。以 PowerShell Core 撰寫，
+Windows / Linux / macOS 通用（需安裝 `pwsh`）。
+
+常用參數：`-NoTar`（只建 image）、`-VerifyPort <埠>`（驗證埠被占用時）。
+
+手動執行等同於：
+
+```bash
 cd bestpartner-service
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar \
   -Dorg.gradle.daemon=false -Dquarkus.profile=prod
+docker build -f src/main/docker/Dockerfile.uber-jar -t bestpartner-service:latest .
+```
 
-# 2. 建 image
-docker build -f src/main/docker/Dockerfile.uber-jar \
-  -t bestpartner-service:latest .
+### 部署（這裡才分環境）
 
-# 3. 依環境執行
+```bash
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:latest
 ```
+
+| 參數 | 決定 |
+|------|------|
+| `-e QUARKUS_PROFILE=<env>` | 行為：Swagger 開關、SQL 日誌、log 等級 |
+| `--env-file .env.<env>` | 連線：DB 位址密碼、路徑、金鑰 |
 
 > 建置 profile 固定用 `prod`：它會成為 image 的預設 runtime profile，
 > 讓部署時漏帶 `QUARKUS_PROFILE` 也落在「Swagger 關閉、log INFO」的安全側。
