@@ -95,13 +95,18 @@ docker stop bestpartner-verify && docker rm bestpartner-verify
 
 ### Step 6：匯出 tar 檔（強制執行，不可省略、不必詢問）
 
-驗證通過即自動匯出，不必等使用者要求：
+驗證通過即自動匯出，不必等使用者要求。**時戳取當下時間**，不要沿用先前對話出現過的時間：
 
 ```bash
-docker save -o build/bestpartner-service-${version}-prod.tar bestpartner-service:latest
+docker save -o build/bestpartner-service-${version}-prod-$(date +%Y%m%d%H%M).tar bestpartner-service:latest
 ```
 
-檔名格式：`bestpartner-service-<版本>-<建置profile>.tar`
+檔名格式：`bestpartner-service-<版本>-<建置profile>-<YYYYMMDDHHmm>.tar`
+例：`bestpartner-service-0.1.8-SNAPSHOT-prod-202607162330.tar`
+
+> 時戳格式與專案既有慣例一致（見 `test-confirmation-YYYYMMDDHHmm.md`），不另創格式。
+> 用途是檔案被複製出 `build/` 或歸檔後仍能辨識是哪次建置——
+> `build/` 內不會累積，因為 Step 3 的 `gradlew clean` 每次都會清空該目錄。
 
 > ⚠️ **`-prod` 指的是「建置時使用的 profile」，不是「只能部署到 prod」。**
 > 這份 tar 是**全環境通用**的——同一份 image 靠 `-e QUARKUS_PROFILE=<profile>`
@@ -124,9 +129,9 @@ docker save -o build/bestpartner-service-${version}-prod.tar bestpartner-service
 4. 目標機器匯入與執行指令：
 
 ```bash
-docker load -i bestpartner-service-${version}-prod.tar
+docker load -i bestpartner-service-${version}-prod-<YYYYMMDDHHmm>.tar
 
-# 檔名的 -prod 是建置 profile；同一份 tar 可跑任何環境，
+# 檔名的 -prod 是建置 profile、後面是建置時間；同一份 tar 可跑任何環境，
 # 由 QUARKUS_PROFILE 與 .env.<profile> 決定（需先備妥於目標機器）
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
@@ -163,5 +168,6 @@ docker run -d -p 80:80 \
 | 驗證用的暫存容器忘記清理 | Step 5 結尾強制 stop + rm |
 | 等使用者要求才匯出 tar | Step 6 為強制且自動執行，驗證通過就直接匯出 |
 | tar 檔存到 `build/` 以外的路徑 | 固定存 `bestpartner-service/build/` |
-| 為每個環境各產一份 `-uat.tar` / `-sit.tar` | 只產一份 `-prod.tar`；後綴是建置 profile，內容全環境通用（Step 6） |
+| 為每個環境各產一份 `-uat.tar` / `-sit.tar` | 只產一份；`-prod` 是建置 profile，內容全環境通用（Step 6） |
+| tar 時戳沿用對話中出現過的時間或憑記憶填寫 | 以 `date +%Y%m%d%H%M` 取當下時間（Step 6） |
 | image tag 沿用舊版本號或憑記憶猜測 | 每次從 `build.gradle.kts` 重新讀取版本（Step 2） |

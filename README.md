@@ -362,10 +362,13 @@ docker run -d -p 80:80 \
 搬遷至其他機器：
 
 ```bash
-docker save -o bestpartner-service-0.1.8-SNAPSHOT-prod.tar bestpartner-service:latest
+docker save -o bestpartner-service-0.1.8-SNAPSHOT-prod-$(date +%Y%m%d%H%M).tar \
+  bestpartner-service:latest
 # 目標機器
-docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod.tar
+docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod-202607162330.tar
 ```
+
+檔名格式：`bestpartner-service-<版本>-<建置profile>-<YYYYMMDDHHmm>.tar`
 
 > 檔名的 `-prod` 是**建置 profile**，不是部署目標。這份 tar 全環境通用，
 > 跑哪個環境由 `QUARKUS_PROFILE` 與 `.env.<profile>` 決定。

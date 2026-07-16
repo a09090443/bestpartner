@@ -66,12 +66,14 @@ profile 對照與環境變數清單 → [`configuration-and-profiles.md`](config
 ### 匯出至其他機器
 
 ```bash
-docker save -o build/bestpartner-service-0.1.8-SNAPSHOT-prod.tar bestpartner-service:latest
+docker save -o build/bestpartner-service-0.1.8-SNAPSHOT-prod-$(date +%Y%m%d%H%M).tar \
+  bestpartner-service:latest
 # 目標機器
-docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod.tar
+docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod-202607162330.tar
 ```
 
-檔名格式：`bestpartner-service-<版本>-<建置profile>.tar`
+檔名格式：`bestpartner-service-<版本>-<建置profile>-<YYYYMMDDHHmm>.tar`
+（時戳格式同專案既有慣例，見 `docs/test-confirmations/`）
 
 > **`-prod` 是建置 profile，不是部署目標。** 這份 tar 全環境通用，跑哪個環境由
 > `-e QUARKUS_PROFILE=<profile>` ＋ `--env-file .env.<profile>` 決定。
