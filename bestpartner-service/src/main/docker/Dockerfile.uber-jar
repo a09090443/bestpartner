@@ -1,0 +1,33 @@
+####
+# This Dockerfile is used in order to build a container that runs the Quarkus
+# application packaged as an uber-jar (BestPartner's documented build mode,
+# see .claude/rules/build-and-run.md).
+#
+# Before building the container image run:
+#
+# ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
+#
+# Then, build the image with:
+#
+# docker build -f src/main/docker/Dockerfile.uber-jar -t bestpartner-service:latest .
+#
+# Then run the container using:
+#
+# docker run -i --rm -p 80:80 bestpartner-service:latest
+#
+# This image uses the `run-java.sh` script to run the application. See
+# Dockerfile.jvm in this directory for the full list of JAVA_OPTS_* / GC_*
+# tuning environment variables it supports.
+###
+FROM registry.access.redhat.com/ubi8/openjdk-21:1.20
+
+ENV LANGUAGE='en_US:en'
+
+COPY --chown=185 build/*-runner.jar /deployments/quarkus-run.jar
+
+EXPOSE 80
+USER 185
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]
