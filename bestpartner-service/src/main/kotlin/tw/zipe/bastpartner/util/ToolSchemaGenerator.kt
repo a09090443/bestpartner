@@ -45,6 +45,23 @@ object ToolSchemaGenerator {
         }
     }
 
+    /**
+     * 反射取得 config class 中標記 `@ToolConfigField(sensitive = true)` 的欄位名集合，
+     * 供 [tw.zipe.bastpartner.service.ToolService] 決定 settingContent 中哪些 key 需加密。
+     * class 不存在或反射失敗時回傳空集合（不加密任何欄位，維持既有明文行為，不炸掉呼叫端）。
+     */
+    fun sensitiveFields(configObjectPath: String): Set<String> = try {
+        val kClass = Class.forName(configObjectPath, false, javaClass.classLoader).kotlin
+        kClass.primaryConstructor?.parameters
+            ?.filter { it.findAnnotation<ToolConfigField>()?.sensitive == true }
+            ?.mapNotNull { it.name }
+            ?.toSet()
+            .orEmpty()
+    } catch (e: Throwable) {
+        logger().warn("無法反射工具設定類別的敏感欄位: $configObjectPath", e)
+        emptySet()
+    }
+
     /** 未列舉的型別（含 Map、自訂 class）一律 fallback 為 "string"，由前端以文字輸入呈現 */
     private fun jsonType(type: KType): String = when (type.classifier) {
         Int::class, Long::class, Short::class -> "integer"

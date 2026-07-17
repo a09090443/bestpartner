@@ -62,6 +62,12 @@ BestPartner 支援 AI 工具調用（Tool Calling），讓 AI 可以執行外部
 
 > 新增工具的 config class 欄位時，schema 自動更新，**無需改前端或文件**；下方欄位表僅為快速參考。
 
+### 敏感欄位加密儲存
+
+被 `@ToolConfigField(sensitive = true)` 標記的欄位（如 `apiKey`）在 `saveSetting` / `updateSetting` 時以 AES-GCM 加密後才寫入 `llm_tool_user_setting.setting_content`；非敏感欄位（如 `csi`、`timeout`）維持明文。工具實例化（`buildTool`）時才解密。
+
+`updateSetting` 若某敏感欄位值為 `__SECRET_KEPT__`，代表未更動，後端沿用既有密文（既有為舊明文則於此時補加密）。加密實作見 `converter/SensitiveValueCodec.kt`。加密強度取決於 `crypto.secret-key`，sit 以上務必以 `CRYPTO_SECRET_KEY` 覆寫預設值。
+
 ## Google 搜尋設定
 
 Google 搜尋工具設定欄位：

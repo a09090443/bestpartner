@@ -9,6 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.converter.SensitiveValueCodec
 import tw.zipe.bastpartner.dto.McpDTO
 import tw.zipe.bastpartner.entity.LLMMcpServerEntity
 import tw.zipe.bastpartner.entity.LLMMcpUserSetting
@@ -25,7 +26,8 @@ import tw.zipe.bastpartner.util.logger
 class McpServerService(
     private val securityValidator: SecurityValidator,
     private val llmMcpServerRepository: LLMMcpServerRepository,
-    private val llmMcpUserSettingRepository: LLMMcpUserSettingRepository
+    private val llmMcpUserSettingRepository: LLMMcpUserSettingRepository,
+    private val sensitiveValueCodec: SensitiveValueCodec
 ) {
 
     private val logger = logger()
@@ -67,7 +69,8 @@ class McpServerService(
                 this.settingId = it.id
                 this.mcpId = it.mcpId
                 this.alias = it.alias
-                this.settingContent = it.settingContent
+                // env 分類的值一律遮罩，明文與密文皆不外流
+                this.settingContent = maskEnvValues(it.settingContent, envKeysOf(it.mcpId))
                 this
             }
         } ?: throw ServiceException(AppMessage.MCP_USER_SETTING_NOT_FOUND)
@@ -80,17 +83,48 @@ class McpServerService(
             this.alias = mcpDTO.alias.orEmpty()
             this.userId = securityValidator.validateLoggedInUser()
             this.mcpId = mcp.mcpId.orEmpty()
-            this.settingContent = mcpDTO.settingContent.orEmpty()
+            // env 值（token/key）加密後落地；新增無既有值
+            this.settingContent = encryptEnvValues(mcpDTO.settingContent.orEmpty(), mcp.env?.keys.orEmpty(), existing = null)
             llmMcpUserSettingRepository.saveOrUpdate(this)
         }.apply { mcpDTO.userSettingId = this.id }
     }
 
     @Transactional
     fun updateSetting(mcpDTO: McpDTO) {
-        llmMcpUserSettingRepository.updateSettingsByNative(
-            mcpDTO.settingId.orEmpty(),
-            mcpDTO.settingContent.orEmpty()
-        )
+        val existingEntity = llmMcpUserSettingRepository.findById(mcpDTO.settingId.orEmpty())
+            ?: throw ServiceException(AppMessage.MCP_USER_SETTING_NOT_FOUND)
+        val envKeys = envKeysOf(existingEntity.mcpId)
+        // 讀既有 settingContent（密文）供未更動的 env 值沿用
+        val encrypted = encryptEnvValues(mcpDTO.settingContent.orEmpty(), envKeys, existingEntity.settingContent)
+        llmMcpUserSettingRepository.updateSettingsByNative(mcpDTO.settingId.orEmpty(), encrypted)
+    }
+
+    /** 取得 MCP server 定義的 env key 集合（即需加密的敏感 key）。 */
+    private fun envKeysOf(mcpId: String?): Set<String> =
+        mcpId?.let { llmMcpServerRepository.findById(it)?.commandSetting?.env?.keys }.orEmpty()
+
+    @Suppress("UNCHECKED_CAST")
+    private fun encryptEnvValues(
+        content: Map<String, String>,
+        envKeys: Set<String>,
+        existing: Map<String, String>?
+    ): Map<String, String> {
+        if (envKeys.isEmpty()) return content
+        return sensitiveValueCodec.encryptMap(content, envKeys, existing) as Map<String, String>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun maskEnvValues(content: Map<String, String>?, envKeys: Set<String>): Map<String, String> {
+        val data = content.orEmpty()
+        if (envKeys.isEmpty()) return data
+        return sensitiveValueCodec.maskMap(data, envKeys) as Map<String, String>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun decryptEnvValues(content: Map<String, String>?, envKeys: Set<String>): Map<String, String> {
+        val data = content.orEmpty()
+        if (envKeys.isEmpty()) return data
+        return sensitiveValueCodec.decryptMap(data, envKeys) as Map<String, String>
     }
 
     @Transactional
@@ -115,10 +149,12 @@ class McpServerService(
     private fun buildUserSpecificMcpClient(mcpSettingId: String, userId: String): DefaultMcpClient? {
         return llmMcpUserSettingRepository.findByCondition(mcpSettingId, userId)?.firstNotNullOfOrNull { data ->
             val mcpType = data.type ?: return@firstNotNullOfOrNull null
+            // 使用前解密 env 值（settingContent 落地為密文）
+            val envKeys = data.commandSetting?.env?.keys.orEmpty()
             val transport = createTransport(
                 type = mcpType,
                 commandSetting = data.commandSetting,
-                settingContent = data.settingContent
+                settingContent = decryptEnvValues(data.settingContent, envKeys)
             )
             transport?.let { DefaultMcpClient.Builder().transport(it).build() }
         }

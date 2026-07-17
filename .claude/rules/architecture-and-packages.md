@@ -76,7 +76,7 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 │   ├── security/
 │   └── vector/
 ├── constant/       # LLMConstant
-├── converter/          # PermissionSetConverter, PasswordEncryptConverter, WorkflowSecretConverter（workflow 節點 secretHeaders 加解密與遮罩）
+├── converter/          # PermissionSetConverter, PasswordEncryptConverter, WorkflowSecretConverter（workflow 節點 secretHeaders 加解密與遮罩）, SensitiveValueCodec（tool/MCP 設定 JSON 內敏感 key 逐值加解密與遮罩）
 ├── dto/            # ApiResponse, ChatRequestDTO, LLMDTO, McpDTO, SkillDTO, ToolDTO, WorkflowDTO ...
 │   └── workflow/
 │       └── config/ # NodeConfig（12 種 NodeType 的強型別 config DTO + NodeConfigRegistry，節點 config schema 的事實來源）

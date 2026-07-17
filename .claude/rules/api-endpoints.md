@@ -89,8 +89,8 @@
 | POST | `/llm/tool/get` | 取得特定工具詳細資訊（須傳入 id；回傳含 `settingSchema` 與舊版 `settingArgs`） | 公開 |
 | POST | `/llm/tool/register` | 註冊新工具（須傳入 name、classPath、groupId、type；CUSTOMIZE 類型須另加 functionName、functionDescription） | @RolesAllowed("admin") |
 | POST | `/llm/tool/delete` | 刪除工具（須傳入 id） | @RolesAllowed("admin") |
-| POST | `/llm/tool/saveSetting` | 儲存用戶工具設定（須傳入 id + alias） | 公開 |
-| POST | `/llm/tool/updateSetting` | 更新用戶工具設定（須傳入 settingId + settingContent） | 公開 |
+| POST | `/llm/tool/saveSetting` | 儲存用戶工具設定（須傳入 id + alias）；settingContent 中被 `@ToolConfigField(sensitive=true)` 標記的欄位（如 apiKey）加密落地 | 公開 |
+| POST | `/llm/tool/updateSetting` | 更新用戶工具設定（須傳入 settingId + settingContent）；敏感欄位值為 `__SECRET_KEPT__` 時沿用既有密文 | 公開 |
 | POST | `/llm/tool/category/save` | 新增工具分類（須傳入 group） | @RolesAllowed("admin") |
 | POST | `/llm/tool/category/update` | 更新工具分類（須傳入 groupId + group） | @RolesAllowed("admin") |
 | POST | `/llm/tool/category/delete` | 刪除工具分類（須傳入 groupId） | @RolesAllowed("admin") |
@@ -125,9 +125,9 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/mcpServer/register` | 註冊新 MCP 伺服器（STDIO 類型需 command + args；SSE 類型需 server） | @RolesAllowed("admin") |
 | POST | `/llm/mcpServer/update` | 更新 MCP 伺服器設定 | @RolesAllowed("admin") |
 | POST | `/llm/mcpServer/delete` | 刪除 MCP 伺服器（須傳入 mcpId） | @RolesAllowed("admin") |
-| POST | `/llm/mcpServer/saveSetting` | 儲存當前用戶的 MCP 個人設定（須傳入 mcpId + settingContent） | - |
-| POST | `/llm/mcpServer/getSetting` | 取得當前用戶的 MCP 個人設定（須傳入 userSettingId） | - |
-| POST | `/llm/mcpServer/updateSetting` | 更新當前用戶的 MCP 個人設定（須傳入 userSettingId + settingContent） | - |
+| POST | `/llm/mcpServer/saveSetting` | 儲存當前用戶的 MCP 個人設定（須傳入 mcpId + settingContent）；屬 server env 分類的值（token/key）加密落地 | - |
+| POST | `/llm/mcpServer/getSetting` | 取得當前用戶的 MCP 個人設定（須傳入 userSettingId）；env 分類的值回傳遮罩 `__SECRET_KEPT__`（明文不外流） | - |
+| POST | `/llm/mcpServer/updateSetting` | 更新當前用戶的 MCP 個人設定（須傳入 userSettingId + settingContent）；env 值為 `__SECRET_KEPT__` 時沿用既有密文 | - |
 | DELETE | `/llm/mcpServer/deleteSetting` | 刪除當前用戶的 MCP 個人設定（須傳入 userSettingId） | - |
 
 ---

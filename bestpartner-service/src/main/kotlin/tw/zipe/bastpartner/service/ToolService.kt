@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.apache.poi.util.StringUtil
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.converter.SensitiveValueCodec
 import tw.zipe.bastpartner.dto.ToolDTO
 import tw.zipe.bastpartner.entity.LLMToolCategoryEntity
 import tw.zipe.bastpartner.entity.LLMToolEntity
@@ -39,7 +40,8 @@ class ToolService(
     private val llmToolCategoryRepository: LLMToolCategoryRepository,
     private val llmToolUserSettingRepository: LLMToolUserSettingRepository,
     private val securityValidator: SecurityValidator,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val sensitiveValueCodec: SensitiveValueCodec
 ) {
     private val logger = logger()
 
@@ -99,12 +101,13 @@ class ToolService(
      */
     @Transactional
     fun saveSetting(toolDTO: ToolDTO) {
-        llmToolRepository.findByToolId(toolDTO.id.orEmpty())?.let {
+        llmToolRepository.findByToolId(toolDTO.id.orEmpty())?.let { tool ->
             with(LLMToolUserSettingEntity()) {
                 alias = toolDTO.alias.orEmpty()
                 toolId = toolDTO.id.orEmpty()
                 userId = securityValidator.validateLoggedInUser()
-                settingContent = toolDTO.settingContent
+                // 敏感欄位（@ToolConfigField(sensitive=true)，如 apiKey）加密後落地；新增無既有值
+                settingContent = encryptSettingContent(toolDTO.settingContent, tool.configObjectPath, existing = null)
                 llmToolUserSettingRepository.persist(this)
                 toolDTO.settingId = id
             }
@@ -144,10 +147,48 @@ class ToolService(
      */
     @Transactional
     fun updateSetting(toolDTO: ToolDTO) {
+        val existingEntity = llmToolUserSettingRepository.findById(toolDTO.settingId.orEmpty())
+            ?: throw ServiceException(AppMessage.TOOL_SETTING_NOT_FOUND)
+        // 讀既有 content（密文狀態）供未更動的敏感值沿用；configObjectPath 決定哪些 key 敏感
+        val configObjectPath = getTool(existingEntity.toolId).configObjectPath
+        val existingMap = parseSettingContent(existingEntity.settingContent)
+        val encrypted = encryptSettingContent(toolDTO.settingContent, configObjectPath, existingMap)
         llmToolUserSettingRepository.updateSettingsByNative(
             toolDTO.settingId.orEmpty(),
-            toolDTO.settingContent.orEmpty()
+            encrypted.orEmpty()
         )
+    }
+
+    /**
+     * 加密 settingContent（JSON 字串）中的敏感欄位。無 configObjectPath 或無敏感欄位時原樣返回。
+     * [existing]：既有 content 解析出的 map（可能含密文），供值為遮罩時沿用。
+     */
+    private fun encryptSettingContent(
+        content: String?,
+        configObjectPath: String?,
+        existing: Map<String, Any?>?
+    ): String? {
+        if (content.isNullOrBlank() || configObjectPath == null) return content
+        val sensitiveKeys = ToolSchemaGenerator.sensitiveFields(configObjectPath)
+        if (sensitiveKeys.isEmpty()) return content
+        val map = objectMapper.readValue(content, object : TypeReference<Map<String, Any?>>() {})
+        return objectMapper.writeValueAsString(sensitiveValueCodec.encryptMap(map, sensitiveKeys, existing))
+    }
+
+    /**
+     * 解密 settingContent 中的敏感欄位供工具實例化使用。
+     */
+    private fun decryptSettingContent(content: String?, configObjectPath: String?): String {
+        if (content.isNullOrBlank() || configObjectPath == null) return content.orEmpty()
+        val sensitiveKeys = ToolSchemaGenerator.sensitiveFields(configObjectPath)
+        if (sensitiveKeys.isEmpty()) return content
+        val map = objectMapper.readValue(content, object : TypeReference<Map<String, Any?>>() {})
+        return objectMapper.writeValueAsString(sensitiveValueCodec.decryptMap(map, sensitiveKeys))
+    }
+
+    private fun parseSettingContent(content: String?): Map<String, Any?>? {
+        if (content.isNullOrBlank()) return null
+        return objectMapper.readValue(content, object : TypeReference<Map<String, Any?>>() {})
     }
 
     /**
@@ -190,7 +231,9 @@ class ToolService(
         }
 
         return userSetting?.let {
-            val settingJson = Json.parseToJsonElement(userSetting.settingContent.orEmpty()).jsonObject
+            // 使用前解密敏感欄位（settingContent 落地為密文）
+            val decrypted = decryptSettingContent(userSetting.settingContent, tool.configObjectPath)
+            val settingJson = Json.parseToJsonElement(decrypted).jsonObject
             // 需使用 java 反射才能取得有順序性的 fields
             val configClazz = Class.forName(tool.configObjectPath)
             val fields = configClazz.declaredFields.joinToString(", ") { it.name }

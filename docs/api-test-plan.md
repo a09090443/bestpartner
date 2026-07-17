@@ -87,6 +87,8 @@
 | P0 | list 列出內建工具 | 含 GoogleSearch、Tavily、DateTool、Text2SQL |
 | P1 | **list / get 回傳 `settingSchema`**：GoogleSearch 的 `apiKey` 為 `{type:"string", required:true, sensitive:true}`；DateTool（無 config class）為 null | 結構化 schema 正確（wire format 為純值，非物件包裝） |
 | P1 | saveSetting（id + alias）→ updateSetting（settingId + settingContent） | settingId 回傳並可更新內容 |
+| P1 | **敏感欄位加密**：saveSetting GoogleSearch 帶明文 apiKey，查 DB `llm_tool_user_setting.setting_content` | apiKey 為 `{iv}$…` 密文、不含明文；csi/timeout 仍明文 |
+| P1 | **敏感欄位沿用**：updateSetting apiKey 送 `__SECRET_KEPT__` 並改 csi | apiKey 沿用既有密文、csi 更新、無遮罩字面值落地 |
 | P2 | register / delete / category CRUD 非 admin 拒絕 | 403 |
 
 ## MCP SERVER - `/llm/mcpServer`
@@ -95,6 +97,9 @@
 |:---:|------|------|
 | P1 | register STDIO 類型（command + args）與 SSE 類型（server） | 成功，list 可見 |
 | P1 | saveSetting / getSetting / updateSetting / deleteSetting 個人設定 CRUD | 生效 |
+| P1 | **env 值加密**：saveSetting 帶 env 值（如 CREDENTIALS_FILE_PATH），查 DB `llm_mcp_user_setting.setting_content` | env key 值為密文、不含明文；args 值仍明文 |
+| P1 | **getSetting 遮罩**：對上述設定 getSetting | env 值回傳 `__SECRET_KEPT__`，明文不外流 |
+| P1 | **env 值沿用**：updateSetting env 送 `__SECRET_KEPT__` | 沿用既有密文、無遮罩字面值落地 |
 | P2 | register / update / delete 非 admin 拒絕 | 403 |
 
 ## PERMISSION - `/llm/permission`

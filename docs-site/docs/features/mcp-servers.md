@@ -42,6 +42,12 @@ MCP Server 設定儲存在 `llm_mcp_server` 表：
 | `type` | McpType（STDIO / SSE）|
 | `command_setting` | JSON，包含連線設定（URL 或命令）|
 
+使用者個人設定另存於 `llm_mcp_user_setting.setting_content`（`saveSetting` / `updateSetting` 寫入）。
+
+### env 值加密儲存
+
+`setting_content` 中屬於該 MCP server **env 分類**（`command_setting.env` 的 key，通常是 token/key）的值，於存檔時以 AES-GCM 加密落地；args 分類的值（路徑、參數）維持明文。`getSetting` 回傳時 env 值一律遮罩為 `__SECRET_KEPT__`，明文與密文皆不外流；`updateSetting` 送回遮罩值即沿用既有密文（既有為舊明文則補加密）。實際建立 MCP client（`buildMcpServer`）時才解密。加密實作見 `converter/SensitiveValueCodec.kt`；加密強度取決於 `crypto.secret-key`。
+
 ## 範例：Quarkus MCP Server（STDIO 模式）
 
 專案中的 `bestpartner-mcp-servers/quarkus-example` 使用 **STDIO** 傳輸模式。
