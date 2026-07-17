@@ -122,11 +122,16 @@ cd bestpartner-service
 
 ## 漂移掃描（補 ArchUnit 不易檢查的慣例）
 
-`harness-drift-scan.ps1`（repo 根目錄）逐項對照黃金規範掃描跨模組漂移，輸出「現況 vs 規範 vs 建議」表，區分歷史基線與新漂移，發現新漂移時 exit 1（可作 CI 把關）：
+`scripts/harness-drift-scan` 逐項對照黃金規範掃描跨模組漂移，輸出「現況 vs 規範 vs 建議」表，區分歷史基線與新漂移，發現新漂移時 exit 1（可作 CI 把關）：
 
-```powershell
-pwsh ./harness-drift-scan.ps1
+```bash
+./scripts/harness-drift-scan.sh          # Linux / macOS
+pwsh ./scripts/harness-drift-scan.ps1    # Windows
 ```
+
+> 所有可執行腳本集中於 repo 根目錄的 `scripts/`，各腳本用途見 `scripts/README.md`。
+> ⚠️ 每支腳本有 `.sh`（Linux/macOS 原生）與 `.ps1`（Windows）**兩份實作，改動時兩份都要改**；
+> CI 會同時執行兩者並比對結論，不一致即擋下。
 
 涵蓋：套件拼字（`bastpartner`）、i18n 寫死字串、`build.gradle.kts` 版本硬編碼、`@Entity` 命名後綴、service/repository 的 `@ApplicationScoped`、SQL 金鑰外洩、**AGENTS.md 與 `.claude/CLAUDE.md` 一致性**、**Workflow NodeType 前後端契約一致**（`NodeType.kt` ≡ `bestpartner-ui` 的 `types/workflow.ts`）、**前端測試命名**（新測試一律 `.test.ts`）。既有基線（如 `jsqlparser` 硬編碼版本、`LLMResource.kt` 寫死例外訊息、3 個既存 `.spec.ts`）已登錄於腳本 `$Baseline`，新增程式碼若擴大漂移會被標為 `NEW`。
 

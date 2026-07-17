@@ -1,4 +1,9 @@
 # BestPartner API 自動化測試執行器（PowerShell 版）
+#
+# ⚠️ 正式 API 測試流程請走 test-confirmation skill（見 .claude/rules/api-testing.md）。
+#    本腳本僅為早期草稿，保留作歷史參考。
+
+$repoRoot = Split-Path -Parent $PSScriptRoot
 
 $BASE_URL = "http://localhost:80"
 $ADMIN_EMAIL = "admin@bestpartner.com.tw"
@@ -7,7 +12,7 @@ $USER_EMAIL = "user@bestpartner.com.tw"
 $USER_PASSWORD = "user"
 
 $testResults = @{
-    timestamp = (Get-Date).ToIsoString()
+    timestamp = (Get-Date).ToString('o')
     environment = "dev"
     total_tests = 0
     passed = 0
@@ -213,6 +218,6 @@ Write-Host "   ❌ 失敗: $($testResults.failed)" -ForegroundColor Red
 Write-Host "   ⏭️ 跳過: $($testResults.skipped)" -ForegroundColor Yellow
 Write-Host "   通過率: $([Math]::Round($passRate, 1))%" -ForegroundColor Cyan
 
-$resultsFile = "D:\projects\bestpartner\test_results_manual.json"
+$resultsFile = Join-Path $repoRoot 'test_results_manual.json'
 $testResults | ConvertTo-Json -Depth 10 | Out-File -FilePath $resultsFile -Encoding UTF8
 Write-Host "`n📊 詳細結果已保存至: $resultsFile" -ForegroundColor Green

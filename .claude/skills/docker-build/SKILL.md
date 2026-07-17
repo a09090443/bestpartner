@@ -22,19 +22,28 @@ profile 用 `-e QUARKUS_PROFILE=<profile>`，連線位址與機密用 `--env-fil
 - 使用者要把服務搬到另一台機器，需要 tar 檔匯出/匯入
 - 使用者要驗證 image 能否正常啟動
 
-## 執行方式：優先呼叫 `docker-package.ps1`
+## 執行方式：優先呼叫 `scripts/docker-package`
 
-repo 根目錄的 **`docker-package.ps1`** 已將下方 Step 1–6 完整實作（含前置檢查、版本讀取、
-啟動驗證、容器清理、時戳命名）。**預設一律用它**，不要逐步手打指令：
+**`scripts/docker-package`** 已將下方 Step 1–6 完整實作（含前置檢查、版本讀取、
+啟動驗證、容器清理、時戳命名）。**預設一律用它**，不要逐步手打指令。
+依所在平台擇一（兩者行為等價）：
 
 ```bash
-pwsh ./docker-package.ps1              # 完整流程
-pwsh ./docker-package.ps1 -NoTar       # 只建 image，不匯出
-pwsh ./docker-package.ps1 -VerifyPort 18085   # 驗證埠被占用時改用其他埠
+# Linux / macOS
+./scripts/docker-package.sh                       # 完整流程
+./scripts/docker-package.sh --no-tar              # 只建 image，不匯出
+./scripts/docker-package.sh --verify-port 18085   # 驗證埠被占用時改用其他埠
 ```
 
-以 PowerShell Core 撰寫，Windows / Linux / macOS 皆可執行（同 repo 既有的
-`harness-drift-scan.ps1`，CI 亦以 `shell: pwsh` 於 ubuntu 執行）。
+```powershell
+# Windows
+pwsh ./scripts/docker-package.ps1              # 完整流程
+pwsh ./scripts/docker-package.ps1 -NoTar       # 只建 image，不匯出
+pwsh ./scripts/docker-package.ps1 -VerifyPort 18085   # 驗證埠被占用時改用其他埠
+```
+
+⚠️ `.sh`（Linux/macOS 原生 bash）與 `.ps1`（Windows）是同一流程的**兩份實作**，
+修改流程時**兩份都要改**，否則兩平台行為分歧。見 `scripts/README.md`。
 
 下方步驟是該腳本的**規格說明**——用於腳本不存在、需修改腳本，或需理解某步驟為何如此設計時。
 若腳本與下方步驟衝突，兩者都要修到一致，不可只改一邊。
@@ -176,7 +185,8 @@ docker run -d -p 80:80 \
 
 | 錯誤 | 正確做法 |
 |------|---------|
-| 逐步手打指令而不用現成腳本 | 預設跑 `pwsh ./docker-package.ps1` |
+| 逐步手打指令而不用現成腳本 | 預設跑 `./scripts/docker-package.sh`（Windows：`pwsh ./scripts/docker-package.ps1`） |
+| 只改了 `.sh` 或只改了 `.ps1` | 兩份實作必須同步，CI 會比對結論並擋下 |
 | 改了流程只更新腳本或只更新本文件 | 兩者須同步，否則規格與實作漂移 |
 | 在 PowerShell 未加引號傳 `-D` 參數 | 須寫成 `'-Dquarkus.profile=prod'`；否則 PowerShell 會拆開參數，Gradle 收到 `.package.type=uber-jar` 當 task 名而失敗 |
 | 用 `Dockerfile.jvm` 或 `Dockerfile` 建置 | 一律用 `Dockerfile.uber-jar`（Step 1） |

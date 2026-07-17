@@ -28,17 +28,26 @@ java -jar bestpartner-service-0.1.8-SNAPSHOT-runner.jar
 **一份 image 跑所有環境**，環境差異全部在 runtime 決定，不為個別環境重建 image。
 **打包指令不隨環境變化**——沒有「sit 的打包方式」這種東西。
 
-### 建置：用 `docker-package.ps1`（推薦）
+### 建置：用 `scripts/docker-package`（推薦）
 
-repo 根目錄的腳本已涵蓋建置、驗證、清理與帶時戳匯出：
+`scripts/` 下的腳本已涵蓋建置、驗證、清理與帶時戳匯出：
 
 ```bash
-pwsh ./docker-package.ps1                      # 完整流程
-pwsh ./docker-package.ps1 -NoTar               # 只建 image
-pwsh ./docker-package.ps1 -VerifyPort 18085    # 驗證埠被占用時
+# Linux / macOS（原生 bash，不需安裝 pwsh）
+./scripts/docker-package.sh                       # 完整流程
+./scripts/docker-package.sh --no-tar              # 只建 image
+./scripts/docker-package.sh --verify-port 18085   # 驗證埠被占用時
 ```
 
-以 PowerShell Core 撰寫，Windows / Linux / macOS 通用（同 `harness-drift-scan.ps1` 慣例）。
+```powershell
+# Windows
+pwsh ./scripts/docker-package.ps1                      # 完整流程
+pwsh ./scripts/docker-package.ps1 -NoTar               # 只建 image
+pwsh ./scripts/docker-package.ps1 -VerifyPort 18085    # 驗證埠被占用時
+```
+
+⚠️ `.sh` 與 `.ps1` 是同一流程的兩份實作，**改動時兩份都要改**。
+各腳本用途與維護契約見 [`scripts/README.md`](../../scripts/README.md)。
 
 ### 建置：手動（profile 固定 prod）
 

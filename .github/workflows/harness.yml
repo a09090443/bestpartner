@@ -40,9 +40,36 @@ jobs:
           ./gradlew test --tests "tw.zipe.bastpartner.architecture.ArchitectureTest" \
             -Dorg.gradle.daemon=false --no-daemon
 
-      - name: 漂移掃描 — harness-drift-scan
-        shell: pwsh
-        run: ./harness-drift-scan.ps1
+      - name: 漂移掃描 — harness-drift-scan（bash 原生）
+        run: ./scripts/harness-drift-scan.sh
+
+      # scripts/ 下的掃描有 .sh 與 .ps1 兩份實作（Linux/macOS 原生 vs Windows）。
+      # 兩份規則或基線一旦分歧，兩邊會各說各話且無人察覺——故在此機械化比對結論。
+      # 這是雙份實作的代價，不可移除；修改任一份時另一份必須同步。
+      - name: 兩份實作結論一致（.sh ≡ .ps1）
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          sh_out="$(./scripts/harness-drift-scan.sh)"; sh_rc=$?
+          ps_out="$(pwsh ./scripts/harness-drift-scan.ps1)"; ps_rc=$?
+          set -e
+
+          sh_sum="$(printf '%s' "$sh_out" | grep -oE '基線 [0-9]+ 項、新漂移 [0-9]+ 項' || true)"
+          ps_sum="$(printf '%s' "$ps_out" | grep -oE '基線 [0-9]+ 項、新漂移 [0-9]+ 項' || true)"
+
+          echo "bash : rc=$sh_rc  $sh_sum"
+          echo "pwsh : rc=$ps_rc  $ps_sum"
+
+          if [[ -z "$sh_sum" || -z "$ps_sum" ]]; then
+            echo "::error::無法從掃描輸出解析結論摘要，請檢查兩份腳本的輸出格式。"
+            exit 1
+          fi
+          if [[ "$sh_rc" != "$ps_rc" || "$sh_sum" != "$ps_sum" ]]; then
+            echo "::error::harness-drift-scan 的 .sh 與 .ps1 兩份實作結論不一致——規則或基線已漂移，請同步後再推送。"
+            exit 1
+          fi
+          echo "✓ 兩份實作結論一致"
 
       - name: 上傳測試報告（失敗時）
         if: failure()

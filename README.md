@@ -342,13 +342,14 @@ npm run build    # vue-tsc 型別檢查 + production 建置
 ### 打包
 
 ```bash
-pwsh ./docker-package.ps1
+./scripts/docker-package.sh          # Linux / macOS（原生 bash）
+pwsh ./scripts/docker-package.ps1    # Windows
 ```
 
-一支腳本涵蓋建置、啟動驗證、清理與帶時戳匯出 tar。以 PowerShell Core 撰寫，
-Windows / Linux / macOS 通用（需安裝 `pwsh`）。
+一支腳本涵蓋建置、啟動驗證、清理與帶時戳匯出 tar。
 
-常用參數：`-NoTar`（只建 image）、`-VerifyPort <埠>`（驗證埠被占用時）。
+常用參數：`--no-tar` / `-NoTar`（只建 image）、`--verify-port <埠>` / `-VerifyPort <埠>`
+（驗證埠被占用時）。詳見 [`scripts/README.md`](scripts/README.md)。
 
 手動執行等同於：
 

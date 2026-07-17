@@ -13,11 +13,12 @@
     - 偵測到「新漂移」時以 exit code 1 結束，可作為 CI 把關。
 
 .EXAMPLE
-    pwsh ./harness-drift-scan.ps1
+    pwsh ./scripts/harness-drift-scan.ps1
 #>
 
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
+# 本腳本位於 scripts/，掃描目標是整個 repo，故 root 取上一層。
+$root = Split-Path -Parent $PSScriptRoot
 $srcMain = Join-Path $root 'bestpartner-service/src/main/kotlin/tw/zipe/bastpartner'
 $buildGradle = Join-Path $root 'bestpartner-service/build.gradle.kts'
 $uiSrc = Join-Path $root 'bestpartner-ui/src'

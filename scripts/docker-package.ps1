@@ -15,7 +15,7 @@
     log INFO」的安全側。
 
     跨平台：以 PowerShell Core (pwsh) 撰寫，Windows / Linux / macOS 皆可執行，
-    與 repo 既有的 harness-drift-scan.ps1 同一套慣例（CI 亦以 pwsh 於 ubuntu 執行）。
+    與 repo 既有的 scripts/harness-drift-scan.ps1 同一套慣例（CI 亦以 pwsh 於 ubuntu 執行）。
 
 .PARAMETER VerifyPort
     啟動驗證用的宿主機埠，預設 18080。若該埠被占用可改用其他埠。
@@ -27,11 +27,11 @@
     只建 image，不匯出 tar。適用於本機測試、不需搬遷的情況。
 
 .EXAMPLE
-    pwsh ./docker-package.ps1
+    pwsh ./scripts/docker-package.ps1
     完整流程：建置 → 驗證 → 匯出 tar
 
 .EXAMPLE
-    pwsh ./docker-package.ps1 -NoTar
+    pwsh ./scripts/docker-package.ps1 -NoTar
     只建 image 供本機測試
 
 .EXAMPLE
@@ -49,7 +49,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$root       = $PSScriptRoot
+# 本腳本位於 scripts/，建置目標在 repo 根目錄下，故 root 取上一層。
+$root       = Split-Path -Parent $PSScriptRoot
 $serviceDir = Join-Path $root 'bestpartner-service'
 $dockerfile = 'src/main/docker/Dockerfile.uber-jar'
 $verifyName = 'bestpartner-verify'
