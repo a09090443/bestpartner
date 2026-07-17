@@ -3362,6 +3362,29 @@
           "response": []
         },
         {
+          "name": "save (HTTP_REQUEST secretHeaders)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "description": "示範 HTTP_REQUEST 節點的機密欄位。secretHeaders 的值會以 AES-GCM 加密後落地，get 回傳時一律為遮罩 __SECRET_KEPT__。整張覆寫 save 時，把遮罩值原樣送回即代表沿用既有密文；填入新明文則覆寫。契約見 docs/workflow-engine/system-design.md §2.9。",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"{{workflowId}}\",\n    \"version\": 1,\n    \"name\": \"我的工作流\",\n    \"nodes\": [\n        { \"nodeKey\": \"a\", \"type\": \"TRIGGER\", \"positionX\": 0, \"positionY\": 0, \"config\": { \"triggerType\": \"MANUAL\" } },\n        { \"nodeKey\": \"http\", \"type\": \"HTTP_REQUEST\", \"positionX\": 200, \"positionY\": 0, \"config\": {\n            \"method\": \"GET\",\n            \"url\": \"https://api.example.com/v1/ping\",\n            \"headers\": { \"X-Tenant\": \"t9\" },\n            \"secretHeaders\": { \"Authorization\": \"Bearer sk-test-plain\" },\n            \"timeoutMs\": 10000,\n            \"outputKey\": \"httpResponse\"\n        } }\n    ],\n    \"edges\": [\n        { \"sourceNodeKey\": \"a\", \"targetNodeKey\": \"http\" }\n    ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/save",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "save" ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "get",
           "request": {
             "method": "POST",

@@ -124,6 +124,22 @@
 | P1 | execute 未帶 token（未認證） | 401 |
 | P2 | execute 中途 client 斷線 | 執行標記 `CANCELLED`，未執行的下游節點標記 `SKIPPED` |
 
+### HTTP_REQUEST 機密欄位（`secretHeaders`）
+
+> 契約見 `docs/workflow-engine/system-design.md` §2.9；實作為 `converter/WorkflowSecretConverter.kt`。
+> DB 查核指令：`SELECT config FROM bestpartner.llm_workflow_node WHERE node_key = '<nodeKey>';`
+
+| 優先 | 案例 | 預期 |
+|:---:|------|------|
+| P1 | **save 加密落地**：HTTP_REQUEST 節點帶 `secretHeaders: {"Authorization": "Bearer sk-test-plain"}` 存檔後直接查 DB | `config` 內該值為 `{iv}${encrypted}` 格式密文，**不含明文** `sk-test-plain`；`method` / `url` / `headers` 仍為明文 |
+| P1 | **get 回傳遮罩**：對上述 workflow 呼叫 get | `secretHeaders.Authorization` 為 `__SECRET_KEPT__`，明文與密文皆不出現 |
+| P1 | **sentinel 沿用**：把 get 的回應原樣送回 save（值仍為 `__SECRET_KEPT__`） | 200；DB 密文與前次相同（未被覆寫），execute 仍能以原金鑰送出 |
+| P1 | **改金鑰**：save 時填入新明文 `Bearer sk-new` | DB 密文更新，execute 送出的 header 為 `Bearer sk-new` |
+| P1 | **execute 送出明文**：以 mock server 接收請求 | 收到的 `Authorization` 為解密後明文，非密文亦非遮罩 |
+| P1 | **執行紀錄不外洩**：execute 後查 `llm_workflow_node_execution.input` | 其中 `config.secretHeaders` 為 `__SECRET_KEPT__`，無明文 |
+| P2 | **改 header 名稱邊界**：將 key 由 `Authorization` 改為 `X-Auth` 但值仍送 `__SECRET_KEPT__` | 該欄位被移除（遮罩字面值不得存入 DB） |
+| P2 | **舊明文相容**：手動以 SQL 將 `secretHeaders` 值改為明文後 execute | 執行正常（原樣使用）；再 save 一次後查 DB 已轉為密文 |
+
 ## SYSTEM SETTING - `/systemSetting`
 
 | 優先 | 案例 | 預期 |

@@ -27,6 +27,7 @@ import tw.zipe.bastpartner.entity.WorkflowNodeEntity
 import tw.zipe.bastpartner.entity.WorkflowNodeExecutionEntity
 import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.ExecutionStatus
+import tw.zipe.bastpartner.converter.WorkflowSecretConverter
 import tw.zipe.bastpartner.enumerate.NodeExecutionStatus
 import tw.zipe.bastpartner.enumerate.NodeType
 import tw.zipe.bastpartner.enumerate.TriggerType
@@ -58,7 +59,8 @@ class WorkflowEngine(
     private val nodeExecutionRepository: WorkflowNodeExecutionRepository,
     private val executors: Instance<NodeExecutor>,
     private val currentIdentityAssociation: CurrentIdentityAssociation,
-    private val managedExecutor: ManagedExecutor
+    private val managedExecutor: ManagedExecutor,
+    private val workflowSecretConverter: WorkflowSecretConverter
 ) {
     companion object {
         /** 節點逾時預設值（spec §2.2）：config 未指定 timeoutMs 時套用 */
@@ -190,14 +192,13 @@ class WorkflowEngine(
                     this.seqNo = seqNo
                     status = NodeExecutionStatus.RUNNING
                     this.input = mapOf(
-                        "config" to node.config,
+                        "config" to maskedConfig(node),
                         "contextKeys" to context.allOutputs().keys.toList()
                     )
                     this.startedAt = LocalDateTime.now()
                 }
                 try {
-                    val configObj = mapToJsonObject(node.config) ?: JsonObject(emptyMap())
-                    val parsed = NodeConfigRegistry.parse(node.type, configObj)
+                    val parsed = parseNodeConfig(node)
                     val output = if (node.type == NodeType.LOOP) {
                         // LOOP 由引擎自行編排子圖迭代（需執行其他節點，不經 executor 分派）
                         val bodyOrder = order.filter { it.nodeKey in loopSubgraphs[node.nodeKey].orEmpty() }
@@ -377,8 +378,7 @@ class WorkflowEngine(
         val capabilityMounts = capabilityEdges.groupBy { it.targetNodeKey }
             .mapValues { (_, es) ->
                 es.mapNotNull { e -> nodeByKey[e.sourceNodeKey] }.map { src ->
-                    val cfgObj = mapToJsonObject(src.config) ?: JsonObject(emptyMap())
-                    MountedCapability(src.type, NodeConfigRegistry.parse(src.type, cfgObj))
+                    MountedCapability(src.type, parseNodeConfig(src))
                 }
             }
         return capabilityKeys to capabilityMounts
@@ -475,7 +475,7 @@ class WorkflowEngine(
             this.loopIndex = loopIndex
             status = NodeExecutionStatus.RUNNING
             this.input = mapOf(
-                "config" to node.config,
+                "config" to maskedConfig(node),
                 "contextKeys" to context.allOutputs().keys.toList()
             )
             this.startedAt = LocalDateTime.now()
@@ -483,8 +483,7 @@ class WorkflowEngine(
         try {
             val executor = executorMap[node.type]
                 ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
-            val configObj = mapToJsonObject(node.config) ?: JsonObject(emptyMap())
-            val parsed = NodeConfigRegistry.parse(node.type, configObj)
+            val parsed = parseNodeConfig(node)
             val output = executeWithTimeout(executor, node, parsed, context)
             context.putOutput(node.nodeKey, output)
             val duration = System.currentTimeMillis() - nodeStart
@@ -606,4 +605,19 @@ class WorkflowEngine(
         if (map == null) return null
         return json.parseToJsonElement(objectMapper.writeValueAsString(map)).jsonObject
     }
+
+    /**
+     * 解析節點 config 供執行使用：機密欄位（secretHeaders）先解密還原明文再反序列化。
+     * 執行路徑一律經此，避免有分支拿到密文當 header 值送出。
+     */
+    private fun parseNodeConfig(node: WorkflowNodeEntity): NodeConfig {
+        val decrypted = workflowSecretConverter.decryptForExecution(node.type, node.config)
+        return NodeConfigRegistry.parse(node.type, mapToJsonObject(decrypted) ?: JsonObject(emptyMap()))
+    }
+
+    /**
+     * 節點 config 之可落庫版本：機密欄位遮罩後才寫入執行紀錄，避免金鑰流入 node_execution.input。
+     */
+    private fun maskedConfig(node: WorkflowNodeEntity): Map<String, Any?> =
+        workflowSecretConverter.maskForResponse(node.type, node.config)
 }

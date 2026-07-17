@@ -193,9 +193,26 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
-`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填；`headers` / `secretHeaders` 執行時逐值插值後套用、`timeoutMs` 作為呼叫逾時，Phase 2 起生效）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
+`TRIGGER`（`triggerType` 必填，enum：`MANUAL`/`WEBHOOK`/`CRON`）、`CONDITION`（`conditions` 必填非空）、`LOOP`（`inputArrayPath`、`loopBodyEntryNodeKey` 必填）、`CODE`（`language`、`source` 必填）、`HTTP_REQUEST`（`method`、`url` 必填；`headers` / `secretHeaders` 執行時逐值插值後套用、`timeoutMs` 作為呼叫逾時，Phase 2 起生效；`secretHeaders` 加密儲存，見下方「機密欄位」）、`DATA_TRANSFORM`（`mappings` 與 `template` 至少擇一）。
 
 完整欄位定義見 `docs/workflow-engine/system-design.md` §2；程式碼事實來源為 `dto/workflow/config/NodeConfig.kt`。以 JSON 編輯器輸入時，鍵名拼錯或型別不符會在存檔時被 400 擋下。
+
+### 機密欄位（`HTTP_REQUEST` 的 `secretHeaders`）
+
+`secretHeaders` 的值以 AES-GCM 加密儲存，**明文不會隨任何 API 回應外流**：
+
+| 時機 | 行為 |
+|------|------|
+| `save` | 逐值加密後落地 |
+| `get` | 值一律回傳遮罩 `__SECRET_KEPT__` |
+| `execute` | 後端解密後才送出請求；執行紀錄中的 config 亦經遮罩 |
+
+⚠️ **`save` 為整張覆寫，遮罩值必須原樣送回**：後端見到 `__SECRET_KEPT__` 即沿用既有密文、不覆寫。
+若要更改金鑰，直接填入新明文即可。若把遮罩值搭配一個**新的 header 名稱**送出（等同改名），
+因無對應既有密文，該欄位會被移除——改名請一併重填明文。
+
+加密上線前存入的明文仍可正常執行，下次 `save` 會自動轉為密文——即使原樣送回遮罩值，
+沿用路徑也會偵測到既有值非密文格式而補加密，明文不會永久殘留。
 
 ## 取得 Workflow
 
@@ -206,6 +223,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 ```
 
 **Response**：`WorkflowDTO`，含完整 `nodes` 與 `edges`。
+其中 `HTTP_REQUEST` 節點的 `secretHeaders` 值為遮罩 `__SECRET_KEPT__`（見上方「機密欄位」）。
 
 ## 列出 Workflow
 

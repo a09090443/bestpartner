@@ -462,12 +462,35 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
   "method": "POST",
   "url": "https://api.example.com/v1/notify",
   "headers": { "Content-Type": "application/json" },
-  "secretHeaders": { "Authorization": "Bearer ***encrypted***" },
+  "secretHeaders": { "Authorization": "__SECRET_KEPT__" },
   "body": { "text": "{{llm.reply}}" },
   "timeoutMs": 10000,
   "outputKey": "httpResponse"
 }
 ```
+
+#### secretHeaders 的加密與遮罩契約
+
+實作於 `converter/WorkflowSecretConverter.kt`，於 service 邊界對 secretHeaders 逐「值」加解密
+（不做成 JPA AttributeConverter：`config` 為 `@JdbcTypeCode(SqlTypes.JSON)` 整包 Map，
+掛 `@Convert` 會與 JSON 型別衝突，且會連帶加密所有節點型別的全部設定）。
+儲存格式沿用 `PasswordEncryptConverter` 的 `{iv}${encrypted}`；`config` 其餘欄位維持明文 JSON。
+
+| 時機 | 行為 |
+|------|------|
+| `save` | 逐值 AES-GCM 加密後落地。值為 `__SECRET_KEPT__` 時沿用 DB 既有值（既有為舊明文則於此時補加密）；無既有值（改了 header 名稱或新建 workflow）則移除該欄位，遮罩字面值不會被當成金鑰存入 |
+| `get` | 值一律替換為 `__SECRET_KEPT__`，明文與密文皆不外流 |
+| `execute` | 解密還原明文後才發出請求；執行紀錄 `llm_workflow_node_execution.input` 內的 config 亦經遮罩 |
+
+> **舊明文相容**：加密上線前存入的明文於讀取時原樣回傳（沿用 `PasswordEncryptConverter` 既有容錯解密），
+> 下次 save 自動轉為密文，毋須停機或跑遷移——即使前端原樣送回 `__SECRET_KEPT__`，沿用路徑會偵測到既有值
+> 非 `{iv}${encrypted}` 格式而補加密，因此明文不會因使用者從不改動該 header 而永久殘留。
+>
+> ⚠️ **前端整張覆寫 save 時必須原樣送回 `__SECRET_KEPT__`**，否則該 header 會被視為新值或遭移除。
+> HTTP_REQUEST 目前無專屬設定表單，config 走通用 JSON 編輯器，使用者會直接看到此遮罩字串。
+>
+> ⚠️ 加密強度取決於 `crypto.secret-key`：若未以 `CRYPTO_SECRET_KEY` 覆寫預設值，
+> 等同以公開金鑰加密。見 [`configuration-and-profiles.md`](../../.claude/rules/configuration-and-profiles.md)。
 
 ### 2.10 DATA_TRANSFORM（資料轉換 / 格式化）
 

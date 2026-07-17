@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import tw.zipe.bastpartner.converter.PasswordEncryptConverter
+import tw.zipe.bastpartner.converter.WorkflowSecretConverter
 import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
 import tw.zipe.bastpartner.entity.WorkflowEdgeEntity
 import tw.zipe.bastpartner.entity.WorkflowEntity
@@ -138,7 +140,8 @@ class WorkflowEngineTest {
             nodeExecutionRepo,
             FakeNodeExecutorInstance(executors),
             SecurityIdentityAssociation(),
-            managedExecutor
+            managedExecutor,
+            WorkflowSecretConverter(PasswordEncryptConverter().apply { secretKey = "engine-test-key" })
         )
         return Triple(engine, executionRepo, nodeExecutionRepo)
     }

@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import tw.zipe.bastpartner.config.security.SecurityValidator
+import tw.zipe.bastpartner.converter.WorkflowSecretConverter
 import tw.zipe.bastpartner.dto.WorkflowDTO
 import tw.zipe.bastpartner.dto.WorkflowEdgeDTO
 import tw.zipe.bastpartner.dto.WorkflowNodeDTO
@@ -48,6 +49,7 @@ class WorkflowService(
     private val workflowEdgeRepository: WorkflowEdgeRepository,
     private val securityValidator: SecurityValidator,
     private val securityIdentity: SecurityIdentity,
+    private val workflowSecretConverter: WorkflowSecretConverter,
     @ConfigProperty(name = "workflow.max-nodes", defaultValue = "100") private val maxNodes: Int
 ) {
 
@@ -85,6 +87,9 @@ class WorkflowService(
         validateNodeConfigs(req.nodes)
 
         val entity: WorkflowEntity
+        // nodeKey -> 既有 secretHeaders（密文）。整張覆寫會先清舊 node，故須在刪除前取得，
+        // 供前端回傳遮罩值時沿用原密文（見 [WorkflowSecretConverter.SECRET_MASK]）。
+        var existingSecrets: Map<String, Map<String, Any?>?> = emptyMap()
         if (!req.id.isNullOrEmpty()) {
             entity = workflowRepository.findOptionalById(req.id!!)
                 ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
@@ -100,6 +105,8 @@ class WorkflowService(
             entity.name = req.name
             entity.description = req.description
             entity.canvasMeta = req.canvasMeta?.let { jsonObjectToMap(it) }
+            existingSecrets = workflowNodeRepository.findByWorkflowId(entity.id!!)
+                .associate { it.nodeKey to workflowSecretConverter.secretHeadersOf(it.config) }
             workflowNodeRepository.deleteByWorkflowId(entity.id!!)
             workflowEdgeRepository.deleteByWorkflowId(entity.id!!)
             entity.version = entity.version + 1
@@ -118,14 +125,19 @@ class WorkflowService(
 
         val workflowId = entity.id!!
         req.nodes.forEach { n ->
+            val nodeType = n.type ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_REQUIRED, n.nodeKey)
             workflowNodeRepository.saveOrUpdate(WorkflowNodeEntity().apply {
                 this.workflowId = workflowId
                 nodeKey = n.nodeKey
-                type = n.type ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_REQUIRED, n.nodeKey)
+                type = nodeType
                 name = n.name
                 positionX = n.positionX
                 positionY = n.positionY
-                config = jsonObjectToMap(n.config)
+                config = workflowSecretConverter.encryptForStorage(
+                    nodeType,
+                    jsonObjectToMap(n.config),
+                    existingSecrets[n.nodeKey]
+                )
             })
         }
         req.edges.forEach { e ->
@@ -399,7 +411,9 @@ class WorkflowService(
                 name = n.name
                 positionX = n.positionX
                 positionY = n.positionY
-                config = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
+                // secretHeaders 一律遮罩，明文與密文皆不外流；前端原值存回即代表沿用
+                config = mapToJsonObject(workflowSecretConverter.maskForResponse(n.type, n.config))
+                    ?: JsonObject(emptyMap())
             }
         }
         this.edges = edges.map { e ->
