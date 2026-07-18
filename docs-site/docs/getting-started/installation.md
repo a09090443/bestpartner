@@ -130,10 +130,19 @@ cd bestpartner-service/src/main/resources
 
 ```properties
 quarkus.datasource.db-kind=postgresql
-quarkus.datasource.username=${DB_USERNAME:pguser}
-quarkus.datasource.password=${DB_PASSWORD:pgpass}
+quarkus.datasource.username=${DB_USERNAME:${enc::<密文>}}
+quarkus.datasource.password=${DB_PASSWORD:${enc::<密文>}}
 quarkus.datasource.jdbc.url=${DB_URL:jdbc:postgresql://localhost:5432/pgdb?currentSchema=bestpartner}
 ```
+
+:::note 為什麼預設值是密文？
+帳密的預設值（本機開發用的 `pguser` / `pgpass`）以密文形式存放，讓版控中的設定檔
+不出現明文密碼字樣。環境變數缺席時會回退到密文，再由同檔內的預設金鑰解開，
+因此**全新 clone 不帶任何 `.env` 仍可直接啟動**。
+
+這是**衛生措施而非安全措施**——金鑰與密文都在版控中，任何人 clone 即可解密。
+真正的機密一律只放在不進版控的 `.env.<profile>`。
+:::
 
 :::caution 容器環境
 容器內的 `localhost` 指向容器自己。連宿主機的 PostgreSQL 要用 `host.docker.internal`，

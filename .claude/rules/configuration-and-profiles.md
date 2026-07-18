@@ -184,9 +184,16 @@ application.properties   quarkus.datasource.password=${DB_PASSWORD:pgpass}
   互不相干，換掉其中一把不會波及另一邊的既有密文。
 - **根金鑰本身無法被加密**（bootstrap secret），是 `.env.<profile>` 中必須保持明文的值，
   只能靠檔案權限與環境隔離保護；其後果見上方「實際擋得住什麼」。
-- **`application.properties` 內不放密文**：該檔的機密預設值（`pgpass` 等）皆為
-  「非機密的本機開發值」，維持明文才能讓 `./gradlew quarkusDev` 免設定直接跑。
-  真實機密只存在於 `.env.<profile>`。
+- **`application.properties` 的 datasource 預設值為密文**，寫成
+  `${DB_USERNAME:${enc::<密文>}}`：環境變數缺席時（全新 clone、無任何 .env）
+  回退到密文，由**同檔內的預設金鑰**解開，故「免設定啟動」維持不變（已實測）。
+  目的是讓版控中的設定檔不出現 `pguser` / `pgpass` 字樣。
+  ⚠️ 這是**衛生措施而非安全措施**——金鑰與密文同在版控，clone 即可解密。
+  真實機密仍只存在於不進版控的 `.env.<profile>`。
+- ⚠️ **改動 `CONFIG_ENCRYPTION_KEY` 的預設值時**，`application.properties` 的
+  datasource 密文必須以新金鑰重新產生，否則全新 clone 會解密失敗而啟動不了。
+  各環境 `.env` 皆已提供 `DB_USERNAME`/`DB_PASSWORD`，其金鑰不同不受影響
+  （環境變數存在時預設值不會被求值，已有測試覆蓋）。
 - **明文與密文可混用**：機制只對 `${enc::...}` 生效，其餘值原樣處理。
 - **handler 為 lazy 初始化**：未使用任何密文時不會被觸發，不影響本機開發。
 - **解密失敗會明確拋錯**（GCM 完整性驗證），不會靜默把密文當成密碼使用。

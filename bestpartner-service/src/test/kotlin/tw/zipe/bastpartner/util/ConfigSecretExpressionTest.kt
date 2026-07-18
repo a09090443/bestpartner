@@ -77,6 +77,45 @@ class ConfigSecretExpressionTest {
         assertEquals(plainText, config.getValue("with.long.prefix", String::class.java))
     }
 
+    /**
+     * application.properties 的 DB 憑證採「預設值本身即密文」的寫法：
+     *   quarkus.datasource.username=${DB_USERNAME:${enc::<密文>}}
+     * 環境變數缺席時（全新 clone、無任何 .env）回退到密文，再由檔內預設金鑰解開，
+     * 藉此讓版控中的設定檔不出現 pguser / pgpass 字樣，同時維持「免設定啟動」。
+     *
+     * 此測試守住 `${enc::...}` 的 `::` 與 expression 預設值分隔符 `:` 不衝突這件事。
+     */
+    @Test
+    fun `預設值本身為密文時可正確解析並解密`() {
+        val plainText = "pguser"
+        val cipher = ConfigSecretUtil.encrypt(plainText, rootKey)
+
+        val config = buildConfig("quarkus.datasource.username" to "\${DB_USERNAME:\${enc::$cipher}}")
+
+        assertEquals(plainText, config.getValue("quarkus.datasource.username", String::class.java))
+    }
+
+    /** 環境變數存在時應優先於密文預設值，且預設值不會被求值（故其金鑰不同也無妨） */
+    @Test
+    fun `環境變數存在時優先於密文預設值`() {
+        val defaultCipher = ConfigSecretUtil.encrypt("pguser", rootKey)
+        val envCipher = ConfigSecretUtil.encrypt("produser", rootKey)
+
+        val builder = SmallRyeConfigBuilder()
+        builder.addDefaultInterceptors()
+        builder.addDiscoveredSecretKeysHandlers()
+        builder.withDefaultValues(
+            mapOf(
+                "smallrye.config.secret-handler.aes-gcm-nopadding.encryption-key" to rootKey,
+                "quarkus.datasource.username" to "\${DB_USERNAME:\${enc::$defaultCipher}}"
+            )
+        )
+        builder.withSources(EnvConfigSource(mapOf("DB_USERNAME" to "\${enc::$envCipher}"), 300))
+        val config = builder.build()
+
+        assertEquals("produser", config.getValue("quarkus.datasource.username", String::class.java))
+    }
+
     @Test
     fun `未加密的明文設定值維持原樣不受影響`() {
         val config = buildConfig("quarkus.datasource.username" to "pguser")

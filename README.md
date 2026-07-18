@@ -243,7 +243,10 @@ cd bestpartner-service; ./gradlew encryptConfigSecret -q
 > （獨立檔案、Vault、KMS），部署時單獨注入。
 > ⚠️ 解密根金鑰 `CONFIG_ENCRYPTION_KEY` 與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` **是兩把不同的金鑰**，請勿填成相同值。
 > ⚠️ **金鑰遺失即無法解密既有密文**，需以原始明文重新加密。
-> ⚠️ `application.properties` 內不放密文——該檔的機密預設值皆為非機密的本機開發值，本機開發無需設定任何金鑰。
+> ⚠️ `application.properties` 的 datasource 預設值也已密文化（`${DB_USERNAME:${enc::<密文>}}`），
+> 使版控中的設定檔不出現 `pguser` / `pgpass` 字樣。該密文以**檔內的預設金鑰**加密，
+> 屬**衛生措施而非安全措施**（金鑰與密文同在版控，clone 即可解密）；
+> 全新 clone 不帶任何 `.env` 仍可直接啟動。
 
 詳見 [`.claude/rules/configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)。
 
