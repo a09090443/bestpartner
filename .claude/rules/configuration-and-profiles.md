@@ -147,12 +147,22 @@ cd bestpartner-service; ./gradlew encryptConfigSecret -q
 或 CI secret，並於部署時以 `-e CONFIG_ENCRYPTION_KEY=...` 單獨注入。
 本專案目前刻意選擇「同檔」以簡化部署流程，屬明確的取捨而非疏漏。
 
-> **目前狀態**：`.env.docker` / `.env.sit` / `.env.uat` 的 `DB_PASSWORD` 皆為密文，
-> 各環境使用不同金鑰。全部環境一致採用密文，避免「哪些檔要加密」的判斷成本。
+> **目前狀態**：所有 env 檔的真實機密皆已加密，各檔使用不同金鑰。
+>
+> | 檔案 | 已加密的項目 |
+> |------|------------|
+> | `.env`（dev，本機） | `OPENROUTER_API_KEY` |
+> | `.env.docker` | `DB_PASSWORD` |
+> | `.env.sit` | `DB_PASSWORD` |
+> | `.env.uat` | `DB_PASSWORD` |
+>
+> ⚠️ **只加密「真實機密」**：未填值的佔位符（如 `.env` 的
+> `OPENAI_API_KEY=your-openai-api-key-here`）維持明文——加密佔位符會讓人
+> 誤以為裡面藏著真金鑰，反而降低可讀性。
 >
 > ⚠️ **金鑰遺失即無法解密既有密文**，需以原始明文重新加密。
-> ⚠️ 本機開發用的根目錄 `.env`（dev profile）不需加密——`application.properties`
-> 的預設值即為可用的本機開發值，免設定即可 `./gradlew quarkusDev`。
+> ⚠️ 根目錄 `.env` 由 Quarkus 依**工作目錄**自動載入，本機開發不需額外設定；
+> 未帶任何 env 時仍可跑 `quarkusDev`（`application.properties` 的預設值即本機開發值）。
 
 ### ⚠️ 與上方「不支援 `${VAR}` 巢狀展開」不衝突
 
