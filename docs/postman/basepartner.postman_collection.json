@@ -1318,6 +1318,41 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"9fc35d01-65e7-43af-9780-a591bd644bf0\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/setting/delete",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "setting",
+                "delete"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -1597,6 +1632,40 @@
               "path": [
                 "systemSetting",
                 "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"id\": \"1\",\r\n    \"key\": \"default_llm\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/systemSetting/delete",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "systemSetting",
+                "delete"
               ]
             }
           },
@@ -2078,13 +2147,12 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}",
-                "type": "text",
-                "disabled": true
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"group\": \"TEST\",\r\n    \"groupDescription\": \"測試群組\"\r\n}",
+              "raw": "{\r\n    \"groupId\": \"1\",\r\n    \"group\": \"TEST\",\r\n    \"groupDescription\": \"測試群組\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2092,7 +2160,7 @@
               }
             },
             "url": {
-              "raw": "http://{{domain}}/llm/tool/category/save",
+              "raw": "http://{{domain}}/llm/tool/category/update",
               "protocol": "http",
               "host": [
                 "{{domain}}"
@@ -2101,7 +2169,43 @@
                 "llm",
                 "tool",
                 "category",
-                "save"
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "tool_category_delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"groupId\": \"1\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/tool/category/delete",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "tool",
+                "category",
+                "delete"
               ]
             }
           },
@@ -3119,6 +3223,41 @@
           "response": []
         },
         {
+          "name": "mcp_delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"mcpId\": \"06a7fb6d-1aef-41d8-af11-978a1e73a65e\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/mcpServer/delete",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "mcpServer",
+                "delete"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "mcp_register_user_setting",
           "request": {
             "method": "POST",
@@ -3183,6 +3322,41 @@
                 "llm",
                 "mcpServer",
                 "getSetting"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "mcp_update_user_setting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"userSettingId\": \"22294230-5111-4296-8ac2-ca4a47eabc74\",\r\n    \"settingContent\": {\r\n        \"CREDENTIALS_FILE_PATH\": \"D:/MCP/credentials.json\"\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/mcpServer/updateSetting",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "llm",
+                "mcpServer",
+                "updateSetting"
               ]
             }
           },
@@ -3522,6 +3696,30 @@
               "protocol": "http",
               "host": [ "{{domain}}" ],
               "path": [ "llm", "workflow", "execute" ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "view",
+      "item": [
+        {
+          "name": "chat",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{domain}}/view/chat",
+              "protocol": "http",
+              "host": [
+                "{{domain}}"
+              ],
+              "path": [
+                "view",
+                "chat"
+              ]
             }
           },
           "response": []
