@@ -74,15 +74,15 @@ docker build -f src/main/docker/Dockerfile.uber-jar \
 ```bash
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
-  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:latest
 ```
 
-> ⚠️ `.env.<profile>` 中寫成 `${enc::<密文>}` 的機密需要 `CONFIG_ENCRYPTION_KEY` 才能解密。
-> 該金鑰刻意存放在 `.secrets/`（不進版控）而非 `.env` 內，部署時單獨注入；
-> 漏帶會在啟動時以 `AEADBadTagException` 明確失敗。
+> `.env.<profile>` 中寫成 `${enc::<密文>}` 的機密由同檔內的 `CONFIG_ENCRYPTION_KEY` 解密，
+> 無需額外注入。金鑰與密文同檔代表「拿到該檔即可解密」——安全等級與取捨見
+> [`configuration-and-profiles.md`](configuration-and-profiles.md)。
+> 金鑰錯誤或缺漏時，啟動會以 `AEADBadTagException` 明確失敗。
 
 profile 對照與環境變數清單 → [`configuration-and-profiles.md`](configuration-and-profiles.md)
 

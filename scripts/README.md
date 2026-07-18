@@ -156,14 +156,12 @@ pwsh ./scripts/docker-package.ps1 -SkipVerify        # 跳過啟動驗證（不�
 的安全側。一份 image 跑所有環境，環境差異在 `docker run` 時才決定：
 
 ```bash
-docker run -d -p 80:80 -e QUARKUS_PROFILE=uat \
-  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
-  --env-file .env.uat \
+docker run -d -p 80:80 -e QUARKUS_PROFILE=uat --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner bestpartner-service:latest
 ```
 
-（`.env.<profile>` 中 `${enc::...}` 的密文需 `CONFIG_ENCRYPTION_KEY` 解密；
-金鑰存於 `.secrets/`、不進版控，故與 `--env-file` 分開注入。）
+（`.env.<profile>` 中 `${enc::...}` 的密文由同檔的 `CONFIG_ENCRYPTION_KEY` 解密，
+無需額外注入；此設計的安全等級與取捨見 `.claude/rules/configuration-and-profiles.md`。）
 
 存活探測用 `/view/chat`（公開、不受 profile 影響）；`/swagger-ui` 與 `/q/openapi` 在 uat/prod
 回 404 是正確行為，不可用來判斷服務是否啟動。

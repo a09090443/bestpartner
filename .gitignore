@@ -39,9 +39,9 @@ nb-configuration.xml
 /.env.*
 !/.env.example
 
-# 設定檔機密值的解密根金鑰（CONFIG_ENCRYPTION_KEY）
-# 刻意與 .env.<profile> 分開存放：.env 內只有密文，金鑰在此，
-# 兩者分離後單一檔案外洩不等於機密外洩。絕不可進版控。
+# 本機金鑰／憑證等機密檔案的存放目錄，任何情況都不進版控。
+# （目前 CONFIG_ENCRYPTION_KEY 直接寫在 .env.<profile> 內，此目錄未使用；
+#   保留規則作為安全網，避免日後放置機密時誤提交。）
 /.secrets/
 
 # Plugin directory

@@ -59,9 +59,7 @@ cp .env.example .env.uat    # 再填入 uat 的連線位址與金鑰
 容器執行時以 `--env-file` 指定：
 
 ```bash
-docker run -d -p 80:80 -e QUARKUS_PROFILE=uat \
-  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
-  --env-file .env.uat bestpartner-service:latest
+docker run -d -p 80:80 -e QUARKUS_PROFILE=uat --env-file .env.uat bestpartner-service:latest
 ```
 
 :::caution
@@ -83,7 +81,7 @@ OPENROUTER_API_KEY=${enc::<密文>}
 產生密文（金鑰與明文走環境變數，避免留下 shell 歷史紀錄）：
 
 ```powershell
-$env:CONFIG_ENCRYPTION_KEY=(Get-Content .secrets/config-encryption-key.sit -Raw).Trim()
+$env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
 $env:CONFIG_SECRET_VALUE='<機密明文>'
 cd bestpartner-service; ./gradlew encryptConfigSecret -q
 ```
@@ -97,11 +95,12 @@ cd bestpartner-service; ./gradlew encryptConfigSecret -q
 :::warning
 - 解密根金鑰 `CONFIG_ENCRYPTION_KEY` 與資料欄位金鑰 `CRYPTO_SECRET_KEY` **是兩把不同的金鑰**，
   刻意分離以便各自輪換，請勿填成相同值。
-- 根金鑰本身無法被加密（bootstrap secret），**刻意不放在 `.env.<profile>` 內**，
-  而是存於 `.secrets/config-encryption-key.<profile>`（已列入 `.gitignore`），部署時單獨注入。
-  金鑰與密文若同放一個檔案，拿到該檔即可解密，加密形同虛設。
-- `.secrets/` 不進版控，**金鑰遺失即無法解密**，請自行備份至密碼管理器或 KMS；
-  遺失時需以原始明文重新加密。
+- 根金鑰 `CONFIG_ENCRYPTION_KEY` 就放在同一份 `.env.<profile>` 內。
+  因此本機制能防的是「明文密碼被瞥見、截圖、誤貼、寫進日誌」與
+  「設定檔不得存放明文密碼」的要求，**但不防 `.env` 檔案本身外洩**——
+  拿到該檔即可解密。要防到那個層級，金鑰須與 `.env` 分離
+  （獨立檔案、Vault、KMS 或 CI secret）並於部署時單獨注入。
+- **金鑰遺失即無法解密既有密文**，需以原始明文重新加密。
 - 明文與密文可混用；機制只對 `${enc::...}` 生效。
 - 解密失敗會在啟動時明確拋錯（`AEADBadTagException: Tag mismatch`），
   不會把密文當成密碼靜默使用。

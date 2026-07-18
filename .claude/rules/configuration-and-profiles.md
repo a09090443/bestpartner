@@ -124,35 +124,34 @@ OPENROUTER_API_KEY=${enc::<密文>}
 產生密文（金鑰與明文走環境變數，不進命令列參數與 shell 歷史紀錄）：
 
 ```powershell
-$env:CONFIG_ENCRYPTION_KEY=(Get-Content .secrets/config-encryption-key.sit -Raw).Trim()
+$env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
 $env:CONFIG_SECRET_VALUE='<機密明文>'
 cd bestpartner-service; ./gradlew encryptConfigSecret -q
-# 驗證既有密文可解回原值：加上 -Pvalue=<密文> 與 -d（見 ConfigSecretUtil）
+# 驗證既有密文可解回原值：ConfigSecretUtil 加上 -d 旗標
 ```
 
-### ⚠️ 金鑰與密文分離存放（此設計的效益來源）
+### ⚠️ 這個機制實際擋得住什麼（務必先讀）
 
-**`CONFIG_ENCRYPTION_KEY` 不寫在 `.env.<profile>` 裡**，而是放在
-`.secrets/config-encryption-key.<profile>`（已列入 `.gitignore`），部署時單獨注入：
+**`CONFIG_ENCRYPTION_KEY` 就放在 `.env.<profile>` 內，與密文同檔**。
+因此請正確理解其安全等級：
 
-```bash
-docker run -d -p 80:80 \
-  -e QUARKUS_PROFILE=sit \
-  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.sit)" \
-  --env-file .env.sit \
-  -v bestpartner-data:/opt/bestpartner \
-  bestpartner-service:latest
-```
+| 情境 | 擋得住？ |
+|------|---------|
+| 明文密碼被瞥見、截圖、誤貼到聊天室／工單 | ✓ |
+| 設定檔內容意外寫入日誌或錯誤訊息 | ✓ |
+| 「設定檔不得存放明文密碼」的形式要求 | ✓ |
+| **`.env.<profile>` 檔案本身外洩** | ✗ 金鑰在同一個檔案裡，拿到即可解密 |
+| 已取得主機存取權的攻擊者 | ✗ |
 
-理由：若金鑰與密文同放一個檔案，拿到該檔就能解密，加密形同虛設。
-分離後 `.env.<profile>` 外洩不等於機密外洩。
+若需要防到「檔案外洩」層級，金鑰必須與 `.env` 分離——存於獨立檔案、Vault、KMS
+或 CI secret，並於部署時以 `-e CONFIG_ENCRYPTION_KEY=...` 單獨注入。
+本專案目前刻意選擇「同檔」以簡化部署流程，屬明確的取捨而非疏漏。
 
-> **目前狀態**：`.env.sit` 與 `.env.uat` 的 `DB_PASSWORD` 已是密文，
-> 各自使用獨立金鑰（存於 `.secrets/`）。`.env.docker` 維持明文——
-> 其值為公開的本機開發密碼（`pgpass`），加密只增加本機測試負擔而無安全收益。
+> **目前狀態**：`.env.sit` 與 `.env.uat` 的 `DB_PASSWORD` 已是密文，各環境金鑰不同。
+> `.env.docker` 維持明文——其值為公開的本機開發密碼（`pgpass`），
+> 加密只增加本機測試負擔而無安全收益。
 >
-> ⚠️ **金鑰遺失即無法解密**，`.secrets/` 不進版控，請自行備份至安全處
-> （密碼管理器、KMS 等）。遺失時需以原始明文重新加密。
+> ⚠️ **金鑰遺失即無法解密既有密文**，需以原始明文重新加密。
 
 ### ⚠️ 與上方「不支援 `${VAR}` 巢狀展開」不衝突
 
@@ -172,8 +171,8 @@ application.properties   quarkus.datasource.password=${DB_PASSWORD:pgpass}
 
 - **兩把金鑰刻意分離**：`CONFIG_ENCRYPTION_KEY`（設定值）與 `CRYPTO_SECRET_KEY`（資料庫欄位）
   互不相干，換掉其中一把不會波及另一邊的既有密文。
-- **根金鑰本身無法被加密**（bootstrap secret），只能靠環境隔離與檔案權限保護；
-  故存於 `.secrets/`（不進版控）並於部署時單獨注入，不與密文同放 `.env.<profile>`。
+- **根金鑰本身無法被加密**（bootstrap secret），是 `.env.<profile>` 中必須保持明文的值，
+  只能靠檔案權限與環境隔離保護；其後果見上方「實際擋得住什麼」。
 - **`application.properties` 內不放密文**：該檔的機密預設值（`pgpass` 等）皆為
   「非機密的本機開發值」，維持明文才能讓 `./gradlew quarkusDev` 免設定直接跑。
   真實機密只存在於 `.env.<profile>`。
@@ -200,10 +199,9 @@ application.properties   quarkus.datasource.password=${DB_PASSWORD:pgpass}
 # 本機開發（自動載入根目錄 .env）
 cd bestpartner-service && ./gradlew quarkusDev
 
-# 容器（依環境切換；含密文設定的環境須另外注入解密金鑰）
+# 容器（依環境切換；解密金鑰含在 .env.<profile> 內，無需另外注入）
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
-  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:latest
