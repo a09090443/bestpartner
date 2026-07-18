@@ -32,6 +32,8 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.13.0 · JDK 21 · PostgreSQL · 
 - **跨環境會變動的設定一律寫成 `${ENV_VAR:預設值}`**（預設值＝本機 Windows 開發值），機密與連線位址不寫死；各環境以 `.env.<profile>` 覆寫，範本為根目錄 `.env.example`。→ [`configuration-and-profiles.md`](rules/configuration-and-profiles.md)
 - **不可對 build-time 設定加 `%profile.` 前綴**（image 一律以 prod 建置，會被求值成關閉並烤進 image，連 dev/sit 都失效）。已知 build-time：`swagger-ui.always-include`、`hibernate-orm.log.sql`、`hibernate-orm.log.bind-parameters`。一律「build-time 全域開能力、runtime 控實際輸出」（`swagger-ui.enable`、`log.category."...".level`）。→ [`configuration-and-profiles.md`](rules/configuration-and-profiles.md)
 - 服務預設 **port 80**；敏感欄位用 `crypto.secret-key` AES-GCM 加密（預設值僅供本機開發，sit 以上務必以 `CRYPTO_SECRET_KEY` 替換）。
+- **設定值與資料欄位是兩把不同的金鑰，別混用**：`CRYPTO_SECRET_KEY` 加密資料庫欄位；`CONFIG_ENCRYPTION_KEY` 解密 `.env.<profile>` 中寫成 `${enc::<密文>}` 的設定值（`./gradlew encryptConfigSecret` 產生）。`application.properties` 內**不放密文**（其預設值皆為非機密的本機開發值）。→ [`configuration-and-profiles.md`](rules/configuration-and-profiles.md)
+- **`CONFIG_ENCRYPTION_KEY` 不放在 `.env.<profile>` 裡**（金鑰與密文同檔＝加密失效），存於 `.secrets/config-encryption-key.<profile>`（已 gitignore），部署時以 `-e CONFIG_ENCRYPTION_KEY="$(cat ...)"` 單獨注入。目前 `.env.sit` / `.env.uat` 的 `DB_PASSWORD` 已是密文，漏帶金鑰會以 `AEADBadTagException` 啟動失敗。
 
 ## 程式碼放哪（分層 + 命名）
 

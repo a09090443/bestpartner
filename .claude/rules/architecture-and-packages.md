@@ -70,7 +70,7 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── builder/
 │   ├── llm/        # AnthropicModelBuilder, GeminiModelBuilder, GrokModelBuilder, OllamaModelBuilder, OpenaiModelBuilder
 │   └── vector/     # ChromaBuilder, MilvusBuilder
-├── config/
+├── config/         # EncSecretKeysHandlerFactory（設定檔機密值解密的短名 handler `enc`）
 │   ├── chatmodel/
 │   ├── embedding/
 │   ├── security/
@@ -97,5 +97,5 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── tool/
 │   ├── config/     # Google, Tavily, ToolConfigField（settingSchema 的 UI 提示 annotation）
 │   └── text2sql/
-└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, OkHttpUtil, MessageUtil, ToolSchemaGenerator ...
+└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, ConfigSecretUtil（設定檔機密值加密，開發／維運用）, OkHttpUtil, MessageUtil, ToolSchemaGenerator ...
 ```

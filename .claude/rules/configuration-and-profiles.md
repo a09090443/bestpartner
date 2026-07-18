@@ -93,7 +93,8 @@ quarkus.log.category."org.hibernate.orm.jdbc.bind".level=OFF
 | `DB_POOL_MAX` | `quarkus.datasource.jdbc.max-size` | `15` | |
 | `LOG_DIR` | `quarkus.log.file.path` 的目錄部分 | `D:/tmp/bestpartner` | ⚠️ 容器須覆寫為 POSIX 路徑 |
 | `FILE_UPLOAD_DIR` | `file.upload.dir` | `D:/tmp/bestpartner/upload` | ⚠️ 同上 |
-| `CRYPTO_SECRET_KEY` | `crypto.secret-key` | `changeme-please-replace-in-production` | ⚠️ sit 以上務必替換 |
+| `CRYPTO_SECRET_KEY` | `crypto.secret-key` | `changeme-please-replace-in-production` | ⚠️ sit 以上務必替換。**資料庫**敏感欄位加密 |
+| `CONFIG_ENCRYPTION_KEY` | `smallrye.config.secret-handler.aes-gcm-nopadding.encryption-key` | `dev-only-config-key-not-a-real-secret` | ⚠️ sit 以上務必替換。**設定值**解密根金鑰，與上者刻意分離 |
 | `JWT_REFRESH_SWITCH` | `jwt.refresh.switch` | `true` | |
 | `OPENROUTER_API_KEY` | `ai-platform.openrouter.api-key` | 空字串 | ADMIN CHAT 預設模型 |
 | `OPENROUTER_MODEL` | `ai-platform.openrouter.model-name` | `openai/gpt-5.5-pro` | |
@@ -101,6 +102,88 @@ quarkus.log.category."org.hibernate.orm.jdbc.bind".level=OFF
 
 > `.env.<profile>` 會被 `docker --env-file` 讀取，**它不做 shell 引號處理**：
 > 值一律不加引號，且不支援 `${VAR}` 巢狀展開。
+
+## 設定檔機密值加密（`${enc::<密文>}`）
+
+`.env.<profile>` 中的機密可寫成密文，啟動時由 SmallRye Config 的
+`AESGCMNoPaddingSecretKeysHandler` 自動解密（依賴 `io.smallrye.config:smallrye-config-crypto`，
+版本由 Quarkus BOM 管理）。
+
+```dotenv
+# .env.prod
+DB_PASSWORD=${enc::<密文>}
+OPENROUTER_API_KEY=${enc::<密文>}
+```
+
+> `enc` 是本專案的短名 handler（`config/EncSecretKeysHandlerFactory.kt`，繼承內建 factory
+> 只覆寫名稱），等價於 SmallRye 內建的 `aes-gcm-nopadding`。
+> **密文格式相同，同一份密文兩種前綴都能解**；日常一律用短名。
+> 以 `META-INF/services/io.smallrye.config.SecretKeysHandlerFactory` 註冊，
+> 已實測 uber-jar 打包會**合併**兩份註冊而非覆蓋。
+
+產生密文（金鑰與明文走環境變數，不進命令列參數與 shell 歷史紀錄）：
+
+```powershell
+$env:CONFIG_ENCRYPTION_KEY=(Get-Content .secrets/config-encryption-key.sit -Raw).Trim()
+$env:CONFIG_SECRET_VALUE='<機密明文>'
+cd bestpartner-service; ./gradlew encryptConfigSecret -q
+# 驗證既有密文可解回原值：加上 -Pvalue=<密文> 與 -d（見 ConfigSecretUtil）
+```
+
+### ⚠️ 金鑰與密文分離存放（此設計的效益來源）
+
+**`CONFIG_ENCRYPTION_KEY` 不寫在 `.env.<profile>` 裡**，而是放在
+`.secrets/config-encryption-key.<profile>`（已列入 `.gitignore`），部署時單獨注入：
+
+```bash
+docker run -d -p 80:80 \
+  -e QUARKUS_PROFILE=sit \
+  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.sit)" \
+  --env-file .env.sit \
+  -v bestpartner-data:/opt/bestpartner \
+  bestpartner-service:latest
+```
+
+理由：若金鑰與密文同放一個檔案，拿到該檔就能解密，加密形同虛設。
+分離後 `.env.<profile>` 外洩不等於機密外洩。
+
+> **目前狀態**：`.env.sit` 與 `.env.uat` 的 `DB_PASSWORD` 已是密文，
+> 各自使用獨立金鑰（存於 `.secrets/`）。`.env.docker` 維持明文——
+> 其值為公開的本機開發密碼（`pgpass`），加密只增加本機測試負擔而無安全收益。
+>
+> ⚠️ **金鑰遺失即無法解密**，`.secrets/` 不進版控，請自行備份至安全處
+> （密碼管理器、KMS 等）。遺失時需以原始明文重新加密。
+
+### ⚠️ 與上方「不支援 `${VAR}` 巢狀展開」不衝突
+
+那句話講的是 **`docker --env-file` 這一層**：它把值當字面字串原樣傳給容器，不做 shell 展開。
+而 `${enc::...}` 是 **Quarkus 應用內** 的 config expression，
+由 SmallRye Config 在讀取設定值時展開——兩者是不同層級，互不影響。
+
+實際鏈路是巢狀的，且已實測可正確展開：
+
+```
+application.properties   quarkus.datasource.password=${DB_PASSWORD:pgpass}
+.env.<profile>           DB_PASSWORD=${enc::<密文>}
+                         → 展開 DB_PASSWORD 得到的值本身仍是 expression，會繼續展開為明文
+```
+
+### 設計要點
+
+- **兩把金鑰刻意分離**：`CONFIG_ENCRYPTION_KEY`（設定值）與 `CRYPTO_SECRET_KEY`（資料庫欄位）
+  互不相干，換掉其中一把不會波及另一邊的既有密文。
+- **根金鑰本身無法被加密**（bootstrap secret），只能靠環境隔離與檔案權限保護；
+  故存於 `.secrets/`（不進版控）並於部署時單獨注入，不與密文同放 `.env.<profile>`。
+- **`application.properties` 內不放密文**：該檔的機密預設值（`pgpass` 等）皆為
+  「非機密的本機開發值」，維持明文才能讓 `./gradlew quarkusDev` 免設定直接跑。
+  真實機密只存在於 `.env.<profile>`。
+- **明文與密文可混用**：機制只對 `${enc::...}` 生效，其餘值原樣處理。
+- **handler 為 lazy 初始化**：未使用任何密文時不會被觸發，不影響本機開發。
+- **解密失敗會明確拋錯**（GCM 完整性驗證），不會靜默把密文當成密碼使用。
+
+> 格式與展開行為由 `ConfigSecretUtilTest` / `ConfigSecretExpressionTest` 把關
+> （純 JUnit，非 QuarkusTest）。升級 `smallrye-config-crypto` 後若密文格式變動，
+> 這兩支測試會先紅燈，而非等到服務啟動解密失敗才發現。
 
 ## 容器路徑注意事項
 
@@ -117,9 +200,10 @@ quarkus.log.category."org.hibernate.orm.jdbc.bind".level=OFF
 # 本機開發（自動載入根目錄 .env）
 cd bestpartner-service && ./gradlew quarkusDev
 
-# 容器（依環境切換）
+# 容器（依環境切換；含密文設定的環境須另外注入解密金鑰）
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
+  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:latest

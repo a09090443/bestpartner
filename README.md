@@ -221,6 +221,29 @@ cp .env.example .env
 
 > ⚠️ `CRYPTO_SECRET_KEY` 在 sit 以上環境務必替換為高強度隨機字串，且各環境不同。變更此值會使既有加密資料無法解密。
 
+### 設定檔機密值加密
+
+`.env.<profile>` 中的機密（`DB_PASSWORD`、`OPENROUTER_API_KEY` 等）可寫成密文，啟動時自動解密：
+
+```dotenv
+DB_PASSWORD=${enc::<密文>}
+```
+
+產生密文（金鑰與明文走環境變數，避免留下 shell 歷史紀錄）：
+
+```powershell
+$env:CONFIG_ENCRYPTION_KEY=(Get-Content .secrets/config-encryption-key.sit -Raw).Trim()
+$env:CONFIG_SECRET_VALUE='<機密明文>'
+cd bestpartner-service; ./gradlew encryptConfigSecret -q
+```
+
+> ⚠️ 解密根金鑰 `CONFIG_ENCRYPTION_KEY` 與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` **是兩把不同的金鑰**，刻意分離以便各自輪換。
+> ⚠️ 根金鑰**不放在 `.env.<profile>` 內**，而是存於 `.secrets/config-encryption-key.<profile>`（不進版控），部署時單獨注入。金鑰與密文同檔的話，拿到檔案即可解密，加密形同虛設。
+> ⚠️ `.secrets/` 不進版控，**金鑰遺失即無法解密**，請自行備份至密碼管理器或 KMS。
+> ⚠️ `application.properties` 內不放密文——該檔的機密預設值皆為非機密的本機開發值，本機開發無需設定任何金鑰。
+
+詳見 [`.claude/rules/configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)。
+
 ---
 
 ## 文件服務系統（docs-site）
@@ -365,6 +388,7 @@ docker build -f src/main/docker/Dockerfile.uber-jar -t bestpartner-service:lates
 ```bash
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
+  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:latest
@@ -373,7 +397,12 @@ docker run -d -p 80:80 \
 | 參數 | 決定 |
 |------|------|
 | `-e QUARKUS_PROFILE=<env>` | 行為：Swagger 開關、SQL 日誌、log 等級 |
-| `--env-file .env.<env>` | 連線：DB 位址密碼、路徑、金鑰 |
+| `-e CONFIG_ENCRYPTION_KEY=...` | 解密 `.env` 中 `${enc::...}` 密文的根金鑰 |
+| `--env-file .env.<env>` | 連線：DB 位址、密文密碼、路徑 |
+
+> ⚠️ `CONFIG_ENCRYPTION_KEY` **刻意不放進 `.env.<profile>`**——金鑰與密文同檔的話，
+> 拿到檔案即可解密，加密形同虛設。金鑰存於 `.secrets/`（不進版控），部署時單獨注入。
+> 該環境若有密文設定卻漏帶金鑰，啟動會以 `AEADBadTagException` 明確失敗。
 
 > 建置 profile 固定用 `prod`：它會成為 image 的預設 runtime profile，
 > 讓部署時漏帶 `QUARKUS_PROFILE` 也落在「Swagger 關閉、log INFO」的安全側。

@@ -16,6 +16,7 @@ keywords: [技術選型, Quarkus, Kotlin, LangChain4J, 版本, 技術堆疊]
 | **Hibernate Panache** | — | ORM 資料庫存取 |
 | **SmallRye JWT** | — | JWT 認證與授權 |
 | **GraalJS**（org.graalvm.polyglot） | 24.2.1 | Workflow `CODE` 節點的 JavaScript sandbox（禁 host 存取、逾時與輸出上限） |
+| **SmallRye Config Crypto** | 由 Quarkus BOM 管理 | 設定檔機密值加密，`.env.<profile>` 以 `${enc::<密文>}` 存放、啟動時自動解密 |
 
 ## AI 模型支援
 

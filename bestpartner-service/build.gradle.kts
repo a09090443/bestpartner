@@ -145,6 +145,9 @@ dependencies {
 
     implementation("com.github.jsqlparser:jsqlparser:5.1")
 
+    // 設定檔機密值加密（${enc::密文}），版本由 Quarkus BOM 管理
+    implementation("io.smallrye.config:smallrye-config-crypto")
+
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
     implementation("org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion")
     implementation("com.squareup.okhttp3:okhttp:$okhttp3Version")
@@ -173,6 +176,29 @@ java {
 
 tasks.withType<Test> {
     systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
+}
+
+// 產生 .env.<profile> 可用的機密密文，供 ${enc::<密文>} 引用。
+// 金鑰與明文優先自環境變數讀取，避免機密進入 shell 歷史紀錄：
+//   $env:CONFIG_ENCRYPTION_KEY='<根金鑰>'; $env:CONFIG_SECRET_VALUE='<明文>'
+//   ./gradlew encryptConfigSecret
+// 亦可（較不安全，會留下歷史）：./gradlew encryptConfigSecret -Pvalue=<明文> -Pkey=<根金鑰>
+tasks.register<JavaExec>("encryptConfigSecret") {
+    group = "security"
+    description = "將機密明文加密為設定檔可用的密文"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("tw.zipe.bastpartner.util.ConfigSecretUtil")
+    doFirst {
+        val envValue = System.getenv("CONFIG_SECRET_VALUE")
+        val envKey = System.getenv("CONFIG_ENCRYPTION_KEY")
+        val value = envValue ?: project.findProperty("value") as String?
+        val key = envKey ?: project.findProperty("key") as String?
+        require(!value.isNullOrBlank()) { "缺少明文：設定 CONFIG_SECRET_VALUE 環境變數或傳入 -Pvalue=<明文>" }
+        require(!key.isNullOrBlank()) { "缺少根金鑰：設定 CONFIG_ENCRYPTION_KEY 環境變數或傳入 -Pkey=<根金鑰>" }
+        // 兩者都來自環境變數時完全不傳參數（機密不進行程清單）；
+        // 只要有一項改用 -P，就整組傳入，由 main 依環境變數優先原則取用。
+        args = if (envValue != null && envKey != null) emptyList() else listOf(value, key)
+    }
 }
 
 allOpen {

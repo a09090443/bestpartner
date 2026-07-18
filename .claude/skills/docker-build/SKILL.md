@@ -159,8 +159,10 @@ docker load -i bestpartner-service-${version}-prod-<YYYYMMDDHHmm>.tar
 
 # 檔名的 -prod 是建置 profile、後面是建置時間；同一份 tar 可跑任何環境，
 # 由 QUARKUS_PROFILE 與 .env.<profile> 決定（需先備妥於目標機器）
+# .env 內的 ${enc::...} 密文需要 CONFIG_ENCRYPTION_KEY 才能解密（金鑰另存於 .secrets/，不進版控）
 docker run -d -p 80:80 \
   -e QUARKUS_PROFILE=uat \
+  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:${version}

@@ -59,7 +59,9 @@ cp .env.example .env.uat    # 再填入 uat 的連線位址與金鑰
 容器執行時以 `--env-file` 指定：
 
 ```bash
-docker run -d -p 80:80 -e QUARKUS_PROFILE=uat --env-file .env.uat bestpartner-service:latest
+docker run -d -p 80:80 -e QUARKUS_PROFILE=uat \
+  -e CONFIG_ENCRYPTION_KEY="$(cat .secrets/config-encryption-key.uat)" \
+  --env-file .env.uat bestpartner-service:latest
 ```
 
 :::caution
@@ -67,6 +69,42 @@ docker run -d -p 80:80 -e QUARKUS_PROFILE=uat --env-file .env.uat bestpartner-se
 - `--env-file` **不做 shell 引號處理**：值一律不加引號，且不支援 `${VAR}` 巢狀展開。
 - `CRYPTO_SECRET_KEY` 在 sit 以上環境務必替換為高強度隨機字串，且各環境不同。
   變更此值會使既有加密資料（如 `llm_setting.api_key`）無法解密。
+:::
+
+### 機密值加密（sit 以上環境建議）
+
+`.env.<profile>` 中的機密可寫成密文，服務啟動時由 SmallRye Config 自動解密：
+
+```dotenv
+DB_PASSWORD=${enc::<密文>}
+OPENROUTER_API_KEY=${enc::<密文>}
+```
+
+產生密文（金鑰與明文走環境變數，避免留下 shell 歷史紀錄）：
+
+```powershell
+$env:CONFIG_ENCRYPTION_KEY=(Get-Content .secrets/config-encryption-key.sit -Raw).Trim()
+$env:CONFIG_SECRET_VALUE='<機密明文>'
+cd bestpartner-service; ./gradlew encryptConfigSecret -q
+```
+
+:::info 為什麼這不與上面「不支援 `${VAR}` 巢狀展開」衝突？
+那句話指的是 **`docker --env-file` 這一層**：它把值當字面字串原樣傳給容器，不做 shell 展開。
+`${enc::...}` 則是 **Quarkus 應用內** 的 config expression，
+由 SmallRye Config 在讀取設定值時展開，兩者屬不同層級、互不影響。
+:::
+
+:::warning
+- 解密根金鑰 `CONFIG_ENCRYPTION_KEY` 與資料欄位金鑰 `CRYPTO_SECRET_KEY` **是兩把不同的金鑰**，
+  刻意分離以便各自輪換，請勿填成相同值。
+- 根金鑰本身無法被加密（bootstrap secret），**刻意不放在 `.env.<profile>` 內**，
+  而是存於 `.secrets/config-encryption-key.<profile>`（已列入 `.gitignore`），部署時單獨注入。
+  金鑰與密文若同放一個檔案，拿到該檔即可解密，加密形同虛設。
+- `.secrets/` 不進版控，**金鑰遺失即無法解密**，請自行備份至密碼管理器或 KMS；
+  遺失時需以原始明文重新加密。
+- 明文與密文可混用；機制只對 `${enc::...}` 生效。
+- 解密失敗會在啟動時明確拋錯（`AEADBadTagException: Tag mismatch`），
+  不會把密文當成密碼靜默使用。
 :::
 
 ---
@@ -167,13 +205,18 @@ smallrye.jwt.sign.key.location=privateKey.pem
 ### 加解密設定
 
 ```properties
-# 敏感欄位（如向量資料庫密碼）AES-GCM 加密金鑰
+# 資料庫敏感欄位（如向量資料庫密碼、llm_setting.api_key）AES-GCM 加密金鑰
 # 預設值僅供本機開發；正式環境以 CRYPTO_SECRET_KEY 環境變數覆寫
 crypto.secret-key=${CRYPTO_SECRET_KEY:changeme-please-replace-in-production}
+
+# 設定檔機密值解密的根金鑰（與上方資料金鑰刻意分離）
+# 正式環境以 CONFIG_ENCRYPTION_KEY 環境變數覆寫
+smallrye.config.secret-handler.aes-gcm-nopadding.encryption-key=${CONFIG_ENCRYPTION_KEY:dev-only-config-key-not-a-real-secret}
 ```
 
 :::warning
-正式環境請務必以 `CRYPTO_SECRET_KEY` 替換為高強度隨機字串（建議 32 字元以上），且不同環境使用不同金鑰。
+正式環境請務必以 `CRYPTO_SECRET_KEY` 與 `CONFIG_ENCRYPTION_KEY` 替換為高強度隨機字串（建議 32 字元以上），
+不同環境使用不同金鑰，且**兩者彼此也不同值**——分離的用意是換掉其中一把不會波及另一邊的既有密文。
 :::
 
 ### 檔案路徑設定
