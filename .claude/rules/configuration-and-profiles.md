@@ -147,11 +147,12 @@ cd bestpartner-service; ./gradlew encryptConfigSecret -q
 或 CI secret，並於部署時以 `-e CONFIG_ENCRYPTION_KEY=...` 單獨注入。
 本專案目前刻意選擇「同檔」以簡化部署流程，屬明確的取捨而非疏漏。
 
-> **目前狀態**：`.env.sit` 與 `.env.uat` 的 `DB_PASSWORD` 已是密文，各環境金鑰不同。
-> `.env.docker` 維持明文——其值為公開的本機開發密碼（`pgpass`），
-> 加密只增加本機測試負擔而無安全收益。
+> **目前狀態**：`.env.docker` / `.env.sit` / `.env.uat` 的 `DB_PASSWORD` 皆為密文，
+> 各環境使用不同金鑰。全部環境一致採用密文，避免「哪些檔要加密」的判斷成本。
 >
 > ⚠️ **金鑰遺失即無法解密既有密文**，需以原始明文重新加密。
+> ⚠️ 本機開發用的根目錄 `.env`（dev profile）不需加密——`application.properties`
+> 的預設值即為可用的本機開發值，免設定即可 `./gradlew quarkusDev`。
 
 ### ⚠️ 與上方「不支援 `${VAR}` 巢狀展開」不衝突
 

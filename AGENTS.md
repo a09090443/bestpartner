@@ -33,7 +33,7 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.13.0 · JDK 21 · PostgreSQL · 
 - **不可對 build-time 設定加 `%profile.` 前綴**（image 一律以 prod 建置，會被求值成關閉並烤進 image，連 dev/sit 都失效）。已知 build-time：`swagger-ui.always-include`、`hibernate-orm.log.sql`、`hibernate-orm.log.bind-parameters`。一律「build-time 全域開能力、runtime 控實際輸出」（`swagger-ui.enable`、`log.category."...".level`）。→ [`configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)
 - 服務預設 **port 80**；敏感欄位用 `crypto.secret-key` AES-GCM 加密（預設值僅供本機開發，sit 以上務必以 `CRYPTO_SECRET_KEY` 替換）。
 - **設定值與資料欄位是兩把不同的金鑰，別混用**：`CRYPTO_SECRET_KEY` 加密資料庫欄位；`CONFIG_ENCRYPTION_KEY` 解密 `.env.<profile>` 中寫成 `${enc::<密文>}` 的設定值（`./gradlew encryptConfigSecret` 產生）。`application.properties` 內**不放密文**（其預設值皆為非機密的本機開發值）。→ [`configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)
-- **`CONFIG_ENCRYPTION_KEY` 與密文同放 `.env.<profile>`**（刻意取捨，換取部署簡單）：故此加密防的是明文被瞥見／截圖／誤貼／進日誌，**不防 `.env` 檔案本身外洩**（拿到檔即可解密）——別在文件或對話中把它描述成更強的保護。目前 `.env.sit` / `.env.uat` 的 `DB_PASSWORD` 已是密文，金鑰錯誤會以 `AEADBadTagException` 啟動失敗。
+- **`CONFIG_ENCRYPTION_KEY` 與密文同放 `.env.<profile>`**（刻意取捨，換取部署簡單）：故此加密防的是明文被瞥見／截圖／誤貼／進日誌，**不防 `.env` 檔案本身外洩**（拿到檔即可解密）——別在文件或對話中把它描述成更強的保護。目前 `.env.docker` / `.env.sit` / `.env.uat` 的 `DB_PASSWORD` 皆為密文（各環境金鑰不同），金鑰錯誤會以 `AEADBadTagException` 啟動失敗。
 
 ## 程式碼放哪（分層 + 命名）
 
