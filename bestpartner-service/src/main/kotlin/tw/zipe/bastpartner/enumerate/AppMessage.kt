@@ -74,7 +74,6 @@ enum class AppMessage(val key: String) {
     HTTP_FORBIDDEN("http.forbidden"),
     HTTP_UNAUTHORIZED("http.unauthorized"),
     HTTP_AUTHENTICATION_FAILED("http.authentication.failed"),
-    HTTP_AUTHENTICATION_REQUIRED("http.authentication.required"),
     HTTP_SECURITY_VALIDATION_FAILED("http.security.validation.failed"),
     HTTP_ACCESS_DENIED("http.access.denied"),
     HTTP_DUPLICATE_DATA("http.duplicate.data"),
