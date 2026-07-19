@@ -86,6 +86,17 @@ $env:CONFIG_SECRET_VALUE='<機密明文>'
 cd bestpartner-service; ./gradlew encryptConfigSecret -q
 ```
 
+驗證密文可解回原值（`CONFIG_SECRET_VALUE` 改放**密文本體**，不含 `${enc::}` 外框）：
+
+```powershell
+$env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
+$env:CONFIG_SECRET_VALUE='<密文本體>'
+cd bestpartner-service; ./gradlew decryptConfigSecret -q
+```
+
+金鑰或密文不符時以 `AEADBadTagException: Tag mismatch` 失敗（GCM 完整性驗證），
+不會回傳錯誤的明文。
+
 :::info 為什麼這不與上面「不支援 `${VAR}` 巢狀展開」衝突？
 那句話指的是 **`docker --env-file` 這一層**：它把值當字面字串原樣傳給容器，不做 shell 展開。
 `${enc::...}` 則是 **Quarkus 應用內** 的 config expression，

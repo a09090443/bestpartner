@@ -33,7 +33,7 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.17.2 · JDK 21 · PostgreSQL · 
 - **不可對 build-time 設定加 `%profile.` 前綴**（image 一律以 prod 建置，會被求值成關閉並烤進 image，連 dev/sit 都失效）。已知 build-time：`swagger-ui.always-include`、`hibernate-orm.log.sql`、`hibernate-orm.log.bind-parameters`。一律「build-time 全域開能力、runtime 控實際輸出」（`swagger-ui.enable`、`log.category."...".level`）。→ [`configuration-and-profiles.md`](rules/configuration-and-profiles.md)
 - 服務預設 **port 80**；敏感欄位用 `crypto.secret-key` AES-GCM 加密（預設值僅供本機開發，sit 以上務必以 `CRYPTO_SECRET_KEY` 替換）。
 - **設定值與資料欄位是兩把不同的金鑰，別混用**：`CRYPTO_SECRET_KEY` 加密資料庫欄位；`CONFIG_ENCRYPTION_KEY` 解密 `.env.<profile>` 中寫成 `${enc::<密文>}` 的設定值（`./gradlew encryptConfigSecret` 產生）。`application.properties` 的 datasource 預設值亦為密文（`${DB_USERNAME:${enc::<密文>}}`，以**檔內預設金鑰**加密，僅為讓版控不出現 `pgpass` 字樣的衛生措施，非安全措施）——**改動 `CONFIG_ENCRYPTION_KEY` 預設值時必須同步重新產生該密文**，否則全新 clone 會啟動失敗。→ [`configuration-and-profiles.md`](rules/configuration-and-profiles.md)
-- **`CONFIG_ENCRYPTION_KEY` 與密文同放 `.env.<profile>`**（刻意取捨，換取部署簡單）：故此加密防的是明文被瞥見／截圖／誤貼／進日誌，**不防 `.env` 檔案本身外洩**（拿到檔即可解密）——別在文件或對話中把它描述成更強的保護。目前所有 env 檔的真實機密皆為密文（各檔金鑰不同）：`.env` 的 `OPENROUTER_API_KEY`、`.env.docker`／`.env.sit`／`.env.uat` 的 `DB_PASSWORD`；未填值的佔位符維持明文。金鑰錯誤會以 `AEADBadTagException` 啟動失敗。
+- **`CONFIG_ENCRYPTION_KEY` 與密文同放 `.env.<profile>`**（刻意取捨，換取部署簡單）：故此加密防的是明文被瞥見／截圖／誤貼／進日誌，**不防 `.env` 檔案本身外洩**（拿到檔即可解密）——別在文件或對話中把它描述成更強的保護。目前所有 env 檔的真實機密皆為密文（各檔金鑰不同）：`.env` 的 `OPENROUTER_API_KEY`／`DB_USERNAME`／`DB_PASSWORD`、`.env.docker`／`.env.sit`／`.env.uat` 的 `DB_PASSWORD`；未填值的佔位符維持明文。金鑰錯誤會以 `AEADBadTagException` 啟動失敗。加解密與金鑰輪替一律走 `config-secret` skill。
 
 ## 程式碼放哪（分層 + 命名）
 
@@ -99,6 +99,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](rul
 | 執行任何 API 測試前 | `test-confirmation` → [`api-testing.md`](rules/api-testing.md) |
 | 寫 git commit 訊息 | `git-commit-message`（`<類型>(<範圍>): <主旨>`，繁中主旨） |
 | 建立 / 匯出 Docker image | `docker-build`（固定 prod profile 建置 → 啟動驗證 → 自動匯出 tar；tar 內含 JWT 私鑰，勿隨意流通） |
+| 加密 / 解密設定值（`${enc::}`）、輪替 `CONFIG_ENCRYPTION_KEY` | `config-secret`（勿與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` 混用） |
 
 ## SQL 資料備份鐵則
 

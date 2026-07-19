@@ -127,8 +127,20 @@ OPENROUTER_API_KEY=${enc::<密文>}
 $env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
 $env:CONFIG_SECRET_VALUE='<機密明文>'
 cd bestpartner-service; ./gradlew encryptConfigSecret -q
-# 驗證既有密文可解回原值：ConfigSecretUtil 加上 -d 旗標
 ```
+
+驗證既有密文可解回原值（`CONFIG_SECRET_VALUE` 改放**密文本體**，不含 `${enc::}` 外框）：
+
+```powershell
+$env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
+$env:CONFIG_SECRET_VALUE='<密文本體>'
+cd bestpartner-service; ./gradlew decryptConfigSecret -q
+```
+
+> 加解密是兩個獨立的 gradle task。`encryptConfigSecret` 於 `doFirst` 覆寫 `args`，
+> 故 `ConfigSecretUtil` 的 `-d` 旗標無法經 `--args` 傳入——解密一律走 `decryptConfigSecret`。
+>
+> 完整操作流程（含金鑰輪替）→ [`config-secret` skill](../skills/config-secret/SKILL.md)
 
 ### ⚠️ 這個機制實際擋得住什麼（務必先讀）
 
@@ -151,7 +163,7 @@ cd bestpartner-service; ./gradlew encryptConfigSecret -q
 >
 > | 檔案 | 已加密的項目 |
 > |------|------------|
-> | `.env`（dev，本機） | `OPENROUTER_API_KEY` |
+> | `.env`（dev，本機） | `OPENROUTER_API_KEY`、`DB_USERNAME`、`DB_PASSWORD` |
 > | `.env.docker` | `DB_PASSWORD` |
 > | `.env.sit` | `DB_PASSWORD` |
 > | `.env.uat` | `DB_PASSWORD` |

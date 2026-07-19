@@ -201,6 +201,29 @@ tasks.register<JavaExec>("encryptConfigSecret") {
     }
 }
 
+// 將既有密文解回明文，供輪替金鑰前取出原值、或核對密文是否對應預期金鑰。
+// 用法同上，CONFIG_SECRET_VALUE 改放「密文」（不含 ${enc::} 外框）：
+//   $env:CONFIG_ENCRYPTION_KEY='<根金鑰>'; $env:CONFIG_SECRET_VALUE='<密文>'
+//   ./gradlew decryptConfigSecret -q
+// 金鑰不符時以 AEADBadTagException 失敗（GCM 完整性驗證），不會回傳錯誤明文。
+tasks.register<JavaExec>("decryptConfigSecret") {
+    group = "security"
+    description = "將設定檔密文解回明文（驗證與金鑰輪替用）"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("tw.zipe.bastpartner.util.ConfigSecretUtil")
+    doFirst {
+        val envValue = System.getenv("CONFIG_SECRET_VALUE")
+        val envKey = System.getenv("CONFIG_ENCRYPTION_KEY")
+        val value = envValue ?: project.findProperty("value") as String?
+        val key = envKey ?: project.findProperty("key") as String?
+        require(!value.isNullOrBlank()) { "缺少密文：設定 CONFIG_SECRET_VALUE 環境變數或傳入 -Pvalue=<密文>" }
+        require(!key.isNullOrBlank()) { "缺少根金鑰：設定 CONFIG_ENCRYPTION_KEY 環境變數或傳入 -Pkey=<根金鑰>" }
+        // -d 為 ConfigSecretUtil.main 的解密旗標，必須恆帶；
+        // 其餘比照加密 task：兩者皆來自環境變數時不傳機密進行程清單。
+        args = if (envValue != null && envKey != null) listOf("-d") else listOf(value, key, "-d")
+    }
+}
+
 allOpen {
     annotation("jakarta.ws.rs.Path")
     annotation("jakarta.enterprise.context.ApplicationScoped")
