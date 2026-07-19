@@ -57,9 +57,9 @@
 
 | HTTP | 路徑 | 說明 | 額外權限 |
 |------|------|------|---------|
-| POST | `/llm/setting/get` | 查詢當前用戶的 LLM 設定，可依 platformId 或 llmId 篩選 | - |
-| POST | `/llm/setting/save` | 新增 LLM 設定（須指定 platformId、modelType、modelName） | - |
-| POST | `/llm/setting/update` | 更新現有 LLM 設定（須傳入 id） | - |
+| POST | `/llm/setting/get` | 查詢當前用戶的 LLM 設定，可依 platformId 或 llmId 篩選；`llmModel.apiKey` 回傳遮罩 `__SECRET_KEPT__`（明文不外流） | - |
+| POST | `/llm/setting/save` | 新增 LLM 設定（須指定 platformId、modelType、modelName）；回應中的 `apiKey` 同樣遮罩 | - |
+| POST | `/llm/setting/update` | 更新現有 LLM 設定（須傳入 id）；`apiKey` 為 `__SECRET_KEPT__` 時沿用既有金鑰 | - |
 | POST | `/llm/setting/delete` | 刪除 LLM 設定（須傳入 id） | - |
 | POST | `/llm/setting/platform/add` | 新增 AI 平台設定 | @RolesAllowed("admin") |
 | POST | `/llm/setting/platform/delete` | 刪除 AI 平台設定（須傳入 id） | @RolesAllowed("admin") |

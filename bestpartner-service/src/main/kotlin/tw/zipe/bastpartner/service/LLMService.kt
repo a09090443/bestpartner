@@ -46,6 +46,7 @@ import tw.zipe.bastpartner.provider.CompositeToolProvider
 import tw.zipe.bastpartner.repository.LLMPlatformRepository
 import tw.zipe.bastpartner.repository.LLMSettingRepository
 import tw.zipe.bastpartner.converter.PasswordEncryptConverter
+import tw.zipe.bastpartner.converter.SensitiveValueCodec
 import tw.zipe.bastpartner.util.DTOValidator
 import tw.zipe.bastpartner.util.LLMBuilder
 import tw.zipe.bastpartner.util.logger
@@ -136,8 +137,16 @@ class LLMService(
      * 更新 LLM 設定
      */
     fun updateLLMSetting(llmDTO: LLMDTO) {
-        val rawApiKey = llmDTO.llmModel.apiKey
+        val incomingApiKey = llmDTO.llmModel.apiKey
         llmDTO.llmModel.apiKey = null  // 避免明文寫入 JSON
+
+        // 值為遮罩代表使用者未更動金鑰（/get 回應已遮罩），沿用既有值；
+        // 否則「讀取 → 原樣存回」會把真實金鑰覆寫成遮罩字串而毀損設定
+        val rawApiKey = if (incomingApiKey == SensitiveValueCodec.SECRET_MASK) {
+            llmSettingRepository.findById(llmDTO.id.orEmpty())?.apiKey  // JPA @Convert 已解密
+        } else {
+            incomingApiKey
+        }
 
         val encryptedApiKey = passwordEncryptConverter.convertToDatabaseColumn(rawApiKey).orEmpty()
 
