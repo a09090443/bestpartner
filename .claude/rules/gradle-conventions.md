@@ -13,7 +13,7 @@ quarkusPlatformVersion=3.21.0
 
 # 第三方庫版本
 kotlinVersion=2.1.0
-langchain4jVersion=1.12.2
+langchain4jVersion=1.17.2
 bouncycastleVersion=1.79
 okhttp3Version=4.12.0
 kotlinSerializationVersion=1.7.3

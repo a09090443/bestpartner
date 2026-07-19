@@ -20,7 +20,7 @@ AI 應用大平台（類似 Dify / Coze），可動態建立 AI agent、支援�
 
 ## 技術棧（變更前先讀 rules）
 
-Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.13.0 · JDK 21 · PostgreSQL · Gradle。
+Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.17.2 · JDK 21 · PostgreSQL · Gradle。
 完整版本與支援平台 → [`rules/tech-stack-and-versions.md`](rules/tech-stack-and-versions.md)
 
 ## ⚠️ 關鍵雷區（最常踩錯）

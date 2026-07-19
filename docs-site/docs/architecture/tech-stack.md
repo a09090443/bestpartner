@@ -1,6 +1,6 @@
 ---
 sidebar_position: 3
-description: BestPartner 技術選型與版本清單，包含 Quarkus 3.21、Kotlin 2.1、LangChain4J 1.13、Hibernate Panache、SmallRye JWT 等核心框架。
+description: BestPartner 技術選型與版本清單，包含 Quarkus 3.21、Kotlin 2.1、LangChain4J 1.17、Hibernate Panache、SmallRye JWT 等核心框架。
 keywords: [技術選型, Quarkus, Kotlin, LangChain4J, 版本, 技術堆疊]
 ---
 
@@ -12,7 +12,7 @@ keywords: [技術選型, Quarkus, Kotlin, LangChain4J, 版本, 技術堆疊]
 |------|------|------|
 | **Quarkus** | 3.21.0 | 雲原生 Java/Kotlin 框架，支援 GraalVM 原生編譯 |
 | **Kotlin** | 2.1.0 | 主要開發語言 |
-| **LangChain4J** | 1.13.0 | AI 模型整合框架 |
+| **LangChain4J** | 1.17.2 | AI 模型整合框架 |
 | **Hibernate Panache** | — | ORM 資料庫存取 |
 | **SmallRye JWT** | — | JWT 認證與授權 |
 | **GraalJS**（org.graalvm.polyglot） | 24.2.1 | Workflow `CODE` 節點的 JavaScript sandbox（禁 host 存取、逾時與輸出上限） |
