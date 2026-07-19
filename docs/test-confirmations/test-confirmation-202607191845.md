@@ -1123,12 +1123,62 @@ $ 再次 updateSetting，param0 與 --param1 皆傳 __SECRET_KEPT__、arg0 改�
 | 漂移掃描（`.ps1` + `.sh`） | ✅ 新漂移 0 項 |
 | 測試資料清理 | ✅ 2 筆設定已刪除，SQL 確認 leftover = 0 |
 
-### ⚠️ 同類問題（本次未處理，建議另案評估）
+### 同類問題：deleteSetting 越權刪除（已一併修復）
 
-`deleteMcpUserSetting`（`McpServerService.kt:131`）使用 `deleteById(userSettingId)`，
-**同樣未做使用者範圍檢核**。與 `updateSetting` 修復前不同的是，該端點目前**可正常運作**，
-因此這是一條**現行可利用**的越權刪除路徑：任何登入者知道 `userSettingId` 即可刪除他人設定。
-修法相同（改用 `findSettingByUserIdAndSettingId` 確認擁有權後再刪），但屬本次修復範圍外。
+`deleteMcpUserSetting`（`McpServerService.kt:133`）原使用 `deleteById(userSettingId)`，
+**同樣未做使用者範圍檢核**。與 `updateSetting` 修復前不同的是，該端點當時**可正常運作**，
+因此是一條**現行可利用**的越權刪除路徑：任何登入者知道 `userSettingId` 即可刪除他人設定。
+
+**修復內容**：改為先以 `findSettingByUserIdAndSettingId` 確認擁有權，查無則拋
+`MCP_USER_SETTING_NOT_FOUND`，通過後才執行刪除。
+
+> ⚠️ **行為變更**：目標不存在時的回應由 `200 {"data":false}` 改為
+> `400 User setting not found`（與 `getSetting` / `updateSetting` 一致）。
+> 已確認 `bestpartner-ui` 無任何呼叫端，僅 REST 端點本身，無既有消費者受影響。
+> 副作用是刪除不再具冪等性——重複刪除同一 id 會回 400。
+
+#### 驗證記錄
+
+```
+### 1. 越權刪除：admin 嘗試刪除 user 的設定
+$ curl -s -X DELETE "http://localhost:80/llm/mcpServer/deleteSetting" -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" -d '{"userSettingId":"97d155c0-271c-4ec4-8ae8-bb0b06d4ce68"}'
+{"code":400,"message":"User setting not found","data":null}
+HTTP_CODE=400
+
+### 2. 確認資料未被刪除
+$ curl -s -X POST "http://localhost:80/llm/mcpServer/getSetting" -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" -d '{"userSettingId":"97d155c0-271c-4ec4-8ae8-bb0b06d4ce68"}'
+"settingId":"97d155c0-271c-4ec4-8ae8-bb0b06d4ce68"
+"settingContent":{"timezone":"Asia/Taipei"}
+HTTP_CODE=200
+
+### 3. 正常路徑未被誤傷：本人刪除自己的設定
+$ curl -s -X DELETE "http://localhost:80/llm/mcpServer/deleteSetting" -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" -d '{"userSettingId":"97d155c0-271c-4ec4-8ae8-bb0b06d4ce68"}'
+{"code":200,"message":"success","data":true}
+HTTP_CODE=200
+
+### 4. 確認確實刪除
+$ curl -s -X POST "http://localhost:80/llm/mcpServer/getSetting" ... 
+{"code":400,"message":"User setting not found","data":null}
+HTTP_CODE=400
+
+### 5. 邊界：不存在的 id（與越權情境回應相同，不構成存在性 oracle）
+$ curl -s -X DELETE "http://localhost:80/llm/mcpServer/deleteSetting" -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" -d '{"userSettingId":"00000000-0000-0000-0000-000000000000"}'
+{"code":400,"message":"User setting not found","data":null}
+HTTP_CODE=400
+
+### 6. 重複刪除（行為變更：舊版回 200 false，現回 400）
+$ curl -s -X DELETE "http://localhost:80/llm/mcpServer/deleteSetting" ... （同一已刪除的 id）
+{"code":400,"message":"User setting not found","data":null}
+HTTP_CODE=400
+```
+
+**清理**：驗證用設定 `97d155c0-…` 已刪除，SQL 確認 leftover = 0。
+
+> MCP-017（刪除使用者設定）的既有測試案例仍為 ✅——正常路徑回應未變（200 `data:true`）。
 
 ---
 

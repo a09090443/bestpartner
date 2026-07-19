@@ -130,6 +130,11 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/mcpServer/updateSetting` | 更新當前用戶的 MCP 個人設定（須傳入 userSettingId + settingContent）；env 值為 `__SECRET_KEPT__` 時沿用既有密文 | - |
 | DELETE | `/llm/mcpServer/deleteSetting` | 刪除當前用戶的 MCP 個人設定（須傳入 userSettingId） | - |
 
+> **設定類端點的擁有權檢核**：`getSetting` / `updateSetting` / `deleteSetting` 三者皆以
+> 「當前使用者 ＋ userSettingId」查詢，只能操作自己的設定。
+> 目標設定不存在**或屬於他人**時，一律回 400 `User setting not found`——
+> 兩種情況回應相同，不提供判斷設定是否存在的依據。
+
 ---
 
 ## PERMISSION - `/llm/permission`

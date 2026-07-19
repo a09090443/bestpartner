@@ -131,7 +131,12 @@ class McpServerService(
     }
 
     @Transactional
-    fun deleteMcpUserSetting(userSettingId: String) = llmMcpUserSettingRepository.deleteById(userSettingId)
+    fun deleteMcpUserSetting(userSettingId: String): Boolean {
+        // 先確認該設定屬於當前使用者，避免他人以 id 刪除非自己的設定
+        llmMcpUserSettingRepository.findSettingByUserIdAndSettingId(userSettingId)
+            ?: throw ServiceException(AppMessage.MCP_USER_SETTING_NOT_FOUND)
+        return llmMcpUserSettingRepository.deleteById(userSettingId)
+    }
 
     fun buildMcpServer(mcpIds: List<String>, userId: String = StringUtil.EMPTY_STRING): List<DefaultMcpClient> {
         logger.info("Starting up mcp servers")
