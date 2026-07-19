@@ -91,12 +91,15 @@ class McpServerService(
 
     @Transactional
     fun updateSetting(mcpDTO: McpDTO) {
-        val existingEntity = llmMcpUserSettingRepository.findById(mcpDTO.settingId.orEmpty())
+        // 對外契約一律為 userSettingId（與 getSetting / deleteSetting 一致）
+        val settingId = mcpDTO.userSettingId.orEmpty()
+        // 以「當前使用者 + settingId」查詢，避免他人以 id 竄改非自己的設定
+        val existingEntity = llmMcpUserSettingRepository.findSettingByUserIdAndSettingId(settingId)
             ?: throw ServiceException(AppMessage.MCP_USER_SETTING_NOT_FOUND)
         val envKeys = envKeysOf(existingEntity.mcpId)
         // 讀既有 settingContent（密文）供未更動的 env 值沿用
         val encrypted = encryptEnvValues(mcpDTO.settingContent.orEmpty(), envKeys, existingEntity.settingContent)
-        llmMcpUserSettingRepository.updateSettingsByNative(mcpDTO.settingId.orEmpty(), encrypted)
+        llmMcpUserSettingRepository.updateSettingsByNative(settingId, encrypted)
     }
 
     /** 取得 MCP server 定義的 env key 集合（即需加密的敏感 key）。 */

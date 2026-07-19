@@ -522,7 +522,7 @@ HTTP_CODE=200
 | MCP-013 | 儲存使用者設定（缺 mcpId） | P1 | POST | `/llm/mcpServer/saveSetting` | ✅ | |
 | MCP-014 | 取得使用者設定（正常） | P1 | POST | `/llm/mcpServer/getSetting` | ✅ | |
 | MCP-015 | 取得使用者設定（id 不存在） | P2 | POST | `/llm/mcpServer/getSetting` | ✅ | |
-| MCP-016 | 更新使用者設定（正常） | P1 | POST | `/llm/mcpServer/updateSetting` | ❌ | **既有缺陷**，與本次升級無關，見問題追蹤區 |
+| MCP-016 | 更新使用者設定（正常） | P1 | POST | `/llm/mcpServer/updateSetting` | ❌ → ✅ | 測試當下為既有缺陷（與升級無關）；**已於同日修復並重測通過**，見文末修復記錄 |
 | MCP-017 | 刪除使用者設定（正常） | P1 | DELETE | `/llm/mcpServer/deleteSetting` | ✅ | |
 | MCP-018 | 未認證取得清單 | P2 | GET | `/llm/mcpServer/list` | ✅ | |
 | MCP-019 | 業務邏輯（設定後於聊天使用） | P1 | 多步 | `/llm/mcpServer/*` | ✅ | **升級核心驗證**：真實 MCP 工具呼叫成功 |
@@ -1037,8 +1037,98 @@ HTTP_CODE=401
 
 | Test ID | 現象 | 期望行為 | 實際行為 | 根因 | 狀態 |
 |---------|------|---------|---------|------|------|
-| MCP-016 | `updateSetting` 以 `getSetting` 剛驗證過的同一 id 呼叫，回 400「User setting not found」 | HTTP 200，設定內容更新為 `{"timezone":"UTC"}` | HTTP 400「User setting not found」；改傳 `settingId` 則被驗證層擋下「欄位 userSettingId 不可為空值」 | **DTO 驗證層與服務層欄位名不一致**：驗證要求 `userSettingId`，但 `McpServerService.kt:94` 的 `updateSetting` 讀的是 `mcpDTO.settingId`，恆為 null → `findById("")` 找不到。兩條路徑皆不可能成功，該端點目前完全無法使用 | **既有缺陷**（與 langchain4j 升級無關，`git diff` 證實本次唯一改動為 `gradle.properties`）。待另案修復 |
+| MCP-016 | `updateSetting` 以 `getSetting` 剛驗證過的同一 id 呼叫，回 400「User setting not found」 | HTTP 200，設定內容更新為 `{"timezone":"UTC"}` | HTTP 400「User setting not found」；改傳 `settingId` 則被驗證層擋下「欄位 userSettingId 不可為空值」 | **DTO 驗證層與服務層欄位名不一致**：驗證要求 `userSettingId`，但 `McpServerService.kt:94` 的 `updateSetting` 讀的是 `mcpDTO.settingId`，恆為 null → `findById("")` 找不到。兩條路徑皆不可能成功，該端點目前完全無法使用 | ✅ **已修復**（見下方修復記錄） |
 | CHAT-017 | admin 使用 `1ee80ffa`（openai/gpt-5.5-pro）同步聊天回 400 | HTTP 200 | HTTP 400「LLM服務處理發生錯誤」 | **環境限制非程式缺陷**：OpenRouter 回 402，該 LLM 設定 `maxTokens=32768` 超出金鑰可負擔的 28840 tokens。同端點以 CHAT-001（admin + deepseek-v3.2）驗證通過 | 標記 ⏭️ Skip，非 Fail |
+
+---
+
+## MCP-016 修復記錄（2026-07-19）
+
+### 修復內容
+
+`McpServerService.updateSetting`（`McpServerService.kt:92`）兩處變更：
+
+| 項目 | 修復前 | 修復後 |
+|------|--------|--------|
+| 讀取的 DTO 欄位 | `mcpDTO.settingId`（與驗證層契約不符，恆為 null） | `mcpDTO.userSettingId`（與 `getSetting` / `deleteSetting` 一致） |
+| 查詢方法 | `findById(id)`（**不限使用者**） | `findSettingByUserIdAndSettingId(id)`（限當前使用者） |
+
+> ⚠️ **為何必須同時改查詢方法**：原本端點因欄位錯誤而完全無法執行，越權風險並未浮現。
+> 若只修正欄位名，等於啟用一條**未做擁有權檢核**的寫入路徑——任何登入者只要知道
+> `userSettingId` 即可竄改他人的 MCP 設定（其中存放加密的 token / key）。
+> 故本次一併對齊 `getUserSetting` 既有的使用者範圍查詢，避免修 bug 反而開洞。
+
+### 驗證記錄
+
+```
+### 1. MCP-016 原始失敗請求重測（user 帳號）
+$ curl -s -X POST "http://localhost:80/llm/mcpServer/updateSetting" -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"userSettingId":"589d3088-dbb3-4f71-9921-2d199d4f9cd7","settingContent":{"timezone":"UTC"}}'
+{"code":200,"message":"success","data":{...,"userSettingId":"589d3088-...","settingContent":{"timezone":"UTC"},...}}
+HTTP_CODE=200
+
+### 2. 確認值真的落地（非假性成功）
+$ curl -s -X POST "http://localhost:80/llm/mcpServer/getSetting" -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" -d '{"userSettingId":"589d3088-dbb3-4f71-9921-2d199d4f9cd7"}'
+{...,"settingContent":{"timezone":"UTC"},...}
+HTTP_CODE=200
+
+### 3. 越權寫入測試：admin 嘗試修改 user 的設定
+$ curl -s -X POST "http://localhost:80/llm/mcpServer/updateSetting" -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"userSettingId":"589d3088-dbb3-4f71-9921-2d199d4f9cd7","settingContent":{"timezone":"Hacked/Zone"}}'
+{"code":400,"message":"User setting not found","data":null}
+HTTP_CODE=400
+# 且回查 user 的資料仍為 {"timezone":"UTC"} —— 未遭竄改。
+# 訊息與「id 不存在」相同，不構成存在性判別的 oracle。
+
+### 4. 邊界：不存在的 id
+$ curl -s -X POST "http://localhost:80/llm/mcpServer/updateSetting" -H "Authorization: Bearer <USER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"userSettingId":"00000000-0000-0000-0000-000000000000","settingContent":{"timezone":"UTC"}}'
+{"code":400,"message":"User setting not found","data":null}
+HTTP_CODE=400
+
+### 5. 敏感值加密沿用（__SECRET_KEPT__）未受影響
+# 因本次改動更換了 existingEntity 的取得方式，而該 entity 會餵給 encryptEnvValues
+# 作為「沿用既有密文」的依據，故須驗證加密路徑未退化。
+# 以有 env 欄位的 test MCP（param0 / --param1）建立設定後：
+
+$ getSetting → "settingContent":{"arg0":"v0","arg1":"v1","param0":"__SECRET_KEPT__","--param1":"__SECRET_KEPT__"}
+# env 值遮罩、一般值明文，正確。
+
+$ updateSetting -d '{...,"arg0":"v0-updated","param0":"__SECRET_KEPT__","--param1":"NEW-SECRET"}'  → 200
+# DB 實際內容：
+#   param0    = "JbYpku8QWx72Ekeu$36aHmjsEYNfOWOQDA+LSA8hjyeOt5id+09UnsPPTzo3FQTaNUw=="
+#   --param1  = "oHHMSdJjlkfCm2GJ$JSQ0apjQybGEnMiQd9+DRlSdpE9k/kjc1VA="
+#   arg0      = "v0-updated"（明文）
+# 兩個 env 值皆為 <iv>$<密文> 格式，未以明文落地。
+
+$ 再次 updateSetting，param0 與 --param1 皆傳 __SECRET_KEPT__、arg0 改為 v0-again → 200
+# DB 比對結果：
+#   arg0 = "v0-again"（確實更新）
+#   param0_ciphertext_unchanged  = true
+#   param1_ciphertext_unchanged  = true
+# → 密文逐位元組不變，證明沿用原密文而非將 __SECRET_KEPT__ 字面值重新加密
+#   （若為重新加密，隨機 IV 會使密文必然改變）。
+```
+
+### 其他驗證
+
+| 項目 | 結果 |
+|------|------|
+| 編譯（uber-jar） | ✅ BUILD SUCCESSFUL |
+| ArchUnit | ✅ |
+| 漂移掃描（`.ps1` + `.sh`） | ✅ 新漂移 0 項 |
+| 測試資料清理 | ✅ 2 筆設定已刪除，SQL 確認 leftover = 0 |
+
+### ⚠️ 同類問題（本次未處理，建議另案評估）
+
+`deleteMcpUserSetting`（`McpServerService.kt:131`）使用 `deleteById(userSettingId)`，
+**同樣未做使用者範圍檢核**。與 `updateSetting` 修復前不同的是，該端點目前**可正常運作**，
+因此這是一條**現行可利用**的越權刪除路徑：任何登入者知道 `userSettingId` 即可刪除他人設定。
+修法相同（改用 `findSettingByUserIdAndSettingId` 確認擁有權後再刪），但屬本次修復範圍外。
 
 ---
 
