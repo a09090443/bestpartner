@@ -28,6 +28,8 @@ export interface ResolvedSeed {
   dateToolId: string | null
   /** date MCP server（STDIO java -jar date.jar）的 mcpId；解析不到則為 null（MCP 切片 spec 會 skip） */
   dateMcpId: string | null
+  /** google_map MCP server（STDIO Google Places API）的 mcpId；解析不到則為 null（google_map 切片 spec 會 skip） */
+  googleMapMcpId: string | null
 }
 
 export default async function globalSetup() {
@@ -70,7 +72,11 @@ export default async function globalSetup() {
     const mcps = ((await mcpResp.json())?.data ?? []) as Array<{ mcpId?: string; name?: string }>
     const dateMcpId = mcps.find((m) => m.name === mcpName)?.mcpId ?? null
 
-    const seed: ResolvedSeed = { llmId, dateToolId, dateMcpId }
+    // 6) 解析 google_map MCP server 的 mcpId（依 name；E2E_GM_MCP_NAME 可覆寫，缺則 google_map 切片 skip）
+    const gmName = process.env.E2E_GM_MCP_NAME || 'google_map'
+    const googleMapMcpId = mcps.find((m) => m.name === gmName)?.mcpId ?? null
+
+    const seed: ResolvedSeed = { llmId, dateToolId, dateMcpId, googleMapMcpId }
     mkdirSync(ARTIFACT_DIR, { recursive: true })
     writeFileSync(SEED_FILE, JSON.stringify(seed, null, 2))
     // eslint-disable-next-line no-console

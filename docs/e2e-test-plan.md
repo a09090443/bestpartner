@@ -244,3 +244,14 @@ E2E 週期 202607162121 以 webwright 驗證後固化為 `specs/j5-openrouter-da
 2. **§10 待修事項 1 已修復（正面回歸確認）**：能力節點不再獨立執行、不落 `node_execution`（實測 node_execution 僅 TRIGGER/LLM_ASSISTANT/OUTPUT）；兩支 J5 spec 均以 `not.toContain(...)` 斷言此行為。
 3. **MCP 路徑的工具掛載有效**（對照 §10 待修事項 2）：LLM 回覆可感知 date MCP 工具集（主動提及可列出可用時區），代表 MCP 經 `in:tool` 掛載進 Agent 工具集正常；TOOL 路徑是否仍有掛載問題，待另行驗證後再強化斷言。
 4. **畫布座標陷阱**：viewport 內拖放座標若落在右側 Workflow Overview 面板底下（1280 寬時 x≳950；本 harness viewport 1680×950 時 x≳1370），節點 handle 會被面板攔截 pointer 事件導致連線靜默失敗。spec 逐條連線後斷言 edge 數即可即刻定位。
+
+---
+
+## 12. 第三切片實測發現（2026-07-22，google_map MCP 變體 · deep-verify）
+
+E2E 週期 202607222159 以 webwright 驗證後固化為 `specs/j5-openrouter-googlemap-json.spec.ts`：TRIGGER → LLM_ASSISTANT(OpenRouter deepseek-v3.2, JSON) ←in:tool← **MCP_SERVER(google_map, STDIO Google Places API)** → OUTPUT(JSON)，查詢「新北市金山區附近咖啡廳」。`googleMapMcpId` 由 `global-setup` 依 name（預設 `google_map`，`E2E_GM_MCP_NAME` 可覆寫）解析入 `seed.json`，缺席時 skip。報告見 `docs/test-confirmations/e2e-test-confirmation-202607222159.md`。
+
+1. **需 env 機密的 MCP → 節點必須帶 `userSettingId`（新發現，關鍵）**：google_map 需 `GOOGLE_MAPS_API_KEY`。`LlmAssistantExecutor` 對 in:tool 掛載的 MCP_SERVER，**有 `userSettingId` 才走 `buildUserSpecificMcpClient` 注入使用者 env**；僅填 `mcpId` 會走 `buildDefaultMcpClient`、env 佔位 `${...}` 不替換，工具形同不可用。故 spec 於 MCP 節點填 `data-test="mcp-setting-id"`（date 切片因無 env 需求未觸及此欄）。
+2. **執行身分＝設定擁有者**：LLM 與 MCP 設定皆以「登入者 userId」為範圍（`LLMService.buildLLM` 用 `validateLoggedInUser()`；`McpServerService.buildUserSpecificMcpClient` 以 `(userSettingId, userId)` 配對）。故本切片以 env 參數化登入身分（`E2E_GM_USER_EMAIL/PASS`）＋ `E2E_GM_SETTING_ID`（該使用者的 google_map userSettingId；後端無列舉端點故走 env），三者任一缺即 skip。
+3. **deep-verify 通過（真實 Places 資料）**：LLM 實際呼叫 google_map 回傳 5 間金山實際咖啡廳（洋荳子咖啡 4.1／跳石沒有名字的咖啡店 4.3／海灣綠洲咖啡 4.2／舊金山總督溫泉咖啡廳 3.9／巴薩利斯克小館 4.4，皆含新北市金山區門牌）。**因其依賴有效 Maps 金鑰，CI spec 只斷言 plumbing/SSE SUCCESS/OUTPUT 為 JSON/DB 落庫（node_execution 不含 MCP_SERVER）**，真實地點斷言僅記錄於報告。
+4. **IS-1 過期 jar 教訓（環境陷阱，非程式缺陷）**：首跑 execute 於 62ms `node.failed`＝`Database query failed: IllegalArgumentException`；深查為**執行中的 runner jar（建於 07-19 21:45）早於整欄加密 converter（commit `5c68b47`，07-22 08:10）**——DB 已加密但舊 jar 無 converter，讀 `setting_content` 時把密文當 JSON `Map` 反序列化而失敗（`/llm/mcpServer/getSetting` 同錯回 400）。**重編後端 uber-jar 後即恢復**（getSetting 轉 200、execute SUCCESS）。**E2E Step 4 起後端前，務必比對 jar 建置時間與最後一次後端 commit，落後即重編**（`e2e-test-confirmation` skill 已載明「後端有異動先重編」）。
