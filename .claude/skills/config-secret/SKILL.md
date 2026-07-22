@@ -12,9 +12,9 @@ description: Use when encrypting or decrypting configuration secrets in the Best
 | 金鑰 | 加密對象 | 工具 | 本 skill 涵蓋 |
 |------|---------|------|--------------|
 | `CONFIG_ENCRYPTION_KEY` | **設定值**：`.env.<profile>` 與 `application.properties` 中的 `${enc::<密文>}` | `ConfigSecretUtil` + gradle task | ✅ |
-| `CRYPTO_SECRET_KEY` | **資料庫欄位**：`llm_setting.api_key`、tool/MCP 設定 JSON、workflow `secretHeaders` | `CryptoUtils` + Converter，執行期自動 | ❌ 不在此 skill 範圍 |
+| `CRYPTO_SECRET_KEY` | **資料庫欄位**：`llm_setting.api_key`、tool/MCP 設定 JSON、workflow `secretHeaders` | `CryptoUtils` + Converter，執行期自動 | ❌ 走 [`data-secret`](../data-secret/SKILL.md) |
 
-若要處理的是資料庫欄位（`__SECRET_KEPT__` 遮罩、`SensitiveValueCodec`、`WorkflowSecretConverter`），**不要用本 skill 的指令**——密文格式與金鑰推導方式都不同。
+若要處理的是資料庫欄位（`__SECRET_KEPT__` 遮罩、`SensitiveValueCodec`、`WorkflowSecretConverter`），**不要用本 skill 的指令**——密文格式與金鑰推導方式都不同，改用 [`data-secret`](../data-secret/SKILL.md) skill。
 
 ## 機制鏈路
 

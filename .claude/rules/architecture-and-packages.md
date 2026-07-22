@@ -97,5 +97,5 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── tool/
 │   ├── config/     # Google, Tavily, ToolConfigField（settingSchema 的 UI 提示 annotation）
 │   └── text2sql/
-└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, ConfigSecretUtil（設定檔機密值加密，開發／維運用）, OkHttpUtil, MessageUtil, ToolSchemaGenerator ...
+└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, ConfigSecretUtil（設定值機密加密 CONFIG_ENCRYPTION_KEY，開發／維運用）, DataSecretUtil（資料庫欄位機密加解密 CRYPTO_SECRET_KEY，開發／維運用）, OkHttpUtil, MessageUtil, ToolSchemaGenerator ...
 ```

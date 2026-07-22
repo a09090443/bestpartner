@@ -224,6 +224,49 @@ tasks.register<JavaExec>("decryptConfigSecret") {
     }
 }
 
+// 產生資料庫欄位可用的 v2 密文（`v2$salt$iv$ct`），供手動 seed 欄位或驗證格式。
+// 金鑰為 CRYPTO_SECRET_KEY（≠ 設定值金鑰 CONFIG_ENCRYPTION_KEY），優先自環境變數讀取：
+//   $env:CRYPTO_SECRET_KEY='<金鑰>'; $env:CRYPTO_SECRET_VALUE='<明文>'
+//   ./gradlew encryptDataSecret -q
+tasks.register<JavaExec>("encryptDataSecret") {
+    group = "security"
+    description = "將機密明文加密為資料庫欄位可用的 v2 密文"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("tw.zipe.bastpartner.util.DataSecretUtil")
+    doFirst {
+        val envValue = System.getenv("CRYPTO_SECRET_VALUE")
+        val envKey = System.getenv("CRYPTO_SECRET_KEY")
+        val value = envValue ?: project.findProperty("value") as String?
+        val key = envKey ?: project.findProperty("key") as String?
+        require(!value.isNullOrBlank()) { "缺少明文：設定 CRYPTO_SECRET_VALUE 環境變數或傳入 -Pvalue=<明文>" }
+        require(!key.isNullOrBlank()) { "缺少金鑰：設定 CRYPTO_SECRET_KEY 環境變數或傳入 -Pkey=<金鑰>" }
+        // 兩者都來自環境變數時完全不傳參數（機密不進行程清單）；只要有一項改用 -P 就整組傳入。
+        args = if (envValue != null && envKey != null) emptyList() else listOf(value, key)
+    }
+}
+
+// 將既有資料庫欄位密文解回明文，供輪替金鑰前取出原值、或核對密文是否對應預期金鑰。
+// 用法同上，CRYPTO_SECRET_VALUE 改放「密文本體」：
+//   $env:CRYPTO_SECRET_KEY='<金鑰>'; $env:CRYPTO_SECRET_VALUE='<密文>'
+//   ./gradlew decryptDataSecret -q
+// 金鑰不符時以 AEADBadTagException 失敗（GCM 完整性驗證），不會回傳錯誤明文。
+tasks.register<JavaExec>("decryptDataSecret") {
+    group = "security"
+    description = "將資料庫欄位密文解回明文（驗證與金鑰輪替用）"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("tw.zipe.bastpartner.util.DataSecretUtil")
+    doFirst {
+        val envValue = System.getenv("CRYPTO_SECRET_VALUE")
+        val envKey = System.getenv("CRYPTO_SECRET_KEY")
+        val value = envValue ?: project.findProperty("value") as String?
+        val key = envKey ?: project.findProperty("key") as String?
+        require(!value.isNullOrBlank()) { "缺少密文：設定 CRYPTO_SECRET_VALUE 環境變數或傳入 -Pvalue=<密文>" }
+        require(!key.isNullOrBlank()) { "缺少金鑰：設定 CRYPTO_SECRET_KEY 環境變數或傳入 -Pkey=<金鑰>" }
+        // -d 為 DataSecretUtil.main 的解密旗標，必須恆帶；其餘比照加密 task。
+        args = if (envValue != null && envKey != null) listOf("-d") else listOf(value, key, "-d")
+    }
+}
+
 allOpen {
     annotation("jakarta.ws.rs.Path")
     annotation("jakarta.enterprise.context.ApplicationScoped")

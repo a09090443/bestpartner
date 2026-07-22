@@ -100,6 +100,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 | 寫 git commit 訊息 | `git-commit-message`（`<類型>(<範圍>): <主旨>`，繁中主旨） |
 | 建立 / 匯出 Docker image | `docker-build`（固定 prod profile 建置 → 啟動驗證 → 自動匯出 tar；tar 內含 JWT 私鑰，勿隨意流通） |
 | 加密 / 解密設定值（`${enc::}`）、輪替 `CONFIG_ENCRYPTION_KEY` | `config-secret`（勿與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` 混用） |
+| 加密 / 解密資料庫欄位機密（`api_key`、`setting_content`、`secretHeaders`）、輪替 `CRYPTO_SECRET_KEY` | `data-secret`（勿與設定值金鑰 `CONFIG_ENCRYPTION_KEY` 混用） |
 
 ## SQL 資料備份鐵則
 
