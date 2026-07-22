@@ -63,7 +63,7 @@ CREATE TABLE "llm_mcp_user_setting" (
                                         "alias" varchar(50) NOT NULL,
                                         "user_id" varchar(36) NOT NULL,
                                         "mcp_id" varchar(36) NOT NULL,
-                                        "setting_content" json DEFAULT NULL,
+                                        "setting_content" text DEFAULT NULL, -- 整包 AES-GCM 加密（"{iv}${encrypted}"），非 JSON
                                         "created_at" timestamp NOT NULL,
                                         "updated_at" timestamp NULL DEFAULT NULL,
                                         "created_by" varchar(50) DEFAULT NULL,

@@ -97,9 +97,9 @@
 |:---:|------|------|
 | P1 | register STDIO 類型（command + args）與 SSE 類型（server） | 成功，list 可見 |
 | P1 | saveSetting / getSetting / updateSetting / deleteSetting 個人設定 CRUD | 生效 |
-| P1 | **env 值加密**：saveSetting 帶 env 值（如 CREDENTIALS_FILE_PATH），查 DB `llm_mcp_user_setting.setting_content` | env key 值為密文、不含明文；args 值仍明文 |
+| P1 | **setting_content 整欄加密**：saveSetting 帶 env 值（如 CREDENTIALS_FILE_PATH）與 args，查 DB `llm_mcp_user_setting.setting_content` | 整欄為 `{iv}${encrypted}` 密文文字（非 JSON），不含任何明文（含 env 值與 args） |
 | P1 | **getSetting 遮罩**：對上述設定 getSetting | env 值回傳 `__SECRET_KEPT__`，明文不外流 |
-| P1 | **env 值沿用**：updateSetting env 送 `__SECRET_KEPT__` | 沿用既有密文、無遮罩字面值落地 |
+| P1 | **env 值沿用**：updateSetting env 送 `__SECRET_KEPT__` | 沿用既有值、無遮罩字面值落地 |
 | P2 | register / update / delete 非 admin 拒絕 | 403 |
 
 ## PERMISSION - `/llm/permission`

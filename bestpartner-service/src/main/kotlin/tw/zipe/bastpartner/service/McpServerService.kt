@@ -83,8 +83,8 @@ class McpServerService(
             this.alias = mcpDTO.alias.orEmpty()
             this.userId = securityValidator.validateLoggedInUser()
             this.mcpId = mcp.mcpId.orEmpty()
-            // env 值（token/key）加密後落地；新增無既有值
-            this.settingContent = encryptEnvValues(mcpDTO.settingContent.orEmpty(), mcp.env?.keys.orEmpty(), existing = null)
+            // 整包 settingContent 由 JPA converter 加密落地；此處僅防呆丟棄未帶既有值的遮罩
+            this.settingContent = mergeKeptEnvValues(mcpDTO.settingContent.orEmpty(), mcp.env?.keys.orEmpty(), existing = emptyMap())
             llmMcpUserSettingRepository.saveOrUpdate(this)
         }.apply { mcpDTO.userSettingId = this.id }
     }
@@ -97,23 +97,36 @@ class McpServerService(
         val existingEntity = llmMcpUserSettingRepository.findSettingByUserIdAndSettingId(settingId)
             ?: throw ServiceException(AppMessage.MCP_USER_SETTING_NOT_FOUND)
         val envKeys = envKeysOf(existingEntity.mcpId)
-        // 讀既有 settingContent（密文）供未更動的 env 值沿用
-        val encrypted = encryptEnvValues(mcpDTO.settingContent.orEmpty(), envKeys, existingEntity.settingContent)
-        llmMcpUserSettingRepository.updateSettingsByNative(settingId, encrypted)
+        // 既有 settingContent 已由 JPA converter 解密為整包明文；env 值若為舊版逐值密文則一併還原（相容舊資料）
+        val existing = decryptEnvValues(existingEntity.settingContent, envKeys)
+        // 未更動的 env 值（遮罩）沿用既有明文；整包再由 converter 加密落地
+        val merged = mergeKeptEnvValues(mcpDTO.settingContent.orEmpty(), envKeys, existing)
+        llmMcpUserSettingRepository.updateSettingsByNative(settingId, merged)
     }
 
     /** 取得 MCP server 定義的 env key 集合（即需加密的敏感 key）。 */
     private fun envKeysOf(mcpId: String?): Set<String> =
         mcpId?.let { llmMcpServerRepository.findById(it)?.commandSetting?.env?.keys }.orEmpty()
 
-    @Suppress("UNCHECKED_CAST")
-    private fun encryptEnvValues(
+    /**
+     * 未更動的 env 值（值為 [SensitiveValueCodec.SECRET_MASK]）沿用 [existing] 中的既有明文；
+     * 既有值不存在（改了 key 名或新增設定）則移除該欄位，避免把遮罩字面值當成真值存入。
+     * 整包 setting_content 的加密由 [tw.zipe.bastpartner.converter.McpSettingEncryptConverter]
+     * 於落地時處理，此處只還原遮罩、不做加密。
+     */
+    private fun mergeKeptEnvValues(
         content: Map<String, String>,
         envKeys: Set<String>,
-        existing: Map<String, String>?
+        existing: Map<String, String>
     ): Map<String, String> {
         if (envKeys.isEmpty()) return content
-        return sensitiveValueCodec.encryptMap(content, envKeys, existing) as Map<String, String>
+        return content.mapNotNull { (key, value) ->
+            if (key in envKeys && value == SensitiveValueCodec.SECRET_MASK) {
+                existing[key]?.let { key to it }
+            } else {
+                key to value
+            }
+        }.toMap()
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -157,7 +170,7 @@ class McpServerService(
     private fun buildUserSpecificMcpClient(mcpSettingId: String, userId: String): DefaultMcpClient? {
         return llmMcpUserSettingRepository.findByCondition(mcpSettingId, userId)?.firstNotNullOfOrNull { data ->
             val mcpType = data.type ?: return@firstNotNullOfOrNull null
-            // 使用前解密 env 值（settingContent 落地為密文）
+            // settingContent 經 JPQL 已由 converter 解密為整包明文；env 值若為舊版逐值密文則一併還原（相容舊資料）
             val envKeys = data.commandSetting?.env?.keys.orEmpty()
             val transport = createTransport(
                 type = mcpType,

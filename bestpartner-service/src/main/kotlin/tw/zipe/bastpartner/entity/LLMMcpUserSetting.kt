@@ -2,17 +2,13 @@ package tw.zipe.bastpartner.entity
 
 import io.netty.util.internal.StringUtil
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import org.hibernate.annotations.JdbcTypeCode
-import org.hibernate.type.SqlTypes
-import tw.zipe.bastpartner.enumerate.McpType
-import tw.zipe.bastpartner.model.McpCommandSetting
+import tw.zipe.bastpartner.converter.McpSettingEncryptConverter
 
 /**
  * @author Gary
@@ -48,10 +44,10 @@ class LLMMcpUserSetting : BaseEntity() {
     var mcpId: String = StringUtil.EMPTY_STRING
 
     /**
-     * 設定內容
+     * 設定內容（整包 AES-GCM 加密，內含 MCP token/key 等機密；儲存為密文文字，非 JSON）
      */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "setting_content", columnDefinition = "json", nullable = false)
+    @Convert(converter = McpSettingEncryptConverter::class)
+    @Column(name = "setting_content", columnDefinition = "text", nullable = false)
     var settingContent: Map<String, String> = mapOf()
 
 }

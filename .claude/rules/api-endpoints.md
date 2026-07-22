@@ -125,7 +125,7 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/mcpServer/register` | 註冊新 MCP 伺服器（STDIO 類型需 command + args；SSE 類型需 server） | @RolesAllowed("admin") |
 | POST | `/llm/mcpServer/update` | 更新 MCP 伺服器設定 | @RolesAllowed("admin") |
 | POST | `/llm/mcpServer/delete` | 刪除 MCP 伺服器（須傳入 mcpId） | @RolesAllowed("admin") |
-| POST | `/llm/mcpServer/saveSetting` | 儲存當前用戶的 MCP 個人設定（須傳入 mcpId + settingContent）；屬 server env 分類的值（token/key）加密落地 | - |
+| POST | `/llm/mcpServer/saveSetting` | 儲存當前用戶的 MCP 個人設定（須傳入 mcpId + settingContent）；`settingContent` 整欄 AES-GCM 加密落地（密文文字、非 JSON） | - |
 | POST | `/llm/mcpServer/getSetting` | 取得當前用戶的 MCP 個人設定（須傳入 userSettingId）；env 分類的值回傳遮罩 `__SECRET_KEPT__`（明文不外流） | - |
 | POST | `/llm/mcpServer/updateSetting` | 更新當前用戶的 MCP 個人設定（須傳入 userSettingId + settingContent）；env 值為 `__SECRET_KEPT__` 時沿用既有密文 | - |
 | DELETE | `/llm/mcpServer/deleteSetting` | 刪除當前用戶的 MCP 個人設定（須傳入 userSettingId） | - |
