@@ -67,12 +67,12 @@ class SensitiveValueCodec(
         }
 
     /**
-     * 沿用既有值：已是密文（`{iv}${encrypted}` 兩段格式）則原樣；舊明文則補加密，
-     * 避免使用者從不改動該值時明文永久殘留。格式判定與 [PasswordEncryptConverter] 容錯解密一致。
+     * 沿用既有值：已是密文（v2 或 legacy 格式）則原樣；舊明文則補加密，
+     * 避免使用者從不改動該值時明文永久殘留。格式判定委由 [PasswordEncryptConverter.isCiphertext]。
      */
     private fun reEncryptLegacyPlaintext(existing: String?): String? {
         existing ?: return null
-        return if (existing.split("$").size == 2) existing
+        return if (passwordEncryptConverter.isCiphertext(existing)) existing
         else passwordEncryptConverter.convertToDatabaseColumn(existing)
     }
 }

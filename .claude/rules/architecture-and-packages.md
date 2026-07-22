@@ -76,7 +76,7 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 │   ├── security/
 │   └── vector/
 ├── constant/       # LLMConstant
-├── converter/          # PermissionSetConverter, PasswordEncryptConverter, McpSettingEncryptConverter（llm_mcp_user_setting.setting_content 整欄 AES-GCM 加解密，儲存為密文文字非 JSON）, WorkflowSecretConverter（workflow 節點 secretHeaders 加解密與遮罩）, SensitiveValueCodec（tool 設定 JSON 內敏感 key 逐值加解密與遮罩；MCP 設定僅用於 env 值遮罩與舊資料還原）
+├── converter/          # PermissionSetConverter, PasswordEncryptConverter（AES-256-GCM 透明加解密的共用原語，金鑰經 PBKDF2＋per-record salt 衍生，v2 密文格式 `v2$salt$iv$ct`、相容 legacy 兩段格式；提供 isCiphertext 供沿用既有值時避免重複加密）, McpSettingEncryptConverter（llm_mcp_user_setting.setting_content 整欄 AES-256-GCM 加解密，儲存為密文文字非 JSON）, WorkflowSecretConverter（workflow 節點 secretHeaders 加解密與遮罩）, SensitiveValueCodec（tool 設定 JSON 內敏感 key 逐值加解密與遮罩；MCP 設定僅用於 env 值遮罩與舊資料還原）
 ├── dto/            # ApiResponse, ChatRequestDTO, LLMDTO, McpDTO, SkillDTO, ToolDTO, WorkflowDTO ...
 │   └── workflow/
 │       └── config/ # NodeConfig（12 種 NodeType 的強型別 config DTO + NodeConfigRegistry，節點 config schema 的事實來源）

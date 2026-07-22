@@ -47,13 +47,13 @@ class WorkflowSecretConverter(
     }
 
     /**
-     * 沿用既有值：已是密文（`{iv}${encrypted}` 兩段格式）則原樣保留；
+     * 沿用既有值：已是密文（v2 或 legacy 格式）則原樣保留；
      * 加密上線前存入的舊明文則補加密，避免使用者從不改動該 header 時明文永久殘留 DB。
-     * 格式判定與 [PasswordEncryptConverter.convertToEntityAttribute] 的容錯解密一致。
+     * 格式判定委由 [PasswordEncryptConverter.isCiphertext]。
      */
     private fun reEncryptLegacyPlaintext(existing: Any?): Any? {
         val value = existing as? String ?: return existing
-        return if (value.split("$").size == 2) value
+        return if (passwordEncryptConverter.isCiphertext(value)) value
         else passwordEncryptConverter.convertToDatabaseColumn(value)
     }
 
