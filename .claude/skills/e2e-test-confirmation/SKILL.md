@@ -7,7 +7,7 @@ description: Use when user wants to run the BestPartner UI-driven E2E test plan,
 
 ## Overview
 
-每次 E2E 測試週期，依 `docs/e2e-test-plan.md` 的旅程矩陣（J1–J7），**基於固定模板** `./e2e-test-checklist.md` 建立一份帶日期的確認記錄檔。**每份測試報告都從該清單複製產出**，不得另行設計格式。
+每次 E2E 測試週期，依 `docs/e2e-test-plan.md` 的旅程矩陣（J1–J8），**基於固定模板** `./e2e-test-checklist.md` 建立一份帶日期的確認記錄檔。**每份測試報告都從該清單複製產出**，不得另行設計格式。
 
 E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash 指令驅動本機 Playwright，截圖與操作記錄產於 `final_runs/run_<id>/`），對 **port 80 真實後端 + PostgreSQL** 全貫穿；J5 執行案例使用**真實 LLM**（斷言看 SSE 事件序列與節點狀態，不比對輸出文字）。
 
@@ -89,7 +89,7 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 > ⚠️ 未做資源/認證前置確認即開測，視同違規。
 > 替代/加強：必要時可另跑 backend `@QuarkusTest`（如 `LLMServiceTest` 或 assistant 相關）深驗真實 LLM/MCP 呼叫（非預設）。
 
-### Step 5：逐旅程執行循環（J1 → J7 依序）
+### Step 5：逐旅程執行循環（J1 → J8 依序）
 
 **執行入口為 `webwright` skill**（非 Playwright spec）。對每條旅程的每個案例：
 

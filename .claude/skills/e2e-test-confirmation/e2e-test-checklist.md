@@ -90,7 +90,8 @@
 | J5 執行（真實 LLM） | P0 | 3 | | | | |
 | J6 Inspector 表單 | P1 | 3 | | | | |
 | J7 契約錯誤 | P2 | 2 | | | | |
-| **合計** | | **26** | | | | |
+| J8 知識庫 RAG | P1 | 5 | | | | |
+| **合計** | | **31** | | | | |
 
 ### 通過標準
 
@@ -168,6 +169,21 @@
 |------|:---:|------|------|:---:|------|
 | J7-01 | P2 | save 節點 config 型別錯誤（未知欄位/結構型別錯） | 400，`workflow.node.config.invalid`，含 nodeKey | | |
 | J7-02 | P2 | 樂觀鎖 version 衝突 | 400，`workflow.version.conflict`，UI 顯示衝突提示 | | |
+
+### J8 知識庫 RAG 檢索問答（P1，真實 embedding + Milvus + 真實 LLM）
+
+> 前端無向量庫/設定/上傳管理頁（僅 login/列表/編輯器），前置三步走 API 準備，UI 只建 workflow 與執行。
+> 與 J5 差異：**有已知來源文件，斷言輸出內容與文件事實相符**（先讀文件挑唯一事實作查詢關鍵字→預期答案）。詳見 `docs/e2e-test-plan.md` §3-J8 與 §13。
+
+| 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
+|------|:---:|------|------|:---:|------|
+| J8-01 | P1 | 前置(API)：建 EMBEDDING 設定 + Milvus 向量庫 + 上傳文件建知識庫 | 取得 embeddingModelId/embeddingStoreId/knowledgeId；`getDataFromEmbeddingStore` 檢索命中目標事實（維度須對齊） | | |
+| J8-02 | P1 | UI 建 workflow：拖 TRIGGER/KNOWLEDGE_RAG/LLM_ASSISTANT/OUTPUT，Inspector 選知識庫/embedding/LLM，userPrompt 以 `{{<ragKey>.documents}}` 串接 | 4 節點、3 edge（nodeKey 由 `.vue-flow__node[data-id]` 讀取供插值） | | |
+| J8-03 | P1 | 存檔 + switchStatus 啟用 | version 1；KNOWLEDGE_RAG 必填驗證通過，狀態 ACTIVE | | |
+| J8-04 | P1 | execute（真實 embedding + LLM） | SSE started→node.*→completed(SUCCESS)；4 節點 node_execution 皆 SUCCESS、DB 落庫 | | |
+| J8-05 | P1 | **RAG 正確性斷言**：finalOutput 與文件已知事實比對 | LLM 輸出含文件原文事實關鍵字（例：渣打 TNC「年滿二十歲」→ 輸出含「20/二十」） | | |
+
+> 缺有效 embedding 或 CHAT 設定即 J8 全條 skip 並標註。embedding 選型與維度對齊、憑證解密管制等陷阱見 `e2e-test-plan.md` §13。
 
 ---
 

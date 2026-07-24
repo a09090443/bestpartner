@@ -50,6 +50,8 @@
 | `E2E_API_URL` | 後端位址 | 預設 `http://localhost:80` |
 | `E2E_ADMIN_USER` / `E2E_ADMIN_PASS` | 登入帳密 | 預設 `admin` / `admin` |
 | `E2E_LLM_ID` | J5 真實執行所用的 llmId | 指向具有效 api_key 的 CHAT 設定 |
+| `E2E_EMBEDDING_ID` | J8 用的 embeddingModelId | 指向具有效 api_key 的 EMBEDDING 設定；缺則 J8 skip |
+| `E2E_KNOWLEDGE_ID` / `E2E_EMBEDDING_STORE_ID` | J8 知識庫與向量庫 | 由前置 API 準備產出（或由前置步驟現建現用） |
 
 ---
 
@@ -126,6 +128,25 @@
 | P2 | save 節點 config 型別錯誤（未知欄位 / 結構性型別錯） | 400，`workflow.node.config.invalid`，UI 顯示含 nodeKey 的訊息 |
 | P2 | 樂觀鎖：兩處先後 save 同一 workflow，version 不符 | 400，`workflow.version.conflict`，UI 顯示衝突提示 |
 
+### J8 知識庫 RAG 檢索問答（P1，**真實 embedding + Milvus 向量庫 + 真實 LLM**）
+
+> 驗證完整 RAG 能力：文件 → embedding 存 Milvus → workflow `TRIGGER → KNOWLEDGE_RAG → LLM_ASSISTANT → OUTPUT`
+> → LLM 依向量查詢結果作答。**與 J5 的關鍵差異**：J8 有已知來源文件，故**斷言輸出內容與文件事實相符**
+> （而非只驗 plumbing）。前端無向量庫／LLM 設定／檔案上傳的管理頁（僅 login/列表/編輯器三頁），
+> 故前置三步一律走 API 準備，UI 只負責 workflow 建置與執行。
+
+| 優先 | 案例 | 預期 |
+|:---:|------|------|
+| P1 | 前置（API，無 UI）：建 EMBEDDING 設定 + Milvus 向量庫 + 上傳文件建知識庫 | 取得 embeddingModelId / embeddingStoreId / knowledgeId；`getDataFromEmbeddingStore` 檢索回傳含目標事實的片段（**維度須與 embedding 模型一致**） |
+| P1 | UI 建 workflow：拖 TRIGGER / KNOWLEDGE_RAG / LLM_ASSISTANT / OUTPUT，Inspector 選知識庫 / embedding / LLM，並以 `{{<ragKey>.documents}}` 於 userPrompt 串接上游檢索結果 | 4 節點、3 edge；nodeKey 為 nanoid（可由 `.vue-flow__node[data-id]` 讀取供插值） |
+| P1 | 存檔 + switchStatus 啟用 | version 1；KNOWLEDGE_RAG 必填 `knowledgeId`/`embeddingModelId`/`query` 驗證通過，狀態 ACTIVE |
+| P1 | execute（真實 embedding + LLM） | SSE `execution.started` → 4 節點 `node.*` → `execution.completed`（SUCCESS）；`node_execution` 四節點皆 SUCCESS、DB 落庫 |
+| P1 | **RAG 正確性斷言（本旅程核心，異於 J5）**：finalOutput 與文件已知事實比對 | LLM 輸出含文件原文事實關鍵字（如渣打 TNC「年滿**二十歲**」→ 輸出含「20 / 二十」） |
+
+> **斷言策略**：先讀來源文件挑出**可驗證的唯一事實**作為「查詢關鍵字 → 預期答案」對；
+> 檢索為確定性（同一文件同一 query 命中固定片段），LLM 依提供的 context 作答，故**可斷言輸出含該事實**。
+> 需有效 embedding 與 CHAT 兩組設定；缺任一即 skip 並在報告標註。實測見 §13。
+
 ---
 
 ## 4. 測試資料策略
@@ -193,6 +214,7 @@ bestpartner-ui/
 | WORKFLOW execute SSE happy path 與 CANCELLED/SKIPPED | J5 |
 | WORKFLOW save 型別驗證、樂觀鎖 | J7 |
 | TOOL settingSchema、LLM SETTING 取值 | J6（間接，經 Inspector 下拉 / 動態表單） |
+| VECTOR save / uploadFiles / getDataFromEmbeddingStore、WORKFLOW execute（KNOWLEDGE_RAG 節點） | J8 |
 
 > API 測試計畫仍是端點行為的權威來源；E2E 只驗「使用者路徑上這些契約確實被正確串接」。
 
@@ -255,3 +277,17 @@ E2E 週期 202607222159 以 webwright 驗證後固化為 `specs/j5-openrouter-go
 2. **執行身分＝設定擁有者**：LLM 與 MCP 設定皆以「登入者 userId」為範圍（`LLMService.buildLLM` 用 `validateLoggedInUser()`；`McpServerService.buildUserSpecificMcpClient` 以 `(userSettingId, userId)` 配對）。故本切片以 env 參數化登入身分（`E2E_GM_USER_EMAIL/PASS`）＋ `E2E_GM_SETTING_ID`（該使用者的 google_map userSettingId；後端無列舉端點故走 env），三者任一缺即 skip。
 3. **deep-verify 通過（真實 Places 資料）**：LLM 實際呼叫 google_map 回傳 5 間金山實際咖啡廳（洋荳子咖啡 4.1／跳石沒有名字的咖啡店 4.3／海灣綠洲咖啡 4.2／舊金山總督溫泉咖啡廳 3.9／巴薩利斯克小館 4.4，皆含新北市金山區門牌）。**因其依賴有效 Maps 金鑰，CI spec 只斷言 plumbing/SSE SUCCESS/OUTPUT 為 JSON/DB 落庫（node_execution 不含 MCP_SERVER）**，真實地點斷言僅記錄於報告。
 4. **IS-1 過期 jar 教訓（環境陷阱，非程式缺陷）**：首跑 execute 於 62ms `node.failed`＝`Database query failed: IllegalArgumentException`；深查為**執行中的 runner jar（建於 07-19 21:45）早於整欄加密 converter（commit `5c68b47`，07-22 08:10）**——DB 已加密但舊 jar 無 converter，讀 `setting_content` 時把密文當 JSON `Map` 反序列化而失敗（`/llm/mcpServer/getSetting` 同錯回 400）。**重編後端 uber-jar 後即恢復**（getSetting 轉 200、execute SUCCESS）。**E2E Step 4 起後端前，務必比對 jar 建置時間與最後一次後端 commit，落後即重編**（`e2e-test-confirmation` skill 已載明「後端有異動先重編」）。
+
+---
+
+## 13. J8 首條切片實測發現（2026-07-23，知識庫 RAG · deep-verify）
+
+E2E 週期 202607232111 以 webwright（Node Playwright + chromium）驗證 J8：文件 `docs/rag/doc/scb/tw-online-tnc.pdf`（渣打數位存款帳戶特別約定條款）→ Milvus embedding → workflow `TRIGGER → KNOWLEDGE_RAG → LLM_ASSISTANT(OpenRouter deepseek-v3.2) → OUTPUT`，查詢「數位存款帳戶開立的年齡條件」。報告見 `docs/test-confirmations/e2e-test-confirmation-202607232111.md`。**15/15 通過（Phase A API 前置 6 + Phase B UI 9）**。
+
+1. **RAG 正確性成立（deep-verify）**：以 PDF 原文「立約人應為…**年滿二十歲**自然人」為斷言依據。API 檢索（`getDataFromEmbeddingStore`）Top-1 片段即命中該句；UI 執行後 LLM finalOutput＝`{"result":"…開立數位存款帳戶的年齡條件是年滿 **20** 歲。"}`，與原文事實一致。**證明 J8 的「斷言輸出內容」策略對有已知來源的 RAG 是可行且必要的**（有別於 J5 不比對文字）。
+2. **前端無設定管理頁（關鍵限制）**：`bestpartner-ui` 僅 `/login`、`/`、`/editor/:id?` 三個路由。**向量庫設定（`/llm/vector/save`）、LLM/embedding 設定（`/llm/setting/save`）、PDF 上傳（`/llm/vector/uploadFiles`）皆無 UI，一律走 API 準備**；UI 只在知識庫/設定「已存在」後於 RAG 節點下拉選用。J8 因此天生是「API 前置 + UI 執行」混合。
+3. **embedding 選型與維度對齊陷阱**：本機**無 Ollama**（DB 唯一 embedding 設定 `ollama_local_embedding_test` bge-m3 dim 1024 不可用）。改用 **OpenRouter `nvidia/nemotron-3-embed-1b:free`**（免費、實測輸出**維度 2048**）。⚠️ OpenRouter `/api/v1/models` 目錄**不列 embedding 模型**，但 `/api/v1/embeddings` 端點與該模型可正常呼叫；後端 `OpenrouterModelBuilder.embeddingModel` 以 `OpenAiEmbeddingModel` 對接。**Milvus collection dimension 必須等於 embedding 實際輸出維度**（此處 2048），否則 `addAll`/`search` 失敗——建 collection 前先呼叫一次 `/embeddings` 量測維度最保險。
+4. **KNOWLEDGE_RAG 節點插值需 nanoid nodeKey**：nodeKey 為 `nanoid(8)` 隨機值、不顯示於節點字幕，但 Vue Flow 於 `.vue-flow__node[data-id="<nodeKey>"]` 暴露，webwright 拖放後即可讀取，據以組 `{{<ragKey>.documents}}` 填 LLM userPrompt。採**靜態 query**（不依賴執行時 inputPayload，UI 無輸入面板）。
+5. **Inspector 表單為原生控件**：KnowledgeRagForm / LlmAssistantForm / OutputForm 用原生 `<select>`/`<textarea>`（非 Element Plus），可直接 `selectOption({value})`；option value＝knowledgeId / 設定 id，故用前置解析到的真實 ID 選取最穩。
+6. **憑證解密受分類器管制**：`.env` 的 OpenRouter 金鑰以 `${enc::}` 加密，自動模式分類器**擋下程式化 `decryptConfigSecret`**；需請使用者以 `!` 自解或直接提供金鑰（本次由使用者提供）。金鑰只寫入 scratchpad 暫存、收尾即刪，不落報告。
+7. **占位陷阱（對照 §11-4）**：Inspector 面板開啟時佔右側約 322px（1280 寬 → x≳958 被遮），拖放節點或選取右側節點會被面板攔截 pointer。解法：節點放左側 60% 區、選取前先點空白 pane 收合面板（deselect）。
