@@ -146,6 +146,26 @@ describe('LlmAssistantForm', () => {
     expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', outputKey: 'reply' })
   })
 
+  it('hasUpstreamPrompt 為 true 時顯示「已由上游提示節點提供」標記與說明', async () => {
+    const wrapper = mount(LlmAssistantForm, {
+      props: { config: { llmId: 's1' }, hasUpstreamPrompt: true },
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-test="prompt-overridden-badge"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="prompt-source-hint"]').text()).toContain('in:prompt')
+    // 刻意不 disable：連線可能被刪除，此欄仍需可編輯作為後備值
+    expect(wrapper.find('[data-test="user-prompt"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('未傳 hasUpstreamPrompt 時不顯示標記，且 userPrompt 仍可編輯並 emit', async () => {
+    const wrapper = mount(LlmAssistantForm, { props: { config: { llmId: 's1' } } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="prompt-overridden-badge"]').exists()).toBe(false)
+    await wrapper.find('[data-test="user-prompt"]').setValue('請回答')
+    const emitted = wrapper.emitted('update:config')
+    expect(emitted![emitted!.length - 1][0]).toEqual({ llmId: 's1', userPrompt: '請回答' })
+  })
+
   it('由既有 config 還原保留的欄位值', async () => {
     const wrapper = mount(LlmAssistantForm, {
       props: {

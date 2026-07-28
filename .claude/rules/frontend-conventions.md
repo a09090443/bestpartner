@@ -83,7 +83,7 @@ src/
 
 ## Workflow / Canvas 慣例
 
-- `NodeType` 聯合型別定義於 `src/types/workflow.ts`，對應後端 `WorkflowDTO`（12 種）。
+- `NodeType` 聯合型別定義於 `src/types/workflow.ts`，對應後端 `WorkflowDTO`（13 種）。
 - 節點顯示 meta（label/color/icon/category/inputs/outputs）集中在 `src/constants/nodeTypes.ts`（`NODE_TYPE_METAS`、`getNodeTypeMeta()`）。
 - 連接點（handle）編碼規則獨立在 `src/constants/handles.ts`：`role:port` 字串（如 `in:main`、`out:true`），用 `parseHandle()` 解析。
 - DTO ↔ 畫布互轉在 `src/composables/useWorkflowSync.ts`，畫面驗證在 `useGraphValidation.ts`。

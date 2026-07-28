@@ -29,6 +29,7 @@ import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.repository.WorkflowEdgeRepository
 import tw.zipe.bastpartner.repository.WorkflowNodeRepository
 import tw.zipe.bastpartner.repository.WorkflowRepository
+import tw.zipe.bastpartner.service.workflow.WorkflowEngine
 
 /**
  * Workflow 定義之 CRUD 與畫布驗證服務。
@@ -214,7 +215,11 @@ class WorkflowService(
     }
 
     /**
-     * 啟用 / 停用 workflow。啟用前須具備 Trigger 節點、圖無環，且各節點 config 型別合法、必填欄位齊備。
+     * 啟用 / 停用 workflow。啟用前須具備 Trigger 節點、圖無環、各節點 config 型別合法且必填欄位齊備，
+     * 並且**不得存在孤兒 SKILL 節點**（未掛載到任何 LLM 助手的 `in:tool` 埠）、
+     * **不得存在孤兒 PROMPT 節點**（未連到任何 LLM 助手的 `in:prompt` 埠），
+     * 且**每個 LLM 助手節點都要有提問來源**（userPrompt 或連入的 PROMPT 節點）——
+     * 確保「ACTIVE」等同「可執行」，而非停在啟用態卻 execute 必失敗。
      */
     @Transactional
     fun switchStatus(id: String, active: Boolean): WorkflowDTO {
@@ -234,6 +239,21 @@ class WorkflowService(
             nodes.forEach { n ->
                 val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
                 validateNodeRequired(n.nodeKey, n.type, configObj)
+            }
+            // 孤兒 SKILL 節點（未掛載到任何 LLM 助手的 in:tool 埠）不得啟用：
+            // 否則 workflow 會停在 ACTIVE 卻永遠執行不了（execute 才被 WorkflowEngine 擋下）。
+            // 規則與 [WorkflowEngine.validateNodes] 共用同一純函式，避免兩處分叉；
+            // 驗證順序亦與其一致（必填欄位先於掛載檢查），確保兩條路徑回報同一個錯誤。
+            WorkflowEngine.findUnmountedSkillNodeKey(nodes, edges)?.let {
+                throw ServiceException(AppMessage.WORKFLOW_SKILL_NODE_NOT_MOUNTED, it)
+            }
+            // 提示接線同理：孤兒 PROMPT 節點（沒人取用）與無提問來源的 LLM 節點（執行必失敗）
+            // 皆不得啟用。順序與 [WorkflowEngine.validateNodes] 一致。
+            WorkflowEngine.findUnconnectedPromptNodeKey(nodes, edges)?.let {
+                throw ServiceException(AppMessage.WORKFLOW_PROMPT_NODE_NOT_CONNECTED, it)
+            }
+            WorkflowEngine.findPromptlessLlmNodeKey(nodes, edges)?.let {
+                throw ServiceException(AppMessage.WORKFLOW_LLM_PROMPT_REQUIRED, it)
             }
         }
         entity.status = if (active) WorkflowStatus.ACTIVE else WorkflowStatus.INACTIVE

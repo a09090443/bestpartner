@@ -11,6 +11,7 @@ import type { NodeRequiredFields } from '../api/workflow'
  */
 const FIELD_LABELS: Record<string, string> = {
   llmId: 'LLM 設定',
+  prompt: '提示詞',
   toolId: '工具',
   mcpId: 'MCP 伺服器',
   skillId: 'Skill',

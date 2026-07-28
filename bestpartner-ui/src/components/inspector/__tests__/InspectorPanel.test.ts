@@ -18,6 +18,7 @@ import ToolForm from '../forms/ToolForm.vue'
 import McpServerForm from '../forms/McpServerForm.vue'
 import SkillForm from '../forms/SkillForm.vue'
 import KnowledgeRagForm from '../forms/KnowledgeRagForm.vue'
+import PromptForm from '../forms/PromptForm.vue'
 import JsonConfigEditor from '../JsonConfigEditor.vue'
 import type { FlowNode } from '../../../composables/useWorkflowSync'
 import type { NodeType } from '../../../types/workflow'
@@ -57,6 +58,12 @@ describe('InspectorPanel 型別分派', () => {
 
   it('KNOWLEDGE_RAG 渲染 KnowledgeRagForm', () => {
     expect(mountWith('KNOWLEDGE_RAG').findComponent(KnowledgeRagForm).exists()).toBe(true)
+  })
+
+  it('PROMPT 渲染 PromptForm 而非 JSON 編輯器', () => {
+    const w = mountWith('PROMPT')
+    expect(w.findComponent(PromptForm).exists()).toBe(true)
+    expect(w.findComponent(JsonConfigEditor).exists()).toBe(false)
   })
 
   it('其餘型別（CODE）維持 JsonConfigEditor fallback', () => {
@@ -247,5 +254,47 @@ describe('InspectorPanel 未選節點（Workflow overview）', () => {
     const emitted = w.emitted('update:workflow-description')
     expect(emitted).toBeTruthy()
     expect(emitted![emitted!.length - 1][0]).toBe('新描述')
+  })
+})
+
+describe('InspectorPanel — 提示來源標示（promptBoundNodeKeys）', () => {
+  function mountLlmWith(promptBoundNodeKeys?: string[]) {
+    return mount(InspectorPanel, {
+      props: {
+        selectedNode: nodeOf('LLM_ASSISTANT', { llmId: 'l1' }),
+        workflowName: 'wf',
+        promptBoundNodeKeys,
+      },
+    })
+  }
+
+  it('選中的 LLM 節點在 promptBoundNodeKeys 內時傳入 hasUpstreamPrompt 並顯示標記', () => {
+    const w = mountLlmWith(['n1'])
+    expect(w.findComponent(LlmAssistantForm).props('hasUpstreamPrompt')).toBe(true)
+    expect(w.find('[data-test="prompt-overridden-badge"]').exists()).toBe(true)
+    expect(w.find('[data-test="prompt-source-hint"]').exists()).toBe(true)
+  })
+
+  it('未在 promptBoundNodeKeys 內時不顯示標記', () => {
+    const w = mountLlmWith(['other'])
+    expect(w.findComponent(LlmAssistantForm).props('hasUpstreamPrompt')).toBe(false)
+    expect(w.find('[data-test="prompt-overridden-badge"]').exists()).toBe(false)
+  })
+
+  it('未傳 promptBoundNodeKeys 時視為未連接', () => {
+    const w = mountLlmWith()
+    expect(w.findComponent(LlmAssistantForm).props('hasUpstreamPrompt')).toBe(false)
+  })
+
+  it('非 LLM 型別的表單不會收到 hasUpstreamPrompt', () => {
+    const w = mount(InspectorPanel, {
+      props: {
+        selectedNode: nodeOf('PROMPT', { prompt: '提問' }),
+        workflowName: 'wf',
+        promptBoundNodeKeys: ['n1'],
+      },
+    })
+    // PromptForm 未宣告此 prop；若誤傳會變成落在根元素的 fallthrough attribute
+    expect(w.findComponent(PromptForm).attributes('hasupstreamprompt')).toBeUndefined()
   })
 })

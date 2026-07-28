@@ -1,6 +1,6 @@
 import type { NodeType, WorkflowNodeDTO, WorkflowEdgeDTO } from '../types/workflow'
 import { getNodeTypeMeta } from '../constants/nodeTypes'
-import { IN_TOOL } from '../constants/handles'
+import { IN_PROMPT, IN_TOOL } from '../constants/handles'
 import { missingRequiredForNode, formatMissingFields } from '../utils/nodeRequiredFields'
 import type { NodeRequiredFields } from '../api/workflow'
 
@@ -13,12 +13,18 @@ export type GraphErrorType =
   | 'INCOMPATIBLE_CONNECTION'
   | 'BRANCH_INCOMPLETE'
   | 'REQUIRED_FIELD_MISSING'
+  | 'PROMPT_WIRING_INCOMPLETE'
 
-/** 可掛載到 LLM 工具埠（in:tool）的來源節點型別（Agent 模式能力掛載） */
+/**
+ * 可掛載到 LLM 工具埠（in:tool）的來源節點型別（Agent 模式能力掛載）。
+ * KNOWLEDGE_RAG 連到 in:tool 時作為「自動注入型 RAG」掛載（連一般 main 埠仍為 pipeline 檢索節點）。
+ * ⚠️ 須與後端 WorkflowEngine.kt 的 CAPABILITY_SOURCE_TYPES 保持一致。
+ */
 export const CAPABILITY_SOURCE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>([
   'TOOL',
   'MCP_SERVER',
   'SKILL',
+  'KNOWLEDGE_RAG',
 ])
 
 /** 驗證嚴重度：error 擋存檔；warning 可存檔、啟用時再擋 */
@@ -145,7 +151,7 @@ export function validateGraph(
     }
   })
 
-  // 連線相容性：連到 LLM 工具埠（in:tool）的來源只能是 TOOL / MCP_SERVER / SKILL（error）
+  // 連線相容性：連到 LLM 工具埠（in:tool）的來源只能是 TOOL / MCP_SERVER / SKILL / KNOWLEDGE_RAG（error）
   edges.forEach((e) => {
     if (e.targetHandle !== IN_TOOL) return
     const source = nodeByKey.get(e.sourceNodeKey)
@@ -154,7 +160,58 @@ export function validateGraph(
         type: 'INCOMPATIBLE_CONNECTION',
         severity: 'error',
         key: e.sourceNodeKey,
-        message: `僅工具、MCP、Skill 節點可連到 LLM 的工具埠：${e.sourceNodeKey}`,
+        message: `僅工具、MCP、Skill、知識庫節點可連到 LLM 的工具埠：${e.sourceNodeKey}`,
+      })
+    }
+  })
+
+  // 連線相容性：連到 LLM 提示埠（in:prompt）的來源只能是 PROMPT（error）
+  edges.forEach((e) => {
+    if (e.targetHandle !== IN_PROMPT) return
+    const source = nodeByKey.get(e.sourceNodeKey)
+    if (source && source.type !== 'PROMPT') {
+      errors.push({
+        type: 'INCOMPATIBLE_CONNECTION',
+        severity: 'error',
+        key: e.sourceNodeKey,
+        message: `僅提示詞節點可連到 LLM 的提示埠：${e.sourceNodeKey}`,
+      })
+    }
+  })
+
+  // 提示接線不完整（warning）：鏡射後端 switchStatus 的兩項啟用驗證，讓使用者在存檔前就看到，
+  // 而非等到按下啟用才被 400 擋下。severity 為 warning，不阻擋 DRAFT 存檔。
+  const promptBoundLlmKeys = new Set(
+    edges
+      .filter((e) => e.targetHandle === IN_PROMPT && nodeByKey.get(e.sourceNodeKey)?.type === 'PROMPT')
+      .map((e) => e.targetNodeKey),
+  )
+  const promptSourceKeys = new Set(
+    edges
+      .filter(
+        (e) => e.targetHandle === IN_PROMPT && nodeByKey.get(e.targetNodeKey)?.type === 'LLM_ASSISTANT',
+      )
+      .map((e) => e.sourceNodeKey),
+  )
+  nodes.forEach((n) => {
+    if (n.type === 'PROMPT' && !promptSourceKeys.has(n.nodeKey)) {
+      errors.push({
+        type: 'PROMPT_WIRING_INCOMPLETE',
+        severity: 'warning',
+        key: n.nodeKey,
+        message: `提示詞節點未連到任何 LLM 的提示埠：${n.nodeKey}`,
+      })
+    }
+    if (
+      n.type === 'LLM_ASSISTANT' &&
+      !promptBoundLlmKeys.has(n.nodeKey) &&
+      !String((n.config ?? {}).userPrompt ?? '').trim()
+    ) {
+      errors.push({
+        type: 'PROMPT_WIRING_INCOMPLETE',
+        severity: 'warning',
+        key: n.nodeKey,
+        message: `LLM 節點缺少提問來源（使用者提示或提示詞節點）：${n.nodeKey}`,
       })
     }
   })

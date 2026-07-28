@@ -119,11 +119,13 @@
 | P1 | **save 允許草稿缺必填**：LLM_ASSISTANT 缺 `llmId` 仍可存 DRAFT | 200 |
 | P1 | **switchStatus 啟用驗必填**：節點缺必填（如 `llmId`）時啟用 | 400，`workflow.node.config.required.missing`，訊息含 nodeKey 與欄位 |
 | P1 | switchStatus 啟用前置：無 TRIGGER 節點或圖有環 | 400 對應訊息 |
+| P1 | **switchStatus 啟用驗提示接線**：孤兒 PROMPT 節點（未連任何 LLM `in:prompt`） | 400，`workflow.prompt.node.not.connected`，訊息含 nodeKey；狀態仍 DRAFT |
+| P1 | **switchStatus 啟用驗提問來源**：LLM 節點既無 `userPrompt` 也無 PROMPT 連入 `in:prompt` | 400，`workflow.llm.prompt.required`，訊息含 nodeKey；對照組（有其一）啟用成功 |
 | P1 | TRIGGER 的 `triggerType` 非法 enum 值（非 MANUAL/WEBHOOK/CRON） | save 即 400 |
 | P1 | save 樂觀鎖：version 不符 | 400，`workflow.version.conflict` |
 | P2 | 圖驗證：nodeKey 重複、edge 端點不存在、節點數超上限 | 400 對應訊息 |
 | P2 | 非擁有者存取（非 admin） | 403，`workflow.forbidden` |
-| P2 | nodeRequiredFields 取必填清單 | 200，含全 11 種 NodeType；`LLM_ASSISTANT=["llmId"]`、`DATA_TRANSFORM=["mappings\|template"]`、`OUTPUT=["template\|mappings"]` |
+| P2 | nodeRequiredFields 取必填清單 | 200，含全 13 種 NodeType；`LLM_ASSISTANT=["llmId"]`、`PROMPT=["prompt"]`、`DATA_TRANSFORM=["mappings\|template"]`、`OUTPUT=["template\|mappings"]`（圖層級條件必填不在此清單） |
 | P0 | **execute happy path**：已存檔 workflow（TRIGGER→…→OUTPUT，DRAFT 即可、不需 ACTIVE）呼叫 execute | SSE 事件流依序 `execution.started` → `node.started`/`node.completed` → `execution.completed`（SUCCESS）；紀錄寫入 `llm_workflow_execution` / `llm_workflow_node_execution` |
 | P1 | execute 帶不存在的 id | 400，`workflow.not.found` |
 | P1 | execute 未帶 token（未認證） | 401 |

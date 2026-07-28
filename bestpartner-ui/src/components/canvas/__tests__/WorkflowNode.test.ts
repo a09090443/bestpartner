@@ -56,14 +56,23 @@ describe('WorkflowNode', () => {
     expect(handles(wrapper, 'source')).toHaveLength(1)
   })
 
-  it('LLM_ASSISTANT 渲染兩個 target handle（in:main / in:tool）', () => {
+  it('LLM_ASSISTANT 渲染三個 target handle（in:main / in:prompt / in:tool）', () => {
     const wrapper = mount(WorkflowNode, {
       props: { id: 'n1', data: { type: 'LLM_ASSISTANT' } },
       global: globalConfig,
     })
     const ids = handles(wrapper, 'target').map((h) => h.attributes('data-hid'))
-    expect(ids).toEqual(['in:main', 'in:tool'])
+    expect(ids).toEqual(['in:main', 'in:prompt', 'in:tool'])
     expect(handles(wrapper, 'source')).toHaveLength(1)
+  })
+
+  it('PROMPT 渲染單一 target / source handle', () => {
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'n1', data: { type: 'PROMPT' } },
+      global: globalConfig,
+    })
+    expect(handles(wrapper, 'target').map((h) => h.attributes('data-hid'))).toEqual(['in:main'])
+    expect(handles(wrapper, 'source').map((h) => h.attributes('data-hid'))).toEqual(['out:main'])
   })
 
   it('TRIGGER 無 target handle、有一個 source handle', () => {

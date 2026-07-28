@@ -117,6 +117,18 @@ describe('validateGraph — 工具埠相容性（in:tool）', () => {
     expect(errors.some((e) => e.type === 'INCOMPATIBLE_CONNECTION')).toBe(false)
   })
 
+  it('多個 KNOWLEDGE_RAG 連到 LLM 工具埠應無相容性錯誤（自動注入型 RAG 掛載）', () => {
+    const llm = node('llm', 'LLM_ASSISTANT')
+    const rag1 = node('r1', 'KNOWLEDGE_RAG')
+    const rag2 = node('r2', 'KNOWLEDGE_RAG')
+    const edges: WorkflowEdgeDTO[] = [
+      { sourceNodeKey: 'r1', targetNodeKey: 'llm', sourceHandle: 'out:main', targetHandle: 'in:tool' },
+      { sourceNodeKey: 'r2', targetNodeKey: 'llm', sourceHandle: 'out:main', targetHandle: 'in:tool' },
+    ]
+    const errors = validateGraph([llm, rag1, rag2], edges)
+    expect(errors.some((e) => e.type === 'INCOMPATIBLE_CONNECTION')).toBe(false)
+  })
+
   it('非 TOOL/MCP/SKILL 來源連到工具埠應回報 INCOMPATIBLE_CONNECTION（error）', () => {
     const llm = node('llm', 'LLM_ASSISTANT')
     const code = node('c', 'CODE')
@@ -131,6 +143,90 @@ describe('validateGraph — 工具埠相容性（in:tool）', () => {
     expect(incompatible).toBeDefined()
     expect(incompatible?.severity).toBe('error')
     expect(incompatible?.key).toBe('c')
+  })
+})
+
+describe('validateGraph — 提示埠相容性（in:prompt）', () => {
+  const promptEdge = (source: string, target: string): WorkflowEdgeDTO => ({
+    sourceNodeKey: source,
+    targetNodeKey: target,
+    sourceHandle: 'out:main',
+    targetHandle: 'in:prompt',
+  })
+
+  it('PROMPT 連到 LLM 提示埠應無相容性錯誤', () => {
+    const errors = validateGraph(
+      [node('llm', 'LLM_ASSISTANT'), node('p', 'PROMPT', { prompt: '提問' })],
+      [promptEdge('p', 'llm')],
+    )
+    expect(errors.some((e) => e.type === 'INCOMPATIBLE_CONNECTION')).toBe(false)
+  })
+
+  it('多個 PROMPT 連到同一個 LLM 提示埠應無相容性錯誤（分支擇一的接法）', () => {
+    const errors = validateGraph(
+      [
+        node('llm', 'LLM_ASSISTANT'),
+        node('p1', 'PROMPT', { prompt: 'A' }),
+        node('p2', 'PROMPT', { prompt: 'B' }),
+      ],
+      [promptEdge('p1', 'llm'), promptEdge('p2', 'llm')],
+    )
+    expect(errors.some((e) => e.type === 'INCOMPATIBLE_CONNECTION')).toBe(false)
+  })
+
+  it('非 PROMPT 來源連到提示埠應回報 INCOMPATIBLE_CONNECTION（error）', () => {
+    const errors = validateGraph(
+      [node('llm', 'LLM_ASSISTANT'), node('c', 'CODE')],
+      [promptEdge('c', 'llm')],
+    )
+    const incompatible = errors.find((e) => e.type === 'INCOMPATIBLE_CONNECTION')
+    expect(incompatible).toBeDefined()
+    expect(incompatible?.severity).toBe('error')
+    expect(incompatible?.key).toBe('c')
+  })
+})
+
+describe('validateGraph — 提示接線完整性（鏡射後端啟用驗證）', () => {
+  const promptEdge = (source: string, target: string): WorkflowEdgeDTO => ({
+    sourceNodeKey: source,
+    targetNodeKey: target,
+    sourceHandle: 'out:main',
+    targetHandle: 'in:prompt',
+  })
+
+  it('孤兒 PROMPT 節點應回報 warning', () => {
+    const errors = validateGraph([node('p', 'PROMPT', { prompt: '沒人取用' })], [])
+    const wiring = errors.find((e) => e.type === 'PROMPT_WIRING_INCOMPLETE' && e.key === 'p')
+    expect(wiring).toBeDefined()
+    expect(wiring?.severity).toBe('warning')
+  })
+
+  it('LLM 既無 userPrompt 也無 PROMPT 連入應回報 warning', () => {
+    const errors = validateGraph([node('llm', 'LLM_ASSISTANT', { llmId: 'l1' })], [])
+    const wiring = errors.find((e) => e.type === 'PROMPT_WIRING_INCOMPLETE' && e.key === 'llm')
+    expect(wiring).toBeDefined()
+    expect(wiring?.severity).toBe('warning')
+  })
+
+  it('LLM 有 userPrompt 時不回報', () => {
+    const errors = validateGraph(
+      [node('llm', 'LLM_ASSISTANT', { llmId: 'l1', userPrompt: '嗨' })],
+      [],
+    )
+    expect(errors.some((e) => e.type === 'PROMPT_WIRING_INCOMPLETE')).toBe(false)
+  })
+
+  it('LLM 無 userPrompt 但有 PROMPT 連入時兩者皆不回報', () => {
+    const errors = validateGraph(
+      [node('llm', 'LLM_ASSISTANT', { llmId: 'l1' }), node('p', 'PROMPT', { prompt: '提問' })],
+      [promptEdge('p', 'llm')],
+    )
+    expect(errors.some((e) => e.type === 'PROMPT_WIRING_INCOMPLETE')).toBe(false)
+  })
+
+  it('LLM 的 userPrompt 只有空白字元時視同未填', () => {
+    const errors = validateGraph([node('llm', 'LLM_ASSISTANT', { llmId: 'l1', userPrompt: '   ' })], [])
+    expect(errors.some((e) => e.type === 'PROMPT_WIRING_INCOMPLETE' && e.key === 'llm')).toBe(true)
   })
 })
 

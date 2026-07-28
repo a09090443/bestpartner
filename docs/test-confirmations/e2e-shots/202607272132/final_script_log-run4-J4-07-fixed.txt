@@ -1,0 +1,21 @@
+step 1 action: [J4-05] editor-created (J4-05-01-editor-created.png)
+step 2 action: [J4-05] four-nodes-incl-http-request (J4-05-02-four-nodes-incl-http-request.png)
+step 3 action: [J4-05] baseline-two-edges (J4-05-03-baseline-two-edges.png)
+J4-05 baseline edge count = 2
+step 4 action: [J4-05] blocked-toast (J4-05-04-blocked-toast.png)
+J4-05 toastVisible=true toastText="僅工具、MCP、Skill、知識庫節點可連到 LLM 的工具埠" edgeAfter=2
+step 5 action: [J4-05] edge-count-unchanged (J4-05-05-edge-count-unchanged.png)
+step 6 action: [J4-05] control-knowledge-rag-allowed (J4-05-06-control-knowledge-rag-allowed.png)
+J4-05 control(KNOWLEDGE_RAG->in:tool) edgeAfter=3
+step 7 action: [J4-07] editor-created (J4-07-01-editor-created.png)
+step 8 action: [J4-07] four-nodes-orphan-skill (J4-07-02-four-nodes-orphan-skill.png)
+step 9 action: [J4-07] skill-left-unmounted (J4-07-03-skill-left-unmounted.png)
+J4-07 edges=2, SKILL 未連任何 in:tool（孤兒）
+step 10 action: [J4-07] cfg-skill-id (J4-07-04-cfg-skill-id.png)
+step 11 action: [J4-07] cfg-done (J4-07-05-cfg-done.png)
+step 12 action: [J4-07] after-save (J4-07-06-after-save.png)
+J4-07 save → savedBadgeVisible=true
+step 13 action: [J4-07] after-activate (J4-07-07-after-activate.png)
+J4-07 activate → class="el-switch el-switch--small" toast="SKILL node "F1qVmjJS" must be connected to an LLM assistant nodes tool input port (in:tool)"
+step 14 action: [J4-07] after-execute (J4-07-08-after-execute.png)
+J4-07 execute → status="FAILED" error="HTTP 400"

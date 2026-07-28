@@ -2,6 +2,7 @@
 import { computed, markRaw, watch } from 'vue'
 import JsonConfigEditor from './JsonConfigEditor.vue'
 import LlmAssistantForm from './forms/LlmAssistantForm.vue'
+import PromptForm from './forms/PromptForm.vue'
 import ToolForm from './forms/ToolForm.vue'
 import McpServerForm from './forms/McpServerForm.vue'
 import SkillForm from './forms/SkillForm.vue'
@@ -25,6 +26,8 @@ const props = defineProps<{
   workflowStatus?: WorkflowStatus
   /** 各 NodeType 必填欄位清單（後端契約）；未提供時不顯示必填缺漏提示 */
   requiredFields?: NodeRequiredFields
+  /** 已有 PROMPT 節點連到其 in:prompt 埠的 LLM 節點 key 清單（由編輯器依畫布 edges 計算） */
+  promptBoundNodeKeys?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -40,6 +43,7 @@ const emit = defineEmits<{
 /** 型別化表單分派表；其餘型別退回 JsonConfigEditor */
 const TYPED_FORMS = markRaw({
   LLM_ASSISTANT: LlmAssistantForm,
+  PROMPT: PromptForm,
   TOOL: ToolForm,
   MCP_SERVER: McpServerForm,
   SKILL: SkillForm,
@@ -50,6 +54,19 @@ const TYPED_FORMS = markRaw({
 const typedForm = computed(() => {
   const type = props.selectedNode?.data.type
   return (type && TYPED_FORMS[type as keyof typeof TYPED_FORMS]) || null
+})
+
+/**
+ * 傳給型別化表單的 props。
+ * hasUpstreamPrompt 只加給 LLM 表單——其他表單未宣告此 prop，硬傳會變成落在根元素的
+ * fallthrough attribute。
+ */
+const typedFormProps = computed<Record<string, unknown>>(() => {
+  const base: Record<string, unknown> = { config: props.selectedNode?.data.config ?? {} }
+  if (props.selectedNode?.data.type === 'LLM_ASSISTANT') {
+    base.hasUpstreamPrompt = (props.promptBoundNodeKeys ?? []).includes(props.selectedNode.id)
+  }
+  return base
 })
 
 // 型別化表單為結構化輸入，永遠有效；選中時通知 config 有效，清除先前 JSON 無效狀態
@@ -156,7 +173,7 @@ const nodeRun = computed(() =>
           :is="typedForm"
           v-if="typedForm"
           :key="props.selectedNode.id"
-          :config="props.selectedNode.data.config ?? {}"
+          v-bind="typedFormProps"
           @update:config="onFormConfig"
         />
         <JsonConfigEditor

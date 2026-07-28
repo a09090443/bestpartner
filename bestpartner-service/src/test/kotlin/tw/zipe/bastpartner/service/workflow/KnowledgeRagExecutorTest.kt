@@ -2,6 +2,8 @@ package tw.zipe.bastpartner.service.workflow
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tw.zipe.bastpartner.dto.KnowledgeDTO
 import tw.zipe.bastpartner.dto.workflow.config.KnowledgeRagNodeConfig
@@ -64,5 +66,15 @@ class KnowledgeRagExecutorTest {
         }
         assertEquals("請找：向量搜尋", capturedQuery)
         assertEquals(mapOf("docs" to listOf("hit")), output)
+    }
+
+    @Test
+    fun `pipeline 檢索缺 query 時拋明確錯誤`() {
+        val ctx = ExecutionContext("e1", "u1")
+        val cfg = KnowledgeRagNodeConfig(knowledgeId = "k1") // 未填 query
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            KnowledgeRagExecutor.run(cfg, ctx) { _, _, _, _, _ -> emptyList() }
+        }
+        assertTrue(ex.message!!.contains("query"), "錯誤訊息應點明缺 query，而非隱性 NPE")
     }
 }

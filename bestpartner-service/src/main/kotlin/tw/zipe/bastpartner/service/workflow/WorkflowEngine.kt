@@ -22,6 +22,8 @@ import tw.zipe.bastpartner.dto.workflow.config.HttpRequestNodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.LoopNodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.NodeConfigRegistry
+import tw.zipe.bastpartner.dto.workflow.config.PromptNodeConfig
+import tw.zipe.bastpartner.entity.WorkflowEdgeEntity
 import tw.zipe.bastpartner.entity.WorkflowExecutionEntity
 import tw.zipe.bastpartner.entity.WorkflowNodeEntity
 import tw.zipe.bastpartner.entity.WorkflowNodeExecutionEntity
@@ -39,6 +41,7 @@ import tw.zipe.bastpartner.repository.WorkflowNodeRepository
 import tw.zipe.bastpartner.repository.WorkflowRepository
 import tw.zipe.bastpartner.service.workflow.executor.LlmAssistantExecutor
 import tw.zipe.bastpartner.service.workflow.executor.LoopExecutor
+import tw.zipe.bastpartner.service.workflow.executor.PromptExecutor
 import tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor
 import tw.zipe.bastpartner.util.MessageUtil
 import tw.zipe.bastpartner.util.logger
@@ -73,8 +76,92 @@ class WorkflowEngine(
          */
         const val TOOL_INPUT_HANDLE = "in:tool"
 
-        /** 可作為 LLM 能力掛載來源的節點型別 */
-        private val CAPABILITY_SOURCE_TYPES = setOf(NodeType.TOOL, NodeType.MCP_SERVER, NodeType.SKILL)
+        /**
+         * LLM 節點的專用提示輸入埠 handle。PROMPT 節點以此為 targetHandle 連到 LLM 節點，
+         * 提供本次推論的提問內容。
+         *
+         * ⚠️ 與 [TOOL_INPUT_HANDLE] 語義相反：**這是一般資料流邊**，照常參與活化判斷與拓撲排序，
+         * 來源 PROMPT 節點也照常執行、落執行紀錄。正因如此，CONDITION 分支才能只活化其中一個
+         * 提示節點，讓同一顆 LLM 依分支取得不同提問。
+         */
+        const val PROMPT_INPUT_HANDLE = "in:prompt"
+
+        /**
+         * 可作為 LLM 能力掛載來源的節點型別。
+         * KNOWLEDGE_RAG 連到 in:tool 時作為「自動注入型 RAG」（RetrievalAugmentor）掛載，
+         * 連一般 main 邊時仍作 pipeline 檢索節點——引擎依「純能力節點＝所有出邊皆 in:tool」判定二選一。
+         */
+        private val CAPABILITY_SOURCE_TYPES = setOf(NodeType.TOOL, NodeType.MCP_SERVER, NodeType.SKILL, NodeType.KNOWLEDGE_RAG)
+
+        /**
+         * 孤兒 SKILL 檢查：SKILL 無獨立 executor（純能力提供者），必須連到某 LLM 助手節點的
+         * 工具埠（[TOOL_INPUT_HANDLE]）才會被 LLM executor 延遲讀取；否則會成孤兒節點，
+         * 於主遍歷分派時拋 NOT_SUPPORTED，故須提前以明確訊息擋下。
+         *
+         * **純函式**，供 [validateNodes]（執行前）與 `WorkflowService.switchStatus`（啟用前）
+         * 共用，避免兩處分叉——同 [WorkflowService] 對必填欄位共用 `validateNodeRequired` 的作法。
+         *
+         * @return 第一個未掛載的 SKILL 節點 nodeKey；全部合格時為 null
+         */
+        fun findUnmountedSkillNodeKey(
+            nodes: List<WorkflowNodeEntity>,
+            edges: List<WorkflowEdgeEntity>
+        ): String? {
+            if (nodes.none { it.type == NodeType.SKILL }) return null
+            val typeByKey = nodes.associate { it.nodeKey to it.type }
+            val mountedSkillKeys = edges.filter {
+                it.targetHandle == TOOL_INPUT_HANDLE && typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT
+            }.map { it.sourceNodeKey }.toSet()
+            return nodes.firstOrNull { it.type == NodeType.SKILL && it.nodeKey !in mountedSkillKeys }?.nodeKey
+        }
+
+        /**
+         * 孤兒 PROMPT 檢查：PROMPT 節點的用途就是餵給 LLM，未連到任何 LLM 助手節點的提示埠
+         * （[PROMPT_INPUT_HANDLE]）代表設定未完成——它仍會執行並產出字串，但沒有人取用，
+         * 屬於使用者多半非預期的半成品，故於啟用前擋下。
+         *
+         * **純函式**，與 [findUnmountedSkillNodeKey] 同形，供 [validateNodes]（執行前）與
+         * `WorkflowService.switchStatus`（啟用前）共用。
+         *
+         * @return 第一個未連到 LLM 提示埠的 PROMPT 節點 nodeKey；全部合格時為 null
+         */
+        fun findUnconnectedPromptNodeKey(
+            nodes: List<WorkflowNodeEntity>,
+            edges: List<WorkflowEdgeEntity>
+        ): String? {
+            if (nodes.none { it.type == NodeType.PROMPT }) return null
+            val typeByKey = nodes.associate { it.nodeKey to it.type }
+            val connectedPromptKeys = edges.filter {
+                it.targetHandle == PROMPT_INPUT_HANDLE && typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT
+            }.map { it.sourceNodeKey }.toSet()
+            return nodes.firstOrNull { it.type == NodeType.PROMPT && it.nodeKey !in connectedPromptKeys }?.nodeKey
+        }
+
+        /**
+         * 無提問來源的 LLM 檢查：LLM 節點的提問內容有兩種來源——config 的 userPrompt，
+         * 或連到其提示埠的 PROMPT 節點（後者優先）。兩者皆無時執行必定失敗，故於啟用前擋下。
+         *
+         * 這是**圖層級**的條件必填，無法以 `LlmAssistantNodeConfig.missingRequiredFields()` 表達
+         * （後者只看得到單一節點的 config），因此比照 [findUnmountedSkillNodeKey] 做成純函式。
+         * 刻意讀 raw config map 而非反序列化，以維持「entity in / nodeKey out、不依賴 DI」的形狀。
+         *
+         * @return 第一個既無 userPrompt 也無 PROMPT 來源的 LLM 節點 nodeKey；全部合格時為 null
+         */
+        fun findPromptlessLlmNodeKey(
+            nodes: List<WorkflowNodeEntity>,
+            edges: List<WorkflowEdgeEntity>
+        ): String? {
+            if (nodes.none { it.type == NodeType.LLM_ASSISTANT }) return null
+            val typeByKey = nodes.associate { it.nodeKey to it.type }
+            val llmKeysWithPromptEdge = edges.filter {
+                it.targetHandle == PROMPT_INPUT_HANDLE && typeByKey[it.sourceNodeKey] == NodeType.PROMPT
+            }.map { it.targetNodeKey }.toSet()
+            return nodes.firstOrNull { node ->
+                node.type == NodeType.LLM_ASSISTANT &&
+                    (node.config?.get("userPrompt") as? String).isNullOrBlank() &&
+                    node.nodeKey !in llmKeysWithPromptEdge
+            }?.nodeKey
+        }
     }
 
     private val logger = logger()
@@ -120,6 +207,8 @@ class WorkflowEngine(
         // Agent 模式能力掛載：解析連到 LLM 工具埠的 TOOL/MCP/SKILL 節點
         // capabilityKeys 為「純能力節點」（所有出邊皆 in:tool），排除主遍歷、不落執行紀錄
         val (capabilityKeys, capabilityMounts) = resolveCapabilityMounts(nodes, edges)
+        // 提示來源：連到各 LLM 節點提示埠（in:prompt）的 PROMPT 節點，依拓撲序排序
+        val promptSources = resolvePromptSources(nodes, edges, order)
         val startedAt = LocalDateTime.now()
 
         val execution = WorkflowExecutionEntity().apply {
@@ -140,6 +229,7 @@ class WorkflowEngine(
             val context = ExecutionContext(executionId, userId)
             context.putOutput(TriggerExecutor.INPUT_KEY, input ?: emptyMap())
             context.setCapabilities(capabilityMounts)
+            context.setPromptSources(promptSources)
 
             var failedNode: WorkflowNodeEntity? = null
             var failureMessage: String? = null
@@ -315,7 +405,7 @@ class WorkflowEngine(
     /** 無 TRIGGER 節點檢查 + 逐節點 parse/必填驗證（同啟用等級）+ 巢狀 LOOP 檢查 */
     private fun validateNodes(
         nodes: List<WorkflowNodeEntity>,
-        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+        edges: List<WorkflowEdgeEntity>
     ) {
         if (nodes.none { it.type == NodeType.TRIGGER }) {
             throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_REQUIRED)
@@ -329,16 +419,21 @@ class WorkflowEngine(
                 throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
             }
         }
-        // SKILL 節點無獨立 executor（純能力提供者），必須連到某 LLM 節點的工具埠（in:tool）
-        // 才會被 LLM executor 延遲讀取；否則會成孤兒節點於主遍歷分派時拋 NOT_SUPPORTED，
-        // 故於此提前以明確訊息擋下。
-        val typeByKey = nodes.associate { it.nodeKey to it.type }
-        val mountedSkillKeys = edges.filter {
-            it.targetHandle == TOOL_INPUT_HANDLE && typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT
-        }.map { it.sourceNodeKey }.toSet()
-        nodes.filter { it.type == NodeType.SKILL && it.nodeKey !in mountedSkillKeys }.forEach {
-            throw ServiceException(AppMessage.WORKFLOW_SKILL_NODE_NOT_MOUNTED, it.nodeKey)
+        // 孤兒 SKILL 檢查（規則見 [findUnmountedSkillNodeKey]）。
+        // 啟用時（WorkflowService.switchStatus）已先擋過一次，此處為執行前的最後防線——
+        // 涵蓋「啟用後才被改壞」與 DRAFT 直接 execute 兩種情形。
+        findUnmountedSkillNodeKey(nodes, edges)?.let {
+            throw ServiceException(AppMessage.WORKFLOW_SKILL_NODE_NOT_MOUNTED, it)
         }
+        // 提示接線檢查（規則見 [findUnconnectedPromptNodeKey] / [findPromptlessLlmNodeKey]）。
+        // 順序須與 WorkflowService.switchStatus 一致，兩條路徑才會對同一張圖回報同一個錯誤。
+        findUnconnectedPromptNodeKey(nodes, edges)?.let {
+            throw ServiceException(AppMessage.WORKFLOW_PROMPT_NODE_NOT_CONNECTED, it)
+        }
+        findPromptlessLlmNodeKey(nodes, edges)?.let {
+            throw ServiceException(AppMessage.WORKFLOW_LLM_PROMPT_REQUIRED, it)
+        }
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
         // 巢狀 LOOP 不支援：任一 LOOP 子圖內含另一 LOOP 節點即報錯
         computeLoopSubgraphs(nodes, edges).forEach { (_, body) ->
             body.firstOrNull { typeByKey[it] == NodeType.LOOP }?.let { nested ->
@@ -382,6 +477,42 @@ class WorkflowEngine(
                 }
             }
         return capabilityKeys to capabilityMounts
+    }
+
+    /**
+     * 解析各 LLM 節點的提示來源：`targetHandle == in:prompt` 且 target 為 LLM_ASSISTANT、
+     * source 為 PROMPT 的邊。
+     *
+     * 與 [resolveCapabilityMounts] 不同，這裡**不排除任何節點於主遍歷之外**——提示邊是資料流邊，
+     * PROMPT 節點照常執行並落紀錄，本方法只負責告訴 LLM executor「該去哪些節點的輸出取提問」。
+     *
+     * 各組依 [order]（拓撲序）排序，使「多個提示來源皆活化時取第一個有輸出者」的規則 deterministic。
+     * 來源節點自訂的 outputKey 於此一併解析，executor 不需再讀 config。
+     */
+    private fun resolvePromptSources(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<WorkflowEdgeEntity>,
+        order: List<WorkflowNodeEntity>
+    ): Map<String, List<PromptSource>> {
+        val nodeByKey = nodes.associateBy { it.nodeKey }
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
+        val rank = order.withIndex().associate { (index, node) -> node.nodeKey to index }
+        return edges.filter {
+            it.targetHandle == PROMPT_INPUT_HANDLE &&
+                typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT &&
+                typeByKey[it.sourceNodeKey] == NodeType.PROMPT
+        }.groupBy { it.targetNodeKey }
+            .mapValues { (_, promptEdges) ->
+                promptEdges.sortedBy { rank[it.sourceNodeKey] ?: Int.MAX_VALUE }
+                    .mapNotNull { e ->
+                        nodeByKey[e.sourceNodeKey]?.let { src ->
+                            val outputKey = (parseNodeConfig(src) as? PromptNodeConfig)
+                                ?.outputKey?.takeIf { it.isNotBlank() }
+                                ?: PromptExecutor.DEFAULT_OUTPUT_KEY
+                            PromptSource(src.nodeKey, outputKey)
+                        }
+                    }
+            }
     }
 
     /**

@@ -145,7 +145,7 @@ class WorkflowResourceTest {
     }
 
     /**
-     * 案例 6（任務 #19）：已登入取得節點必填欄位清單，回 200 且 LLM_ASSISTANT 含 llmId
+     * 案例 6（任務 #19）：已登入取得節點必填欄位清單，回 200 且 LLM_ASSISTANT 含 llmId、PROMPT 含 prompt
      */
     @Test
     @TestSecurity(user = TEST_USER, roles = ["user"])
@@ -155,5 +155,6 @@ class WorkflowResourceTest {
             .then().statusCode(200)
             .body("code", equalTo(200))
             .body("data.LLM_ASSISTANT", org.hamcrest.Matchers.hasItem("llmId"))
+            .body("data.PROMPT", org.hamcrest.Matchers.hasItem("prompt"))
     }
 }

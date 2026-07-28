@@ -4,7 +4,11 @@ import { useNodeOptions } from '../../../composables/useNodeOptions'
 import type { Option } from '../../../types/options'
 import { parseJsonObjectField } from '../../../utils/json'
 
-const props = defineProps<{ config: Record<string, unknown> }>()
+const props = defineProps<{
+  config: Record<string, unknown>
+  /** 畫布上是否已有 PROMPT 節點連到本節點的 in:prompt 埠（由 InspectorPanel 依 edges 傳入） */
+  hasUpstreamPrompt?: boolean
+}>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
 
 const llmOptions = ref<Option[]>([])
@@ -81,7 +85,8 @@ function emitConfig() {
       </select>
     </div>
     <p class="hint" data-test="capability-hint">
-      工具、MCP、Skill 改以獨立節點連接到本節點的「工具」輸入埠（in:tool），由 LLM 自主決定何時呼叫。
+      工具、MCP、Skill 改以獨立節點連接到本節點的「工具」輸入埠（in:tool），由 LLM 自主決定何時呼叫；
+      知識庫（RAG）節點連到同一埠時，會在推論前自動檢索並注入相關內容（可同時掛多個知識庫）。
     </p>
     <div class="field">
       <label>系統提示（選填）</label>
@@ -94,14 +99,26 @@ function emitConfig() {
       />
     </div>
     <div class="field">
-      <label>使用者提示（選填，支援變數插值引用上游輸出）</label>
+      <label>
+        使用者提示（選填，支援變數插值引用上游輸出）
+        <span
+          v-if="props.hasUpstreamPrompt"
+          class="badge"
+          data-test="prompt-overridden-badge"
+        >已由上游提示節點提供</span>
+      </label>
+      <!-- 刻意不 disable：連線可能被刪除，保留此值作為後備才符合「沒接才用 userPrompt」的規則 -->
       <textarea
         v-model="userPrompt"
         data-test="user-prompt"
         class="text-input"
+        :class="{ muted: props.hasUpstreamPrompt }"
         rows="3"
         @input="emitConfig"
       />
+      <p v-if="props.hasUpstreamPrompt" class="hint" data-test="prompt-source-hint">
+        本節點已連接提示詞節點（in:prompt）：執行時以該節點輸出為準，此欄僅在提示節點所在分支未被活化時作為後備。
+      </p>
     </div>
     <div class="field field-row">
       <label>
@@ -169,6 +186,21 @@ function emitConfig() {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 已由上游提示節點提供：標記 + 淡化輸入框，但仍可編輯（作為後備值） */
+.badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: #b37feb;
+  background: rgba(179, 127, 235, 0.14);
+  border: 1px solid rgba(179, 127, 235, 0.35);
+  border-radius: 999px;
+}
+
+.text-input.muted {
+  opacity: 0.6;
 }
 
 .hint {

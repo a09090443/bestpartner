@@ -43,6 +43,10 @@ data class TriggerNodeConfig(
  * 專用工具輸入埠（targetHandle = `in:tool`），由引擎於執行前解析為能力清單，
  * 交本節點 executor 於推論前組裝成 langchain4j 工具集，由 LLM 自主決定何時呼叫。
  * 故此 config 不再內嵌 toolIds/mcpIds/skillIds/knowledgeId/files。
+ *
+ * [userPrompt] 為提問內容的**後備**來源：有 [PromptNodeConfig] 節點連到本節點的提示輸入埠
+ * （`in:prompt`）時以該節點輸出為準，沒接才用本欄位。兩者皆無時無法啟用（見
+ * `WorkflowEngine.findPromptlessLlmNodeKey`），故本欄位不列為無條件必填。
  */
 @Serializable
 data class LlmAssistantNodeConfig(
@@ -57,6 +61,26 @@ data class LlmAssistantNodeConfig(
 ) : NodeConfig {
     override fun missingRequiredFields() = buildList {
         if (llmId.isNullOrBlank()) add("llmId")
+    }
+}
+
+/**
+ * 提示詞節點：把 LLM 的「提問內容」抽成獨立節點，讓同一顆 LLM 節點可由不同的提示節點驅動
+ * （例如 CONDITION 兩個分支各接一個提示節點，再匯入同一顆 LLM）。
+ *
+ * 以 `out:main` 連到 LLM 節點的提示輸入埠（targetHandle = `in:prompt`）。
+ * 與 `in:tool` 的能力掛載不同，**此邊為一般資料流邊**：會參與節點活化判斷與拓撲排序，
+ * 故分支只活化其中一個提示節點時，LLM 取的即是該分支的提示。
+ *
+ * [prompt] 支援 `{{nodeKey.key}}` 插值，由 executor 於執行期解析一次。
+ */
+@Serializable
+data class PromptNodeConfig(
+    val prompt: String? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (prompt.isNullOrBlank()) add("prompt")
     }
 }
 
@@ -111,9 +135,10 @@ data class KnowledgeRagNodeConfig(
     val outputKey: String? = null
 ) : NodeConfig {
     override fun missingRequiredFields() = buildList {
+        // knowledgeId 為兩種模式（pipeline 檢索／LLM 外掛自動注入）共通的唯一無條件必填。
+        // query 僅 pipeline 檢索需要（由 executor 執行時驗證）；embeddingModelId 於外掛模式由知識庫
+        // 自身 embedding 設定決定，故皆不列為無條件必填。
         if (knowledgeId.isNullOrBlank()) add("knowledgeId")
-        if (embeddingModelId.isNullOrBlank()) add("embeddingModelId")
-        if (query.isNullOrBlank()) add("query")
     }
 }
 
@@ -223,6 +248,7 @@ object NodeConfigRegistry {
     fun parse(type: NodeType, config: JsonObject): NodeConfig = when (type) {
         NodeType.TRIGGER -> strictJson.decodeFromJsonElement<TriggerNodeConfig>(config)
         NodeType.LLM_ASSISTANT -> strictJson.decodeFromJsonElement<LlmAssistantNodeConfig>(config)
+        NodeType.PROMPT -> strictJson.decodeFromJsonElement<PromptNodeConfig>(config)
         NodeType.TOOL -> strictJson.decodeFromJsonElement<ToolNodeConfig>(config)
         NodeType.MCP_SERVER -> strictJson.decodeFromJsonElement<McpServerNodeConfig>(config)
         NodeType.SKILL -> strictJson.decodeFromJsonElement<SkillNodeConfig>(config)

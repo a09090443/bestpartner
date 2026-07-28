@@ -115,6 +115,10 @@ class WorkflowEngineTest {
         sourceHandle = handle
     }
 
+    /** 提示邊：PROMPT 節點 out:main → LLM 節點 in:prompt（一般資料流邊，會參與活化） */
+    private fun promptEdge(source: String, target: String) =
+        edge(source, target).apply { targetHandle = WorkflowEngine.PROMPT_INPUT_HANDLE }
+
     private fun testIdentity() = QuarkusSecurityIdentity.builder()
         .setPrincipal(QuarkusPrincipal(USER_ID))
         .setAnonymous(false)
@@ -803,5 +807,231 @@ class WorkflowEngineTest {
             engine.validateForExecution(WORKFLOW_ID)
         }
         assertTrue(ex.message!!.contains("loop2"), "訊息應指出巢狀 LOOP 節點：${ex.message}")
+    }
+
+    @Test
+    fun `KNOWLEDGE_RAG 掛到 LLM 工具埠時作為能力被排除主遍歷且不落執行紀錄`() {
+        val nodes = listOf(
+            triggerNode(),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1", "userPrompt" to "hi")),
+            node("rag", NodeType.KNOWLEDGE_RAG, mapOf("knowledgeId" to "k1")),
+            outputNode()
+        )
+        val edges = listOf(
+            edge("trigger", "llm"),
+            edge("llm", "out"),
+            // 純能力掛載邊：targetHandle = in:tool（KNOWLEDGE_RAG 的唯一出邊）
+            edge("rag", "llm").apply { targetHandle = "in:tool" }
+        )
+        var mountedConfigs: List<NodeConfig>? = null
+        val executors = listOf(
+            FakeNodeExecutor(NodeType.TRIGGER) { mapOf("input" to emptyMap<String, Any?>()) },
+            FakeNodeExecutor(NodeType.LLM_ASSISTANT) { ctx ->
+                mountedConfigs = ctx.capabilitiesFor("llm").map { it.config }
+                mapOf("reply" to "ok")
+            },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("output" to "done") }
+            // 刻意不提供 KNOWLEDGE_RAG executor：純能力節點應被排除主遍歷，不會被分派
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        // rag 作為純能力節點：不落執行紀錄、不發節點事件
+        assertTrue(nodeExecutionRepo.saved.none { it.nodeKey == "rag" }, "純能力 KNOWLEDGE_RAG 不應落執行紀錄")
+        assertTrue(sink.events.none { it.nodeKey == "rag" }, "純能力 KNOWLEDGE_RAG 不應發節點事件")
+        // LLM 節點可從 capabilitiesFor 取得掛載的知識庫能力
+        assertTrue(
+            mountedConfigs?.any { it is tw.zipe.bastpartner.dto.workflow.config.KnowledgeRagNodeConfig } == true,
+            "LLM 應能從工具埠取得掛載的 KnowledgeRagNodeConfig"
+        )
+        // 整體仍成功完成
+        assertTrue(sink.events.any { it.event == "execution.completed" })
+    }
+
+    // ---------- PROMPT 節點（提示埠 in:prompt）----------
+
+    private fun promptNode(key: String, text: String, outputKey: String? = null) = node(
+        key,
+        NodeType.PROMPT,
+        buildMap {
+            put("prompt", text)
+            outputKey?.let { put("outputKey", it) }
+        }
+    )
+
+    /** 記錄 LLM 節點實際取得的提問（模擬 LlmAssistantExecutor.resolveMessage 的來源查找） */
+    private fun capturingLlmExecutor(nodeKey: String, captured: MutableList<String?>) =
+        FakeNodeExecutor(NodeType.LLM_ASSISTANT) { ctx ->
+            captured.add(
+                ctx.promptSourcesFor(nodeKey).firstNotNullOfOrNull { src ->
+                    ctx.getOutput(src.nodeKey)?.get(src.outputKey) as? String
+                }
+            )
+            mapOf("reply" to "ok")
+        }
+
+    @Test
+    fun `PROMPT 節點經 in prompt 邊提供提問且照常執行落紀錄`() {
+        val nodes = listOf(
+            triggerNode(),
+            promptNode("promptA", "以正式語氣回答"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(edge("trigger", "promptA"), promptEdge("promptA", "llm"), edge("llm", "out"))
+        val captured = mutableListOf<String?>()
+        val executors = listOf(
+            FakeNodeExecutor(NodeType.TRIGGER) { emptyMap() },
+            FakeNodeExecutor(NodeType.PROMPT) { mapOf("prompt" to "以正式語氣回答") },
+            capturingLlmExecutor("llm", captured),
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("output" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertEquals(listOf<String?>("以正式語氣回答"), captured)
+        // 與 SKILL 等純能力節點相反：PROMPT 是資料流節點，照常落紀錄與發事件
+        assertTrue(nodeExecutionRepo.saved.any { it.nodeKey == "promptA" }, "PROMPT 節點應落執行紀錄")
+        assertTrue(sink.events.any { it.nodeKey == "promptA" && it.event == "node.completed" })
+    }
+
+    @Test
+    fun `PROMPT 節點自訂 outputKey 時引擎解析為正確的來源鍵`() {
+        val nodes = listOf(
+            triggerNode(),
+            promptNode("promptA", "自訂鍵提問", outputKey = "askText"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(edge("trigger", "promptA"), promptEdge("promptA", "llm"), edge("llm", "out"))
+        val captured = mutableListOf<String?>()
+        val executors = listOf(
+            FakeNodeExecutor(NodeType.TRIGGER) { emptyMap() },
+            FakeNodeExecutor(NodeType.PROMPT) { mapOf("askText" to "自訂鍵提問") },
+            capturingLlmExecutor("llm", captured),
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("output" to "done") }
+        )
+        val (engine, _, _) = buildEngine(nodes, edges, executors)
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink()) { false }
+
+        assertEquals(listOf<String?>("自訂鍵提問"), captured)
+    }
+
+    @Test
+    fun `唯一入邊為 in prompt 的 LLM 節點不被誤判 SKIPPED`() {
+        // in:prompt 是資料流邊（與 in:tool 相反），故能單獨活化 LLM 節點
+        val nodes = listOf(
+            triggerNode(),
+            promptNode("promptA", "提問"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(edge("trigger", "promptA"), promptEdge("promptA", "llm"), edge("llm", "out"))
+        val executors = listOf(
+            FakeNodeExecutor(NodeType.TRIGGER) { emptyMap() },
+            FakeNodeExecutor(NodeType.PROMPT) { mapOf("prompt" to "提問") },
+            FakeNodeExecutor(NodeType.LLM_ASSISTANT) { mapOf("reply" to "ok") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("output" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink()) { false }
+
+        val llmRecord = nodeExecutionRepo.saved.first { it.nodeKey == "llm" }
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SUCCESS, llmRecord.status)
+    }
+
+    @Test
+    fun `CONDITION 分支只活化其中一個 PROMPT 時 LLM 取該分支的提問`() {
+        val nodes = listOf(
+            triggerNode(),
+            node("cond", NodeType.CONDITION, mapOf("conditions" to listOf(mapOf("left" to "1", "operator" to "eq", "right" to "1")))),
+            promptNode("promptA", "正式語氣"),
+            promptNode("promptB", "條列語氣"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(
+            edge("trigger", "cond"),
+            edge("cond", "promptA", "out:true"),
+            edge("cond", "promptB", "out:false"),
+            promptEdge("promptA", "llm"),
+            promptEdge("promptB", "llm"),
+            edge("llm", "out")
+        )
+        val captured = mutableListOf<String?>()
+        val executors = listOf(
+            FakeNodeExecutor(NodeType.TRIGGER) { emptyMap() },
+            FakeNodeExecutor(NodeType.CONDITION) {
+                mapOf(
+                    tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor.OUTPUT_RESULT to true,
+                    tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor.OUTPUT_BRANCH to "out:true"
+                )
+            },
+            // 依 nodeKey 回傳不同提問，驗證取到的是被活化那條
+            FakeNodeExecutor(NodeType.PROMPT) { ctx ->
+                if (ctx.allOutputs().containsKey("promptA")) mapOf("prompt" to "條列語氣") else mapOf("prompt" to "正式語氣")
+            },
+            capturingLlmExecutor("llm", captured),
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("output" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink()) { false }
+
+        // true 分支的 promptA 執行、false 分支的 promptB 落 SKIPPED，LLM 取 promptA 的輸出
+        assertEquals(listOf<String?>("正式語氣"), captured)
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.first { it.nodeKey == "promptB" }.status
+        )
+    }
+
+    @Test
+    fun `孤兒 PROMPT 節點於 validateForExecution 即報錯`() {
+        val nodes = listOf(
+            triggerNode(),
+            promptNode("promptA", "沒人取用的提問"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1", "userPrompt" to "hi")),
+            outputNode()
+        )
+        // promptA 沒有連到任何 LLM 的 in:prompt 埠
+        val edges = listOf(edge("trigger", "llm"), edge("llm", "out"))
+        val (engine, _, _) = buildEngine(nodes, edges, emptyList())
+
+        val ex = assertThrows(tw.zipe.bastpartner.exception.ServiceException::class.java) {
+            engine.validateForExecution(WORKFLOW_ID)
+        }
+        assertTrue(ex.message!!.contains("promptA"), "訊息應指出孤兒 PROMPT 節點：${ex.message}")
+    }
+
+    @Test
+    fun `LLM 既無 userPrompt 也無 PROMPT 來源時 validateForExecution 即報錯`() {
+        val nodes = listOf(
+            triggerNode(),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(edge("trigger", "llm"), edge("llm", "out"))
+        val (engine, _, _) = buildEngine(nodes, edges, emptyList())
+
+        val ex = assertThrows(tw.zipe.bastpartner.exception.ServiceException::class.java) {
+            engine.validateForExecution(WORKFLOW_ID)
+        }
+        assertTrue(ex.message!!.contains("llm"), "訊息應指出缺提問來源的 LLM 節點：${ex.message}")
+    }
+
+    @Test
+    fun `LLM 無 userPrompt 但有 PROMPT 連入時通過驗證`() {
+        val nodes = listOf(
+            triggerNode(),
+            promptNode("promptA", "提問"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(edge("trigger", "promptA"), promptEdge("promptA", "llm"), edge("llm", "out"))
+        val (engine, _, _) = buildEngine(nodes, edges, emptyList())
+
+        engine.validateForExecution(WORKFLOW_ID)
     }
 }

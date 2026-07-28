@@ -6,6 +6,7 @@ package tw.zipe.bastpartner.enumerate
 enum class NodeType {
     TRIGGER,
     LLM_ASSISTANT,
+    PROMPT,
     TOOL,
     MCP_SERVER,
     SKILL,

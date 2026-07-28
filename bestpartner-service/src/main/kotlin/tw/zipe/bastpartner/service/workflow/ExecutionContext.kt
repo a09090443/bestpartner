@@ -15,6 +15,13 @@ class VariableNotFoundException(val path: String) : RuntimeException(path)
 data class MountedCapability(val nodeType: NodeType, val config: NodeConfig)
 
 /**
+ * 連到某 LLM 節點提示輸入埠（`in:prompt`）的提示來源：PROMPT 節點鍵與其輸出鍵名。
+ * 引擎於執行前解析（含各節點自訂的 outputKey）並依拓撲序排序後注入 [ExecutionContext]，
+ * 交 LLM 節點 executor 於推論前取「第一個已有輸出者」作為提問內容。
+ */
+data class PromptSource(val nodeKey: String, val outputKey: String)
+
+/**
  * 單次執行的變數上下文：nodeKey → 該節點輸出物件。
  * 下游以 `{{nodeKey.path}}` 插值引用上游輸出，path 支援巢狀（Map 逐層取值）。
  * 另支援原生值（[putValue]，供 LOOP 迭代注入 `{{item}}`）：單段路徑解析出該值本身，
@@ -28,6 +35,8 @@ class ExecutionContext(
     private val values = LinkedHashMap<String, Any?>()
     /** llmNodeKey → 掛載到該 LLM 節點的能力清單（Agent 模式），由引擎於執行前注入 */
     private val capabilities = LinkedHashMap<String, List<MountedCapability>>()
+    /** llmNodeKey → 連到該 LLM 節點提示埠的 PROMPT 來源（已依拓撲序排序），由引擎於執行前注入 */
+    private val promptSources = LinkedHashMap<String, List<PromptSource>>()
     private val objectMapper = ObjectMapper()
 
     companion object {
@@ -60,6 +69,15 @@ class ExecutionContext(
 
     /** 取得掛載到指定 LLM 節點的能力清單；未掛載則回空清單 */
     fun capabilitiesFor(llmNodeKey: String): List<MountedCapability> = capabilities[llmNodeKey].orEmpty()
+
+    /** 引擎於執行前一次注入所有 LLM 節點的提示來源清單 */
+    fun setPromptSources(map: Map<String, List<PromptSource>>) {
+        promptSources.clear()
+        promptSources.putAll(map)
+    }
+
+    /** 取得連到指定 LLM 節點提示埠的來源清單（依拓撲序）；未接則回空清單 */
+    fun promptSourcesFor(llmNodeKey: String): List<PromptSource> = promptSources[llmNodeKey].orEmpty()
 
     fun resolvePath(path: String): Any? {
         val segments = path.split(".")

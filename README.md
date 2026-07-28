@@ -69,7 +69,7 @@ BestPartner project
 - 可由資料庫設定 LLM 模型並動態切換
 - 支援 MCP Server 整合（[MCP Server 範例](https://github.com/a09090443/mcp-servers)）
 - 支援 RAG（檢索增強生成）
-- 視覺化 Workflow 引擎（n8n-like，節點＋連線自訂流程；定義 CRUD、畫布驗證與執行引擎已完成，12 種節點型別含條件分支／迴圈／GraalJS 程式碼／資料轉換；LLM 節點採 Agent 模式，工具／MCP／Skill 以獨立節點掛載到工具埠由 LLM 自主呼叫）
+- 視覺化 Workflow 引擎（n8n-like，節點＋連線自訂流程；定義 CRUD、畫布驗證與執行引擎已完成，13 種節點型別含條件分支／迴圈／GraalJS 程式碼／資料轉換；LLM 節點採 Agent 模式，工具／MCP／Skill 以獨立節點掛載到工具埠由 LLM 自主呼叫，提問內容可抽成獨立的提示詞節點連到提示埠，搭配分支即可一顆 LLM 對應多種對話）
 - RBAC 權限管理
 - Swagger UI（dev / docker / sit 環境；uat / prod 關閉）
 

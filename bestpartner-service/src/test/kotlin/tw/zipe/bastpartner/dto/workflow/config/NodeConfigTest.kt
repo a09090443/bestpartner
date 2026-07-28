@@ -50,6 +50,24 @@ class NodeConfigTest {
     }
 
     @Test
+    fun `PROMPT 合法 config 解析成功且無缺必填`() {
+        val config = buildJsonObject {
+            put("prompt", "請用繁體中文回答：{{trigger.question}}")
+            put("outputKey", "askText")
+        }
+        val parsed = NodeConfigRegistry.parse(NodeType.PROMPT, config)
+        assertTrue(parsed is PromptNodeConfig)
+        assertEquals(emptyList<String>(), parsed.missingRequiredFields())
+    }
+
+    @Test
+    fun `PROMPT 缺 prompt 可解析但回報缺必填`() {
+        val config = buildJsonObject { put("outputKey", "askText") }
+        val parsed = NodeConfigRegistry.parse(NodeType.PROMPT, config)
+        assertEquals(listOf("prompt"), parsed.missingRequiredFields())
+    }
+
+    @Test
     fun `LLM_ASSISTANT 缺 llmId 可解析但回報缺必填`() {
         val config = buildJsonObject { put("systemPrompt", "hi") }
         val parsed = NodeConfigRegistry.parse(NodeType.LLM_ASSISTANT, config)
@@ -129,8 +147,13 @@ class NodeConfigTest {
         assertEquals(listOf("toolId"), NodeConfigRegistry.parse(NodeType.TOOL, empty).missingRequiredFields())
         assertEquals(listOf("mcpId", "toolName"), NodeConfigRegistry.parse(NodeType.MCP_SERVER, empty).missingRequiredFields())
         assertEquals(listOf("skillId"), NodeConfigRegistry.parse(NodeType.SKILL, empty).missingRequiredFields())
+        assertEquals(listOf("prompt"), NodeConfigRegistry.parse(NodeType.PROMPT, empty).missingRequiredFields())
+        // LLM 的提問來源可為連入的 PROMPT 節點（圖層級條件），故 userPrompt 不列為無條件必填
+        assertEquals(listOf("llmId"), NodeConfigRegistry.parse(NodeType.LLM_ASSISTANT, empty).missingRequiredFields())
+        // knowledgeId 為唯一無條件必填；query/embeddingModelId 僅 pipeline 檢索需要，
+        // 作為 LLM 外掛（自動注入）時不需，故不列為無條件必填。
         assertEquals(
-            listOf("knowledgeId", "embeddingModelId", "query"),
+            listOf("knowledgeId"),
             NodeConfigRegistry.parse(NodeType.KNOWLEDGE_RAG, empty).missingRequiredFields()
         )
         assertEquals(listOf("conditions"), NodeConfigRegistry.parse(NodeType.CONDITION, empty).missingRequiredFields())

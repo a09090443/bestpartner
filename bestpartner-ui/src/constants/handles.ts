@@ -3,7 +3,7 @@
  *
  * handle id 採語意字串 `role:port`：
  * - role：`in`（輸入）或 `out`（輸出）
- * - port：埠名稱，如 `main` / `true` / `false` / `loop` / `done`
+ * - port：埠名稱，如 `main` / `prompt` / `tool` / `true` / `false` / `loop` / `done`
  *
  * 此字串直接作為 Vue Flow Handle 的 id，並存入 DTO 的 sourceHandle / targetHandle。
  */
@@ -18,6 +18,14 @@ export const OUT_MAIN = 'out:main'
  * 而非一般資料流連線。後端 WorkflowEngine 以 targetHandle === 'in:tool' 辨識此語義。
  */
 export const IN_TOOL = 'in:tool'
+/**
+ * LLM 節點的提示輸入埠。PROMPT 節點以 out:main 連到此埠，提供本次推論的提問內容。
+ *
+ * ⚠️ 與 IN_TOOL 語義相反：這是**一般資料流連線**，會參與後端的節點活化判斷與拓撲排序，
+ * 故 CONDITION 分支可只活化其中一個提示節點，讓同一顆 LLM 依分支取得不同提問。
+ * 後端 WorkflowEngine 以 targetHandle === 'in:prompt' 辨識此語義。
+ */
+export const IN_PROMPT = 'in:prompt'
 
 /** handle 角色 */
 export type HandleRole = 'in' | 'out'

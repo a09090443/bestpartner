@@ -92,17 +92,17 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 ## 節點 config 契約
 
-每個節點的 `config` 在後端以**強型別 DTO** 定義契約：12 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
+每個節點的 `config` 在後端以**強型別 DTO** 定義契約：13 種 `NodeType` 各對應一個 `@Serializable` config 類別（`dto/workflow/config/NodeConfig.kt`，**此檔即 schema 的唯一事實來源**），並以兩段式驗證執行：
 
 - **save（含 DRAFT）**：依 NodeType 嚴格反序列化——**未知欄位**或**結構性型別錯誤**（如陣列欄位給字串、非法 enum 值）回 400（`workflow.node.config.invalid`，訊息含 nodeKey 與原因）；必填欄位缺席**放行**，允許存不完整草稿。數字/布林形式的字串（如 `"topK": "5"`）會被寬鬆轉型接受。
-- **switchStatus 啟用**：逐節點檢查必填欄位，驗不過回 400（`workflow.node.config.required.missing`，訊息含 nodeKey 與缺漏欄位清單）。
+- **switchStatus 啟用**：逐節點檢查必填欄位，驗不過回 400（`workflow.node.config.required.missing`，訊息含 nodeKey 與缺漏欄位清單）；接著依序檢查三項圖層級規則，任一不過即回 400（訊息皆含 nodeKey），確保「ACTIVE」等同「可執行」：**孤兒 SKILL 節點**（未掛載到任何 LLM 助手的 `in:tool` 埠）→ `workflow.skill.node.not.mounted`；**孤兒 PROMPT 節點**（未連到任何 LLM 助手的 `in:prompt` 埠）→ `workflow.prompt.node.not.connected`；**無提問來源的 LLM 節點**（既未填 `userPrompt` 也無 `PROMPT` 連入其 `in:prompt` 埠）→ `workflow.llm.prompt.required`。**停用（`active=false`）不跑圖驗證**，避免被卡在改不回去的狀態。
 - **ACTIVE 重存**：對 status 已為 `ACTIVE` 的 workflow 執行 save 時，同步套用上述必填驗證（與啟用共用同一份邏輯），維持「ACTIVE ⟺ 通過啟用驗證」不變式；DRAFT/INACTIVE 的 save 不驗必填。
 
 > 相容性：save 時後端會自動把 `MCP_SERVER` 節點 config 的舊欄位 `mcpSettingId` 改名為契約欄位 `userSettingId`（現值優先），涵蓋既有資料、載入後直接存與匯入等來源。
 
 > ⚠️ 因未知欄位會被拒，前端表單寫入的欄位名必須與 DTO 完全一致；以 `JsonConfigEditor` 自由編輯的 config 若含契約外的鍵，存檔會被 400 擋下（錯誤訊息會指出節點與原因）。
 
-下列 6 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
+下列 7 種節點具備型別化表單；其餘 6 種（`TRIGGER`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`）前端退回純 JSON 編輯器，但後端契約已定義（欄位見 `docs/workflow-engine/system-design.md` §2 與 `NodeConfig.kt`）。
 
 > **Agent 模式（LLM 節點簡化）**：`LLM_ASSISTANT` 只保留 LLM 呼叫本身的欄位；工具、MCP、Skill、知識庫改為獨立節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`），以輸出連到 LLM 節點的工具輸入埠 `in:tool` 掛載，由 LLM 自主呼叫。舊有含 `toolIds` / `mcpIds` / `skillIds` / `knowledgeId` / `files` 的 LLM config 因嚴格 JSON 會被拒（開發期以重建種子資料處理）。
 
@@ -112,14 +112,18 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 |------|------|:----:|------|
 | `llmId` | string | ✓ | LLM 設定 id（對應 `llm_setting`） |
 | `systemPrompt` | string | | 系統提示 |
-| `userPrompt` | string | | 使用者提示，支援變數插值引用上游輸出 |
+| `userPrompt` | string | | 使用者提示（提問內容的**後備**來源），支援變數插值引用上游輸出 |
 | `enableMemory` | boolean | | 是否啟用對話 Memory |
 | `memoryId` | string | | Memory 識別；留空則單次執行內共享（僅 `enableMemory=true` 時寫入） |
 | `responseFormat` | `"TEXT"` \| `"JSON"` | | 回應格式，預設 `TEXT` |
 | `outputSchema` | object | | `responseFormat=JSON` 時的輸出 JSON Schema |
 | `outputKey` | string | | 輸出鍵名，預設 `reply` |
 
-> 工具 / MCP / Skill 不再是本節點欄位——改由 `TOOL` / `MCP_SERVER` / `SKILL` 獨立節點連到 `in:tool` 埠掛載（Agent 模式，見上）。
+> 工具 / MCP / Skill / 知識庫不再是本節點欄位——改由 `TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG` 獨立節點連到 `in:tool` 埠掛載（Agent 模式，見上）。其中 `KNOWLEDGE_RAG` 為自動注入型 RAG（推論前自動檢索並注入），其餘三種由 LLM 於 agent loop 自主呼叫。
+
+> **提問內容的優先序**：① 連到本節點 `in:prompt` 埠且**已執行成功**的 `PROMPT` 節點輸出（多個來源時依拓撲序取第一個有輸出者——未活化的分支沒有輸出，自然被略過）；② `userPrompt`（插值後）。兩者皆無時無法啟用（`workflow.llm.prompt.required`）。`PROMPT` 節點的輸出已於其自身 executor 插值完成，本節點不再二次插值。
+>
+> ⚠️ 邊界情形：本節點若經 `in:main` 被活化、但唯一的 `PROMPT` 來源落在未活化分支且未填 `userPrompt`，執行時該節點會 FAILED——啟用驗證只保證「至少存在一種來源」，無法預知執行期走哪條分支。
 
 **範例**
 
@@ -159,24 +163,45 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | `arguments` | object | | 工具呼叫參數（支援插值） |
 | `outputKey` | string | | 輸出鍵名 |
 
+### PROMPT（提示詞）
+
+| 欄位 | 型別 | 必填 | 說明 |
+|------|------|:----:|------|
+| `prompt` | string | ✓ | 提問內容，支援 `{{nodeKey.key}}` 插值（由 executor 於執行期解析一次） |
+| `outputKey` | string | | 輸出鍵名，預設 `prompt` |
+
+> 以 `out:main` 連到 `LLM_ASSISTANT` 的 `in:prompt` 埠作為該次推論的提問。**此邊為一般資料流邊**（與 `in:tool` 的能力掛載相反）：參與節點活化與拓撲排序，本節點照常執行、落執行紀錄並發 SSE 事件，輸出亦可被其他節點以 `{{promptNodeKey.prompt}}` 引用。
+>
+> 因此 `CONDITION` 的兩個分支可各接一個提示節點、再匯入同一顆 LLM——執行時只有被活化那條分支的提示節點有輸出，LLM 即取該提問。孤兒 PROMPT（未連到任何 LLM 提示埠）在 **switchStatus 啟用前**與 **execute 執行前**兩處驗證，皆回 `workflow.prompt.node.not.connected`（含 nodeKey）；`save` 放行（DRAFT 容許未完成的圖）。兩處共用 `WorkflowEngine.findUnconnectedPromptNodeKey`，避免規則分叉。
+
 ### SKILL（Skill 能力節點）
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|:----:|------|
 | `skillId` | string | ✓ | Skill id（對應 `/llm/skill/list`） |
 
-> 能力節點：只連到 `LLM_ASSISTANT` 的 `in:tool` 埠，本身不獨立執行、不落執行紀錄。孤兒 SKILL（未掛載任何 LLM）於 save/switchStatus/execute 前驗證回 `workflow.skill.node.not.mounted`。
+> 能力節點：只連到 `LLM_ASSISTANT` 的 `in:tool` 埠，本身不獨立執行、不落執行紀錄。孤兒 SKILL（未掛載任何 LLM）在 **switchStatus 啟用前**與 **execute 執行前**兩處驗證，皆回 `workflow.skill.node.not.mounted`（含 nodeKey）；`save` 放行（DRAFT 容許未完成的圖）。兩處共用 `WorkflowEngine.findUnmountedSkillNodeKey`，避免規則分叉。
 
 ### KNOWLEDGE_RAG（知識庫 RAG）
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|:----:|------|
-| `knowledgeId` | string | ✓ | 知識庫 id |
-| `embeddingModelId` | string | ✓ | Embedding 模型設定 id（啟用時必填） |
-| `query` | string | ✓ | 檢索語句，支援插值（啟用時必填） |
+| `knowledgeId` | string | ✓ | 知識庫 id（兩種模式共通的唯一**無條件**必填） |
+| `embeddingModelId` | string | △ | Embedding 模型設定 id。pipeline 模式用；外掛模式由知識庫自身的 embedding 設定決定，可留空 |
+| `query` | string | △ | 檢索語句，支援插值。**pipeline 模式必填**，但屬**執行時**驗證（缺 query 時 executor 拋錯）而非啟用前必填；外掛模式由 LLM 的問題自動帶入 |
 | `topK` | number | | 取回筆數 |
 | `minScore` | number | | 相似度下限 |
 | `outputKey` | string | | 輸出鍵名 |
+
+> △ ＝ **條件必填**，不列入 `missingRequiredFields()`，故不會出現在 `nodeRequiredFields` 清單、啟用時也不擋。
+> 本節點有兩種模式，必填條件不同：
+>
+> | 連到的埠 | 模式 | 額外必填 | 是否獨立執行 |
+> |---------|------|---------|------------|
+> | LLM 的 `in:tool` | **外掛模式**（自動注入型 RAG） | 無 | ✗ 純能力掛載，不落執行紀錄 |
+> | 一般 `in:main` | **pipeline 模式**（顯式檢索節點） | `query`（執行時驗證） | ✓ 產生自身 `node_execution` |
+>
+> 「純能力節點」的判定是**所有出邊皆為 `in:tool`**；若同一節點另有 `out:main` 出邊，仍會落入主遍歷、兼作 pipeline 步驟。
 
 > `topK`（預設 5）／ `minScore`（預設 0.0）／ `embeddingModelId` 於執行時實際傳入相似度檢索（Phase 2 起生效）。
 
@@ -189,7 +214,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 
 > `template` 與 `mappings` **擇一必填**（任一有值即滿足）。OUTPUT 節點**無輸出埠**，為流程終點，其輸出即為執行結果的最終呈現。
 
-> 前端 `ToolForm`、`McpServerForm`、`KnowledgeRagForm` 與 `OutputForm` 已涵蓋上述必填與主要選填欄位，`arguments`（物件型別）以 JSON 文字輸入（僅接受合法 JSON 物件，非物件或壞 JSON 不寫入 config）。
+> 前端 `ToolForm`、`McpServerForm`、`KnowledgeRagForm`、`PromptForm` 與 `OutputForm` 已涵蓋上述必填與主要選填欄位，`arguments`（物件型別）以 JSON 文字輸入（僅接受合法 JSON 物件，非物件或壞 JSON 不寫入 config）。
 
 ### 其餘節點（後端契約已定義，前端以 JSON 編輯器輸入）
 
@@ -245,10 +270,11 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
   "message": "success",
   "data": {
     "LLM_ASSISTANT": ["llmId"],
+    "PROMPT": ["prompt"],
     "TOOL": ["toolId"],
     "MCP_SERVER": ["mcpId", "toolName"],
     "SKILL": ["skillId"],
-    "KNOWLEDGE_RAG": ["knowledgeId", "embeddingModelId", "query"],
+    "KNOWLEDGE_RAG": ["knowledgeId"],
     "TRIGGER": ["triggerType"],
     "CONDITION": ["conditions"],
     "LOOP": ["inputArrayPath", "loopBodyEntryNodeKey"],
@@ -259,6 +285,8 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
   }
 }
 ```
+
+> ⚠️ 本清單只涵蓋**單一節點 config 內**可判定的必填欄位。**圖層級**的條件必填不在此列——例如 LLM 節點的提問來源（`userPrompt` 或連入的 `PROMPT` 節點）取決於連線而非 config，故 `LLM_ASSISTANT` 只列 `llmId`；該規則由 switchStatus 的 `workflow.llm.prompt.required` 把關，前端另以 `PROMPT_WIRING_INCOMPLETE` warning 提示。
 
 > 複合字樣 `"mappings|template"` 表示兩欄位**擇一必填**（任一有值即滿足）。前端據此在 Inspector 即時提示、並於存檔前驗證；對 **ACTIVE** 的 workflow，缺必填會提前擋下存檔（與後端 ACTIVE 重存驗必填一致），DRAFT / INACTIVE 僅提示不擋。
 

@@ -1,5 +1,5 @@
 import type { NodeType } from '../types/workflow'
-import { IN_MAIN, IN_TOOL, OUT_MAIN } from './handles'
+import { IN_MAIN, IN_PROMPT, IN_TOOL, OUT_MAIN } from './handles'
 
 /** 節點分類（palette 分組／overview 圖例用），固定四類 */
 export type NodeCategory = 'Trigger' | 'Action' | 'AI' | 'Logic'
@@ -39,7 +39,7 @@ const DEFAULT_INPUTS: PortMeta[] = [{ id: IN_MAIN }]
 /** 預設單輸出埠 */
 const DEFAULT_OUTPUTS: PortMeta[] = [{ id: OUT_MAIN }]
 
-/** 依顯示順序排列的節點型別清單（共 12 種） */
+/** 依顯示順序排列的節點型別清單（共 13 種） */
 export const NODE_TYPE_METAS: NodeTypeMeta[] = [
   {
     type: 'TRIGGER',
@@ -57,11 +57,23 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     color: '#409eff',
     icon: '🤖',
     category: 'AI',
-    // 第二個輸入埠 in:tool 為 Agent 模式的工具掛載埠，供 TOOL / MCP_SERVER / SKILL 節點連入
+    // in:prompt 為提問來源埠（一般資料流，供 PROMPT 節點連入）；
+    // in:tool 為 Agent 模式的能力掛載埠（非資料流），供 TOOL / MCP_SERVER / SKILL / KNOWLEDGE_RAG 連入
     inputs: [
       { id: IN_MAIN, label: '輸入' },
+      { id: IN_PROMPT, label: '提示' },
       { id: IN_TOOL, label: '工具' },
     ],
+    outputs: DEFAULT_OUTPUTS,
+  },
+  {
+    type: 'PROMPT',
+    label: '提示詞',
+    color: '#b37feb',
+    icon: '💬',
+    category: 'AI',
+    // 可被上游驅動（如接在 CONDITION 分支後），輸出以 out:main 連到 LLM 的 in:prompt 埠
+    inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
   },
   {

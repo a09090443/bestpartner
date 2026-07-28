@@ -32,7 +32,11 @@ class KnowledgeRagExecutor(private val embeddingService: EmbeddingService) : Nod
             context: ExecutionContext,
             search: (knowledgeId: String, query: String, topK: Int, minScore: Double, embeddingModelId: String?) -> List<KnowledgeDTO>?
         ): Map<String, Any?> {
-            val query = context.resolveTemplate(cfg.query!!)
+            // pipeline 檢索模式（連一般 main 邊）需要 query；作為 LLM 外掛（連 in:tool）時本 executor
+            // 不會被呼叫，query 改由 LLM 節點的問題動態帶入，故 query 於此為執行時必填而非啟用前必填。
+            val queryTemplate = cfg.query?.takeIf { it.isNotBlank() }
+                ?: throw IllegalArgumentException("知識庫檢索節點需要 query")
+            val query = context.resolveTemplate(queryTemplate)
             val docs = search(
                 cfg.knowledgeId!!,
                 query,

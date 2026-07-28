@@ -5,6 +5,8 @@
 > 業務 AC 見同目錄 `requirements.md`。
 > 2026-07-03 修訂：§2.2 LLM_ASSISTANT config 補齊為 `ChatRequestDTO` 全集（toolSettingIds / mcpIds+mcpSettingIds / knowledgeId / files / responseFormat+outputSchema / memoryId 語意）；§2.5 補兩條 RAG 路徑取捨；§9 新增 2 個 i18n 訊息鍵。
 > 2026-07-12 修訂：**LLM 節點簡化為 Agent 模式**——§2 新增 `SKILL` 型別與「能力掛載（`in:tool` 埠）」機制；§2.2 移除 LLM config 的 toolIds/mcpIds/skillIds/knowledgeId/files（改由 TOOL/MCP/SKILL 獨立節點連接）；新增 §2.4.1 SKILL；新增 i18n `workflow.skill.node.not.mounted`。
+> 2026-07-25 修訂：**`KNOWLEDGE_RAG` 可作為 LLM 外掛（自動注入型 RAG）**——加入 `CAPABILITY_SOURCE_TYPES`，連 `in:tool` 時由 langchain4j `RetrievalAugmentor` 於推論前自動檢索注入（可同時掛多個知識庫，`DefaultQueryRouter` 合併），連 `out:main` 維持 §2.5 顯式檢索（並存，依出邊型別二選一）；§2.5 必填契約簡化為僅 `knowledgeId`（`query`/`embeddingModelId` 降為選填）；新增 `dto/KnowledgeMount`、`ChatRequestDTO.knowledgeMounts`。
+> 2026-07-28 修訂：**新增 `PROMPT` 提示詞節點（第 13 種）**——把 LLM 的提問內容抽成獨立節點，經 LLM 新增的**提示輸入埠 `in:prompt`** 餵入；該邊為一般資料流邊（參與活化與拓撲排序），故 CONDITION 分支可擇一驅動同一顆 LLM。§2 開頭新增「提示節點」段、新增 §2.2.1 PROMPT；§2.2 LLM 提問來源改為「PROMPT 節點優先、`userPrompt` 後備」；§9 新增 i18n `workflow.prompt.node.not.connected`、`workflow.llm.prompt.required`。
 
 ---
 
@@ -302,12 +304,18 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 
 > `type` 存於 `llm_workflow_node.type`（enum string）；`config` 存於 `llm_workflow_node.config`（JSON 欄位，`@JdbcTypeCode(SqlTypes.JSON)`）。所有 config 內字串值支援 `{{nodeKey.outputPath}}` 變數插值（引用上游 node_execution.output）。
 
-`enum class NodeType { TRIGGER, LLM_ASSISTANT, TOOL, MCP_SERVER, SKILL, KNOWLEDGE_RAG, CONDITION, LOOP, CODE, HTTP_REQUEST, DATA_TRANSFORM, OUTPUT }`
+`enum class NodeType { TRIGGER, LLM_ASSISTANT, PROMPT, TOOL, MCP_SERVER, SKILL, KNOWLEDGE_RAG, CONDITION, LOOP, CODE, HTTP_REQUEST, DATA_TRANSFORM, OUTPUT }`
 
 > **Agent 模式能力掛載（LLM 節點簡化）**：`LLM_ASSISTANT` 節點只負責呼叫指定 LLM。工具、MCP、Skill 改為獨立節點（`TOOL` / `MCP_SERVER` / `SKILL`），以 `out:main` 連到 LLM 節點的**專用工具輸入埠 `in:tool`**（`targetHandle === "in:tool"`）。引擎於執行前把這些「能力節點」解析為掛載清單放入 `ExecutionContext`（`WorkflowEngine.resolveCapabilityMounts`），由 `LlmAssistantExecutor` 於推論前組裝成 langchain4j 工具集，交 LLM 自主決定何時呼叫。
 > - 「純能力節點」（所有出邊皆 `in:tool`）排除主遍歷、不落 `node_execution` 紀錄；仍另接 `out:main` 下游的 TOOL/MCP 為雙用，照常執行並額外充當能力。
 > - `in:tool` 邊不參與活化判斷（`WorkflowEngine` 以 `flowEdges` 排除），只靠工具埠連入的 LLM 不會被誤判 SKIPPED。
 > - `SKILL` 無獨立 executor；孤兒 SKILL（未連任何 LLM 的 `in:tool`）於驗證期回 `WORKFLOW_SKILL_NODE_NOT_MOUNTED`。
+> - `KNOWLEDGE_RAG` 連 `in:tool` 時語義**不同於工具集**：作為**自動注入型 RAG**。`LlmAssistantExecutor` 聚合其 `knowledgeId`/`topK`/`minScore` 為 `ChatRequestDTO.knowledgeMounts`，`LLMService.buildAIService` 為每個知識庫建 `EmbeddingStoreContentRetriever`（各帶 per-id metadata filter），多個時以 `DefaultQueryRouter` 合併，掛為 `RetrievalAugmentor`，推論前依 LLM 問題自動檢索注入。KNOWLEDGE_RAG 有自己的 executor，未掛載時就當 §2.5 pipeline 檢索節點跑，不會像 SKILL 成孤兒。
+
+> **提示節點（PROMPT）— 與能力掛載相對的資料流埠**：`PROMPT` 節點以 `out:main` 連到 LLM 的**提示輸入埠 `in:prompt`**（`targetHandle === "in:prompt"`），提供該次推論的提問內容。
+> - ⚠️ 此邊**是一般資料流邊**（`flowEdges` 只排除 `in:tool`，不排除 `in:prompt`）：照常參與活化判斷與拓撲排序，PROMPT 節點也照常執行、落 `node_execution` 紀錄並發 SSE 事件。正因如此，CONDITION 的兩個分支可各接一個 PROMPT 再匯入同一顆 LLM——只有被活化那條有輸出。
+> - 引擎於執行前以 `WorkflowEngine.resolvePromptSources` 解析 `llmNodeKey → List<PromptSource(nodeKey, outputKey)>`（依拓撲序排序、含各節點自訂 outputKey）注入 `ExecutionContext`；`LlmAssistantExecutor.resolveMessage` 取**第一個已有輸出**的來源，其次才回退 `userPrompt`。
+> - 兩項圖層級驗證（switchStatus 啟用前與 execute 執行前共用純函式，與孤兒 SKILL 同形）：孤兒 PROMPT（未連任何 LLM 的 `in:prompt`）回 `WORKFLOW_PROMPT_NODE_NOT_CONNECTED`；LLM 既無 `userPrompt` 也無 PROMPT 連入回 `WORKFLOW_LLM_PROMPT_REQUIRED`。
 
 ### 2.1 TRIGGER（觸發節點，子型 manual / webhook / cron）
 
@@ -344,10 +352,11 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 | 欄位 | 對應能力 | 說明 |
 |------|---------|------|
 | `llmId` | LLM（必填） | 指向 `modelType=CHAT` 的 LLM 設定。 |
+| `userPrompt` | 提問內容（後備） | 提問優先取連入 `in:prompt` 埠且已執行成功的 `PROMPT` 節點輸出，沒接才用本欄位（見 §2 開頭「提示節點」與 §2.2.1）。兩者皆無時無法啟用（`WORKFLOW_LLM_PROMPT_REQUIRED`），故本欄位非無條件必填。 |
 | `enableMemory` / `memoryId` | Memory | `enableMemory=true` 且 `memoryId` 為 null 時，預設使用 `execution:{executionId}`（同一次執行內多個 LLM 節點共享、跨執行不共享）；要跨執行延續對話須顯式指定 `memoryId`（支援 `{{變數}}` 插值，例如 webhook 傳入的 sessionId）。 |
 | `responseFormat` / `outputSchema` | Structured Output | `TEXT`（預設）：output 為 `{outputKey: 純文字}`。`JSON`：以 langchain4j 的 JSON schema response format 要求模型回傳符合 `outputSchema`（JSON Schema 物件）的結構化 JSON。 |
 
-> **工具 / MCP / Skill / 知識庫**：不再是本節點 config 欄位。改以 `TOOL` / `MCP_SERVER` / `SKILL` 獨立節點連到 `in:tool` 埠（能力掛載）；顯式 RAG 用 `KNOWLEDGE_RAG` 節點並以 `{{node.outputKey}}` 插值餵回 `userPrompt`。executor 依掛載的能力節點 config 聚合出 `toolIds` / `toolSettingIds`（TOOL）、`mcpIds` / `mcpSettingIds`（MCP）、`skillIds`（SKILL）。
+> **工具 / MCP / Skill / 知識庫**：不再是本節點 config 欄位。改以 `TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG` 獨立節點連到 `in:tool` 埠（能力掛載）。知識庫有兩種用法：掛 `in:tool` 為**自動注入型 RAG**（見 §2 開頭與 §2.5），或以 `KNOWLEDGE_RAG` 顯式檢索後用 `{{node.outputKey}}` 插值餵回 `userPrompt`。executor 依掛載的能力節點 config 聚合出 `toolIds` / `toolSettingIds`（TOOL）、`mcpIds` / `mcpSettingIds`（MCP）、`skillIds`（SKILL）、`knowledgeMounts`（KNOWLEDGE_RAG）。
 >
 > ⚠️ 相容性：`NodeConfigRegistry` 為嚴格 JSON（`ignoreUnknownKeys=false`），舊有含 `toolIds` / `mcpIds` / `skillIds` / `knowledgeId` / `files` 的 LLM 節點 config 會於 parse 拋例外。開發期以重建 / 更新種子資料處理（不寫遷移腳本）；前端表單存檔時亦會主動剝除這些殘留鍵。
 
@@ -380,6 +389,20 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 }
 ```
 
+### 2.2.1 PROMPT（提示詞節點）
+
+用途：把 LLM 的提問內容抽成獨立節點，讓同一顆 LLM 可由不同分支的提示節點驅動。`PromptExecutor` 將 `prompt` 以 `ExecutionContext.resolveTemplate` 插值一次後輸出（下游 LLM 直接取字串、不再二次插值，避免上游輸出本身含 `{{ }}` 時被重複展開）。
+
+```json
+{
+  "prompt": "以正式語氣回答：{{trigger.question}}",
+  "outputKey": "prompt"
+}
+```
+
+必填：`prompt`。`outputKey` 預設 `prompt`。輸出亦可被其他節點以 `{{promptNodeKey.prompt}}` 引用。
+接線與驗證規則見 §2 開頭「提示節點」段。
+
 ### 2.4.1 SKILL（Skill 能力節點，Agent 模式）
 
 用途：作為能力提供者，把一個 Skill 掛載到 LLM 節點。只連到 `LLM_ASSISTANT` 的 `in:tool` 埠，本身無獨立 executor、不落 `node_execution` 紀錄；`LlmAssistantExecutor` 讀取其 `skillId` 併入 `skillIds`，經 `SkillService.buildSkills` + `activate_skill` 工具與系統提示注入。
@@ -407,7 +430,13 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 }
 ```
 
-> 與 `LLM_ASSISTANT.knowledgeId`（自動 RAG）互補的兩條路徑：本節點為**顯式檢索**，檢索結果落地於 node_execution.output，可被 `CONDITION` / `DATA_TRANSFORM` / 任意下游節點引用（可觀測、可分支）；`knowledgeId` 則是 langchain4j 在 LLM 呼叫內部自動檢索注入，不落地中間結果。需要「對檢索結果做流程控制」用本節點；只需要「LLM 回答時參考知識庫」用 `knowledgeId`。
+> **兩種使用模式（並存，依出邊型別二選一）**：
+> - **顯式檢索（pipeline，連 `out:main`）**：檢索結果落地於 node_execution.output，可被 `CONDITION` / `DATA_TRANSFORM` / 任意下游節點引用（可觀測、可分支），或以 `{{node.outputKey}}` 插值餵回 LLM `userPrompt`。此模式 `query` 必填——由 executor 執行時驗證（缺 query 拋明確錯誤）。
+> - **LLM 外掛（自動注入，連 `LLM_ASSISTANT` 的 `in:tool`）**：由 langchain4j `RetrievalAugmentor` 在 LLM 呼叫內部依 LLM 問題自動檢索注入，不落地中間結果；可同時掛多個知識庫（`DefaultQueryRouter`）。此模式 `query`/`embeddingModelId` 免填（query 由 LLM 問題帶入、embedding 由知識庫自身設定決定）。
+>
+> 需要「對檢索結果做流程控制」用顯式檢索；只需要「LLM 回答時參考知識庫」用 LLM 外掛。
+>
+> **必填契約**：僅 `knowledgeId` 為無條件必填（兩模式共通）；`query`/`embeddingModelId` 不列入 `missingRequiredFields`，故 `nodeRequiredFields` 端點對 KNOWLEDGE_RAG 只回 `["knowledgeId"]`。
 
 ### 2.6 CONDITION（條件分支 if-else）
 
@@ -768,6 +797,8 @@ data class NodeExecutionDTO(
 | `workflow.delete.while.running` | WORKFLOW_DELETE_WHILE_RUNNING | 執行中不可刪除 |
 | `workflow.llm.output.parse.failed` | WORKFLOW_LLM_OUTPUT_PARSE_FAILED | LLM 結構化輸出不符 outputSchema |
 | `workflow.llm.file.not.found` | WORKFLOW_LLM_FILE_NOT_FOUND | LLM 節點引用的上傳檔案不存在 |
+| `workflow.prompt.node.not.connected` | WORKFLOW_PROMPT_NODE_NOT_CONNECTED | 孤兒 PROMPT 節點（未連任何 LLM 的 `in:prompt`） |
+| `workflow.llm.prompt.required` | WORKFLOW_LLM_PROMPT_REQUIRED | LLM 節點既無 `userPrompt` 也無 PROMPT 連入 |
 
 ---
 

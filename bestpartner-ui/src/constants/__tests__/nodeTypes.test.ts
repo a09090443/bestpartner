@@ -37,6 +37,19 @@ describe('nodeTypes 埠定義', () => {
     const meta = getNodeTypeMeta('LOOP')!
     expect(meta.outputs.map((p) => p.id)).toEqual(['out:loop', 'out:done'])
   })
+
+  it('LLM_ASSISTANT 有 in:main / in:prompt / in:tool 三輸入且順序固定', () => {
+    const meta = getNodeTypeMeta('LLM_ASSISTANT')!
+    expect(meta.inputs.map((p) => p.id)).toEqual(['in:main', 'in:prompt', 'in:tool'])
+    expect(meta.inputs.every((p) => !!p.label)).toBe(true)
+    expect(meta.outputs.map((p) => p.id)).toEqual(['out:main'])
+  })
+
+  it('PROMPT 為 in:main + out:main', () => {
+    const meta = getNodeTypeMeta('PROMPT')!
+    expect(meta.inputs.map((p) => p.id)).toEqual(['in:main'])
+    expect(meta.outputs.map((p) => p.id)).toEqual(['out:main'])
+  })
 })
 
 describe('nodeTypes 分類（category）', () => {
@@ -55,7 +68,7 @@ describe('nodeTypes 分類（category）', () => {
     for (const t of ['TOOL', 'MCP_SERVER', 'HTTP_REQUEST'] as const) {
       expect(getNodeTypeMeta(t)!.category).toBe('Action')
     }
-    for (const t of ['LLM_ASSISTANT', 'SKILL', 'KNOWLEDGE_RAG'] as const) {
+    for (const t of ['LLM_ASSISTANT', 'PROMPT', 'SKILL', 'KNOWLEDGE_RAG'] as const) {
       expect(getNodeTypeMeta(t)!.category).toBe('AI')
     }
     for (const t of ['CONDITION', 'LOOP', 'CODE', 'DATA_TRANSFORM'] as const) {

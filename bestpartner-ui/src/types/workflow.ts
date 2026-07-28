@@ -7,6 +7,7 @@
 export type NodeType =
   | 'TRIGGER'
   | 'LLM_ASSISTANT'
+  | 'PROMPT'
   | 'TOOL'
   | 'MCP_SERVER'
   | 'SKILL'

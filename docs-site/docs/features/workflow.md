@@ -8,7 +8,7 @@ keywords: [Workflow, 工作流, n8n, 視覺化, 節點, Node, Edge, 自動化]
 
 BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節點（Node）＋連線（Edge）」的方式，在畫布上自訂 AI 自動化流程。
 
-> **目前進度**：後端已完成 Workflow 定義的 CRUD、畫布驗證與**執行引擎（Phase 1 線性節點 + Phase 2 控制流／程式碼／資料轉換）**，12 種節點型別（`SKILL` 為能力節點外，其餘皆可手動執行）；前端編輯器已具備多連接點節點（分支、LLM 工具埠）、完整畫布操作、型別化節點設定表單、自動排版、深色 n8n 風格介面，以及**執行按鈕、節點即時狀態與結果面板**。Executions 歷史清單與回放、更多觸發器（CRON／WEBHOOK）將於後續推出。
+> **目前進度**：後端已完成 Workflow 定義的 CRUD、畫布驗證與**執行引擎（Phase 1 線性節點 + Phase 2 控制流／程式碼／資料轉換）**，13 種節點型別（`SKILL` 為能力節點外，其餘皆可手動執行）；前端編輯器已具備多連接點節點（分支、LLM 提示埠／工具埠）、完整畫布操作、型別化節點設定表單、自動排版、深色 n8n 風格介面，以及**執行按鈕、節點即時狀態與結果面板**。Executions 歷史清單與回放、更多觸發器（CRON／WEBHOOK）將於後續推出。
 
 ## 核心概念
 
@@ -21,13 +21,15 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 ## 節點類型（NodeType）
 
-`TRIGGER`、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`SKILL`、`KNOWLEDGE_RAG`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
+`TRIGGER`、`LLM_ASSISTANT`、`PROMPT`、`TOOL`、`MCP_SERVER`、`SKILL`、`KNOWLEDGE_RAG`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
 
 > `OUTPUT`（輸出）為流程終點節點，**無輸出埠**，config 以 `template`（支援 `{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一組成最終輸出。
 >
-> **Agent 模式（LLM 節點簡化）**：`LLM_ASSISTANT` 只負責呼叫指定 LLM。工具、MCP、Skill 改為獨立節點（`TOOL` / `MCP_SERVER` / `SKILL`），以輸出連到 LLM 節點的**工具輸入埠 `in:tool`** 掛載為「LLM 可自主呼叫的能力」，由 LLM 於推論時（agent loop）自行決定何時呼叫。`SKILL` 為能力提供者，本身不獨立執行、不落執行紀錄。
+> **Agent 模式（LLM 節點簡化）**：`LLM_ASSISTANT` 只負責呼叫指定 LLM。工具、MCP、Skill、知識庫改為獨立節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`），以輸出連到 LLM 節點的**工具輸入埠 `in:tool`** 掛載為 LLM 能力：`TOOL` / `MCP_SERVER` / `SKILL` 供 LLM 於推論時（agent loop）自主決定何時呼叫；`KNOWLEDGE_RAG` 則作為**自動注入型 RAG**，於推論前依 LLM 問題自動檢索並注入上下文（可同時掛多個知識庫，以 langchain4j `DefaultQueryRouter` 合併）。`SKILL` 為能力提供者，本身不獨立執行、不落執行紀錄。
 >
-> 共 12 種節點型別；除 `SKILL`（能力節點）外皆可獨立執行：Phase 1 的 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`，以及 Phase 2 的 `TOOL`（動態呼叫）、`CONDITION`（條件分支）、`LOOP`（迴圈子圖迭代）、`CODE`（GraalJS sandbox）、`DATA_TRANSFORM`（資料轉換）。執行細節見下方[手動執行](#手動執行)。
+> **提示詞節點（PROMPT）**：把 LLM 的「提問內容」抽成獨立節點，以 `out:main` 連到 LLM 節點的**提示輸入埠 `in:prompt`**。與 `in:tool` 相反，這條邊是**一般資料流連線**（參與節點活化與拓撲排序），因此可讓 `CONDITION` 兩個分支各接一個提示節點、再匯入同一顆 LLM——執行時取「被活化那條分支」的提問，達成一顆 LLM 搭配多種對話路線。LLM 的 `userPrompt` 欄位保留為**後備**：有提示節點連入時以節點輸出為準，沒接才用 `userPrompt`。
+>
+> 共 13 種節點型別；除 `SKILL`（能力節點）外皆可獨立執行：Phase 1 的 `TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`HTTP_REQUEST`、`OUTPUT`，Phase 2 的 `TOOL`（動態呼叫）、`CONDITION`（條件分支）、`LOOP`（迴圈子圖迭代）、`CODE`（GraalJS sandbox）、`DATA_TRANSFORM`（資料轉換），以及 `PROMPT`（提示詞，照常執行並落執行紀錄）。執行細節見下方[手動執行](#手動執行)。
 
 ## 前端編輯器
 
@@ -47,14 +49,15 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 節點的連接點（handle）採 **`role:port` 語意字串**編碼，直接作為 Vue Flow Handle 的 `id`，並存入 Edge 的 `sourceHandle` / `targetHandle`：
 
 - `role`：`in`（輸入，左緣）或 `out`（輸出，右緣）
-- `port`：埠名稱，如 `main` / `true` / `false` / `loop` / `done`
+- `port`：埠名稱，如 `main` / `prompt` / `tool` / `true` / `false` / `loop` / `done`
 
 各節點的連接點由型別 meta 的 `inputs` / `outputs` 資料驅動，`WorkflowNode` 依此動態渲染多個 Handle：
 
 | 節點型別 | 輸入埠 | 輸出埠 |
 |----------|--------|--------|
 | `TRIGGER` | —（無輸入） | `out:main` |
-| `LLM_ASSISTANT` | `in:main`（輸入）／`in:tool`（工具，Agent 模式能力掛載） | `out:main` |
+| `LLM_ASSISTANT` | `in:main`（輸入）／`in:prompt`（提示，提問來源，一般資料流）／`in:tool`（工具，Agent 模式能力掛載，非資料流） | `out:main` |
+| `PROMPT` | `in:main` | `out:main`（連到 LLM 的 `in:prompt`） |
 | `SKILL` | —（能力節點，無輸入） | `out:main` |
 | `CONDITION` | `in:main` | `out:true`（True）／`out:false`（False） |
 | `LOOP` | `in:main` | `out:loop`（迴圈）／`out:done`（結束） |
@@ -63,10 +66,12 @@ BestPartner 提供 n8n-like 的視覺化 Workflow 引擎，讓使用者以「節
 
 多輸出埠沿右緣平均分布，並在節點框內顯示埠標籤（如 True / False），使用者未拉線也能辨識分支。Edge 的 `id` 帶入 handle（如 `e-c1:out:true-t1:in:main`），避免同一對節點的不同分支互相撞 id。
 
-前端存檔前的輕量驗證新增三項與 handle 相關的規則：
+前端存檔前的輕量驗證新增以下與 handle 相關的規則：
 
 - **未知 handle**（error，擋存檔）：連線的 handle 不在該節點 meta 定義的埠內。
-- **工具埠相容性**（error，擋存檔）：連到 LLM `in:tool` 埠的來源只能是 `TOOL` / `MCP_SERVER` / `SKILL`；不相容連線於拉線時即以提示擋下（`onConnect`），存檔驗證亦回報 `INCOMPATIBLE_CONNECTION`。
+- **工具埠相容性**（error，擋存檔）：連到 LLM `in:tool` 埠的來源只能是 `TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`；不相容連線於拉線時即以提示擋下（`onConnect`），存檔驗證亦回報 `INCOMPATIBLE_CONNECTION`。
+- **提示埠相容性**（error，擋存檔）：連到 LLM `in:prompt` 埠的來源只能是 `PROMPT`；同樣於 `onConnect` 即擋下，存檔驗證回報 `INCOMPATIBLE_CONNECTION`。
+- **提示接線不完整**（warning，不擋存檔）：`PROMPT` 節點未連到任何 LLM 的提示埠，或 LLM 節點既未填 `userPrompt` 也無 `PROMPT` 連入；回報 `PROMPT_WIRING_INCOMPLETE`，鏡射後端啟用驗證，讓使用者在存檔前就看到而非按下啟用才被擋。
 - **分支未接完**（warning，不擋存檔）：`CONDITION` 的 `out:true` / `out:false` 至少一個未接線；屬「啟用前才需完整」的提醒。
 
 ## 型別化節點設定表單
@@ -75,15 +80,18 @@ Inspector 依節點型別分派結構化設定表單，取代裸 JSON：
 
 | 節點型別 | 主要設定欄位 | 選項來源 |
 |----------|----------|----------|
-| `LLM_ASSISTANT` | `llmId`（下拉，必填）、`systemPrompt`／`userPrompt`、Memory、`responseFormat`／`outputSchema`／`outputKey`（工具／MCP／Skill 改由連接獨立節點到 `in:tool` 埠） | `POST /llm/setting/get` |
+| `LLM_ASSISTANT` | `llmId`（下拉，必填）、`systemPrompt`／`userPrompt`、Memory、`responseFormat`／`outputSchema`／`outputKey`（工具／MCP／Skill 改由連接獨立節點到 `in:tool` 埠）。已有 `PROMPT` 節點連入 `in:prompt` 時，`userPrompt` 標示「已由上游提示節點提供」並淡化，但仍可編輯作為後備值 | `POST /llm/setting/get` |
+| `PROMPT` | `prompt`（textarea，必填，支援 `{{nodeKey.key}}` 插值）、`outputKey`（選填，預設 `prompt`） | — |
 | `TOOL` | `toolId`（下拉，必填）、`toolSettingId`（選填）、`arguments`（JSON 物件，選填，支援插值）、`outputKey`（選填） | `GET /llm/tool/list` |
 | `MCP_SERVER` | `mcpId`（下拉，必填）、`toolName`（文字，必填；MCP 工具清單為執行期發現，無查詢端點故不做下拉）、`userSettingId`（選填；舊欄位名 `mcpSettingId` 讀取相容並自動遷移）、`arguments`（JSON 物件，選填，支援插值）、`outputKey`（選填） | `GET /llm/mcpServer/list` |
 | `SKILL` | `skillId`（下拉，必填） | `GET /llm/skill/list` |
-| `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`embeddingModelId`（下拉，必填，僅列 EMBEDDING 型別）、`query`（textarea，必填，支援插值）、`topK`（數字，預設 4）、`minScore`（數字，選填 0–1）、`outputKey`（選填） | `POST /llm/vector/getKnowledgeStore`、`POST /llm/setting/get`（過濾 `modelType=EMBEDDING`） |
+| `KNOWLEDGE_RAG` | `knowledgeId`（下拉，必填）、`embeddingModelId`（下拉，pipeline 檢索用、僅列 EMBEDDING 型別；作 LLM 外掛時由知識庫自身設定決定，可免填）、`query`（textarea，pipeline 檢索必填、支援插值；作 LLM 外掛時由 LLM 問題帶入，可免填）、`topK`（數字，預設 4）、`minScore`（數字，選填 0–1）、`outputKey`（選填） | `POST /llm/vector/getKnowledgeStore`、`POST /llm/setting/get`（過濾 `modelType=EMBEDDING`） |
 | `OUTPUT` | `template`（textarea，支援插值）或 `mappings`（key=value 對映）**擇一必填**（`OutputForm`） | — |
 | 其餘 6 種 | 通用 JSON 編輯器（fallback） | — |
 
-> `TOOL` / `MCP_SERVER` / `SKILL` 節點可作為**管線步驟**（`out:main` 接下游、輸出經 `{{node.outputKey}}` 引用）或**能力掛載**（`out:main` 接 LLM `in:tool` 埠）；兩種用途靠 `targetHandle` 區分，同一顆節點可兼具。
+> `PROMPT` 節點作為提問來源，`out:main` 需連到 LLM 的 `in:prompt` 埠；未連接則無法啟用流程。多個提示節點可接到同一顆 LLM，搭配 `CONDITION` 分支即可切換不同對話。
+
+> `TOOL` / `MCP_SERVER` / `KNOWLEDGE_RAG` 節點可作為**管線步驟**（`out:main` 接下游、輸出經 `{{node.outputKey}}` 引用）或**能力掛載**（`out:main` 接 LLM `in:tool` 埠）；兩種用途靠 `targetHandle` 區分，同一顆節點可兼具。其中 `KNOWLEDGE_RAG` 作能力掛載時為自動注入型 RAG（可同時掛多個知識庫），作管線步驟時為顯式檢索、`query` 必填。（`SKILL` 無獨立 executor，僅能作能力掛載。）
 
 下拉選項由 `useNodeOptions` 以模組級快取，一個 session 只向後端取一次（登出時連同 LLM 設定快取一併清除，避免跨使用者殘留）。表單以不可變方式更新 `config` 並保留未知鍵值，切換表單不遺失既有資料；空值鍵一律移除以維持 config 精簡。`arguments`（JSON 物件）以文字輸入，僅接受合法 JSON 物件——非物件或壞 JSON 不寫入 config，避免後端反序列化失敗。
 

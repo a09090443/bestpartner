@@ -67,7 +67,7 @@ function emitConfig() {
       </select>
     </div>
     <div class="field">
-      <label>Embedding 模型（必填，僅列 EMBEDDING 型別的 LLM 設定）</label>
+      <label>Embedding 模型（pipeline 檢索用；作為 LLM 外掛時由知識庫本身設定決定，可留空）</label>
       <select
         v-model="embeddingModelId"
         data-test="embedding-model-select"
@@ -81,7 +81,7 @@ function emitConfig() {
       </select>
     </div>
     <div class="field">
-      <label>檢索語句（必填，支援變數插值引用上游輸出）</label>
+      <label>檢索語句（pipeline 檢索必填，支援變數插值；作為 LLM 外掛時免填，由 LLM 問題自動帶入）</label>
       <textarea v-model="query" data-test="query" class="text-input" rows="3" @input="emitConfig" />
     </div>
     <div class="field">

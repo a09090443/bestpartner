@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute, onBeforeRouteLeave } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Connection, Node, NodeTypesObject } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -18,9 +18,10 @@ import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
 import { layoutGraph } from '../composables/useCanvasLayout'
 import { computeFitZoom } from '../composables/useDefaultZoom'
 import { validateGraph, CAPABILITY_SOURCE_TYPES } from '../composables/useGraphValidation'
-import { IN_TOOL } from '../constants/handles'
+import { IN_PROMPT, IN_TOOL } from '../constants/handles'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import { useExecutionStore } from '../stores/execution'
+import { useAuthStore } from '../stores/auth'
 import { extractApiMessage } from '../api/http'
 import { getNodeRequiredFields } from '../api/workflow'
 import type { FlowNode, FlowEdge } from '../composables/useWorkflowSync'
@@ -33,8 +34,10 @@ import '../styles/workflow-theme.css'
 const nodeTypes = { workflow: markRaw(WorkflowNode) } as unknown as NodeTypesObject
 
 const route = useRoute()
+const router = useRouter()
 const store = useWorkflowStore()
 const executionStore = useExecutionStore()
+const authStore = useAuthStore()
 
 const {
   onConnect,
@@ -62,6 +65,9 @@ const canvasRef = ref<HTMLElement | null>(null)
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
 
+// 登出流程進行中：讓 onBeforeRouteLeave 略過未存確認（登出已自行確認過，避免二次跳窗）
+const loggingOut = ref(false)
+
 // 各 NodeType 必填欄位清單（後端 NodeConfig 契約）：供 Inspector 即時提示與存檔前驗證共用。
 // 載入失敗時維持空物件，Inspector 不顯示提示、存檔驗證則自行重試（見 handleSave）。
 const requiredFields = ref<NodeRequiredFields>({})
@@ -73,6 +79,10 @@ const hydrating = ref(false)
 // Inspector overview 統計：取畫布的響應式 nodes/edges 計算（測試 mock 可能未提供，需防禦）
 const nodeCount = computed(() => flowNodesRef?.value?.length ?? 0)
 const connectionCount = computed(() => flowEdgesRef?.value?.length ?? 0)
+// 已有提示詞節點連入 in:prompt 埠的 LLM 節點：供 Inspector 標示 userPrompt 已被上游取代
+const promptBoundNodeKeys = computed(() =>
+  (flowEdgesRef?.value ?? []).filter((e) => e.targetHandle === IN_PROMPT).map((e) => e.target),
+)
 const triggerCount = computed(
   () =>
     (flowNodesRef?.value ?? []).filter(
@@ -188,6 +198,7 @@ onEdgesChange((changes) => markDirtyFromChanges(changes, DIRTYING_EDGE_CHANGES))
 
 // 離頁攔截：有未存變更時提示確認
 onBeforeRouteLeave(async () => {
+  if (loggingOut.value) return true
   if (!store.dirty) return true
   try {
     await ElMessageBox.confirm('有未存變更，確定要離開嗎？', '尚未存檔', {
@@ -216,12 +227,21 @@ onBeforeUnmount(() => {
 })
 
 onConnect((connection: Connection) => {
-  // Agent 模式相容性：LLM 工具埠（in:tool）只接受 TOOL / MCP_SERVER / SKILL 來源
+  // Agent 模式相容性：LLM 工具埠（in:tool）只接受 TOOL / MCP_SERVER / SKILL / KNOWLEDGE_RAG 來源
   if (connection.targetHandle === IN_TOOL) {
     const sourceType = (flowNodesRef?.value ?? []).find((n) => n.id === connection.source)?.data
       ?.type as NodeType | undefined
     if (!sourceType || !CAPABILITY_SOURCE_TYPES.has(sourceType)) {
-      ElMessage.warning('僅工具、MCP、Skill 節點可連到 LLM 的工具埠')
+      ElMessage.warning('僅工具、MCP、Skill、知識庫節點可連到 LLM 的工具埠')
+      return
+    }
+  }
+  // 提示埠（in:prompt）只接受 PROMPT 來源；此埠為一般資料流，提供該次推論的提問內容
+  if (connection.targetHandle === IN_PROMPT) {
+    const sourceType = (flowNodesRef?.value ?? []).find((n) => n.id === connection.source)?.data
+      ?.type as NodeType | undefined
+    if (sourceType !== 'PROMPT') {
+      ElMessage.warning('僅提示詞節點可連到 LLM 的提示埠')
       return
     }
   }
@@ -352,6 +372,27 @@ async function handleRun() {
     return
   }
   executionStore.start(id)
+}
+
+// 登出：路由守衛會把「已登入卻訪問 /login」導回首頁，故必須先清 token 再導航。
+// 但先清 token 會與未存變更的離頁確認衝突（選「留下」時 token 已沒了），
+// 因此這裡自行做未存確認，並以 loggingOut 讓 onBeforeRouteLeave 略過、避免二次確認。
+async function handleLogout() {
+  if (store.dirty) {
+    try {
+      await ElMessageBox.confirm('有未存變更，確定要登出嗎？', '尚未存檔', {
+        type: 'warning',
+        confirmButtonText: '登出',
+        cancelButtonText: '取消',
+      })
+    } catch {
+      // 使用者取消
+      return
+    }
+  }
+  loggingOut.value = true
+  authStore.logout()
+  router.push('/login')
 }
 
 // 整理版面：以 dagre 重排節點位置，更新畫布並置中檢視
@@ -494,6 +535,14 @@ async function handleSave() {
         <button type="button" class="btn primary" data-test="save-button" @click="handleSave">
           存檔
         </button>
+        <button
+          type="button"
+          class="btn ghost logout"
+          data-test="logout-button"
+          @click="handleLogout"
+        >
+          登出
+        </button>
       </div>
     </div>
 
@@ -523,6 +572,7 @@ async function handleSave() {
           :trigger-count="triggerCount"
           :workflow-status="store.current?.status"
           :required-fields="requiredFields"
+          :prompt-bound-node-keys="promptBoundNodeKeys"
           @update:node-name="onNodeNameUpdate"
           @update:node-config="onNodeConfigUpdate"
           @update:workflow-name="onWorkflowNameUpdate"
@@ -706,6 +756,15 @@ async function handleSave() {
 
 .btn.primary:hover {
   filter: brightness(1.08);
+}
+
+.btn.ghost.logout {
+  margin-left: 4px;
+  color: var(--wf-text-dim);
+}
+
+.btn.ghost.logout:hover {
+  color: var(--wf-text);
 }
 
 /* ---- 主體三欄 ---- */
