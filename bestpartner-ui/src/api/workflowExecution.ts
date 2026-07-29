@@ -11,6 +11,32 @@ export interface ExecutionEvent {
 }
 
 /**
+ * 取出後端錯誤回應的業務訊息（`ApiResponse.message`）。
+ *
+ * ⚠️ 這裡必須把 body 讀出來。execute 是**唯一走原生 fetch** 的 API——其餘端點都經
+ * `api/http.ts` 的 axios 攔截器，錯誤訊息由 `extractApiMessage()` 取得。若此處只丟
+ * `HTTP <status>`，使用者看到的就只有「HTTP 400」，而不是「提示詞節點 xxx 未連接到任何
+ * LLM 助手節點」這種可據以修正的原因，與
+ * `docs-site/docs/features/workflow.md` 揭示的「顯示後端業務訊息而非通用 HTTP 狀態字串」相違。
+ *
+ * body 不是 JSON、或 JSON 內無 message 時退回 `HTTP <status>`，確保一定有字可顯示。
+ */
+async function readErrorMessage(res: Response): Promise<string> {
+  const fallback = `HTTP ${res.status}`
+  try {
+    const text = await res.text()
+    if (!text) return fallback
+    const parsed = JSON.parse(text) as { message?: unknown }
+    return typeof parsed?.message === 'string' && parsed.message.trim()
+      ? parsed.message.trim()
+      : fallback
+  } catch {
+    // 非 JSON（如 HTML 錯誤頁）不直接顯示原文，避免把整頁塞進提示
+    return fallback
+  }
+}
+
+/**
  * 呼叫 POST /llm/workflow/execute（SSE 串流），逐事件回呼 onEvent；
  * 正常結束呼叫 onDone，發生非取消性錯誤呼叫 onError。
  * URL 使用相對路徑，與既有 axios（baseURL 未設定，走 Vite dev proxy `/llm` → localhost:80）一致。
@@ -36,7 +62,8 @@ export function executeWorkflow(
         body: JSON.stringify({ id: workflowId }),
         signal: controller.signal,
       })
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(await readErrorMessage(res))
+      if (!res.body) throw new Error(`HTTP ${res.status}`)
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
