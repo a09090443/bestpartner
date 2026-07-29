@@ -4,6 +4,12 @@ import { IN_MAIN, IN_PROMPT, IN_TOOL, OUT_MAIN } from './handles'
 /** 節點分類（palette 分組／overview 圖例用），固定四類 */
 export type NodeCategory = 'Trigger' | 'Action' | 'AI' | 'Logic'
 
+/**
+ * 查不到型別中繼資料時的代表色（MiniMap 著色、Inspector icon box、圖例等共用）。
+ * 取自主題的 --wf-text-3，但這些使用點需要 JS 端的字串值，無法直接引用 CSS 變數。
+ */
+export const NODE_FALLBACK_COLOR = '#8c90a0'
+
 /** 分類固定顯示順序 */
 export const NODE_CATEGORIES: NodeCategory[] = ['Trigger', 'Action', 'AI', 'Logic']
 
@@ -22,8 +28,6 @@ export interface NodeTypeMeta {
   label: string
   /** 代表色（節點色塊/邊框） */
   color: string
-  /** 圖示（emoji，避免額外圖示依賴） */
-  icon: string
   /** 所屬分類（palette 分組顯示） */
   category: NodeCategory
   /** 是否為觸發節點（畫布上特別標示，啟用 workflow 的必要節點） */
@@ -32,6 +36,12 @@ export interface NodeTypeMeta {
   inputs: PortMeta[]
   /** 輸出埠（右緣）；CONDITION / LOOP 為多埠 */
   outputs: PortMeta[]
+  /**
+   * 自 palette 拖入畫布時帶入的初始 config。
+   * 只在「該欄位必填、且目前只有唯一合法值」時才給——省去使用者手填一個沒有選擇餘地的值。
+   * ⚠️ 取用時務必展開複製（`{ ...meta.defaultConfig }`），否則同型別的多個節點會共用同一個物件。
+   */
+  defaultConfig?: Record<string, unknown>
 }
 
 /** 預設單輸入埠 */
@@ -45,17 +55,18 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'TRIGGER',
     label: '觸發',
     color: '#f56c6c',
-    icon: '⚡',
     category: 'Trigger',
     isTrigger: true,
     inputs: [],
     outputs: DEFAULT_OUTPUTS,
+    // triggerType 是 TRIGGER 唯一的必填欄位，而目前 WEBHOOK / CRON 尚未實作，
+    // 唯一可用值就是 MANUAL——不預設會讓每個使用者每張流程都得手動補一次。
+    defaultConfig: { triggerType: 'MANUAL' },
   },
   {
     type: 'LLM_ASSISTANT',
     label: 'LLM 助手',
     color: '#409eff',
-    icon: '🤖',
     category: 'AI',
     // in:prompt 為提問來源埠（一般資料流，供 PROMPT 節點連入）；
     // in:tool 為 Agent 模式的能力掛載埠（非資料流），供 TOOL / MCP_SERVER / SKILL / KNOWLEDGE_RAG 連入
@@ -70,7 +81,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'PROMPT',
     label: '提示詞',
     color: '#b37feb',
-    icon: '💬',
     category: 'AI',
     // 可被上游驅動（如接在 CONDITION 分支後），輸出以 out:main 連到 LLM 的 in:prompt 埠
     inputs: DEFAULT_INPUTS,
@@ -80,7 +90,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'TOOL',
     label: '工具',
     color: '#67c23a',
-    icon: '🔧',
     category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
@@ -89,7 +98,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'MCP_SERVER',
     label: 'MCP 伺服器',
     color: '#9254de',
-    icon: '🔌',
     category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
@@ -98,7 +106,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'SKILL',
     label: 'Skill',
     color: '#a0d911',
-    icon: '🧩',
     category: 'AI',
     // Skill 為能力提供者：只作為 LLM 節點 in:tool 埠的來源，故無輸入埠
     inputs: [],
@@ -108,7 +115,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'KNOWLEDGE_RAG',
     label: '知識庫 RAG',
     color: '#13c2c2',
-    icon: '📚',
     category: 'AI',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
@@ -117,7 +123,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'CONDITION',
     label: '條件判斷',
     color: '#e6a23c',
-    icon: '🔀',
     category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: [
@@ -129,7 +134,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'LOOP',
     label: '迴圈',
     color: '#fa8c16',
-    icon: '🔁',
     category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: [
@@ -141,7 +145,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'CODE',
     label: '程式碼',
     color: '#606266',
-    icon: '📝',
     category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
@@ -150,7 +153,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'HTTP_REQUEST',
     label: 'HTTP 請求',
     color: '#2f54eb',
-    icon: '🌐',
     category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
@@ -159,7 +161,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'DATA_TRANSFORM',
     label: '資料轉換',
     color: '#eb2f96',
-    icon: '🔄',
     category: 'Logic',
     inputs: DEFAULT_INPUTS,
     outputs: DEFAULT_OUTPUTS,
@@ -168,7 +169,6 @@ export const NODE_TYPE_METAS: NodeTypeMeta[] = [
     type: 'OUTPUT',
     label: '輸出',
     color: '#52c41a',
-    icon: '📤',
     category: 'Action',
     inputs: DEFAULT_INPUTS,
     outputs: [],

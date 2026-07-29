@@ -109,6 +109,17 @@ describe('InspectorPanel 已選節點操作', () => {
     await w.find('[data-test="delete-node-button"]').trigger('click')
     expect(w.emitted('delete-node')).toBeTruthy()
   })
+
+  it('點「開啟節點編輯頁」應 emit open-designer', async () => {
+    const w = mountWith('TOOL')
+    await w.find('[data-test="open-node-designer-button"]').trigger('click')
+    expect(w.emitted('open-designer')).toBeTruthy()
+  })
+
+  it('未選取節點時不顯示「開啟節點編輯頁」按鈕', () => {
+    const w = mount(InspectorPanel, { props: { selectedNode: null, workflowName: 'wf' } })
+    expect(w.find('[data-test="open-node-designer-button"]').exists()).toBe(false)
+  })
 })
 
 describe('InspectorPanel 必填欄位缺漏提示', () => {

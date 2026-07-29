@@ -164,24 +164,8 @@ function emitConfig() {
   </div>
 </template>
 
+<!-- .form / .field / .field label / .text-input 由 styles/wf-form.css 共用 -->
 <style scoped>
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field label {
-  font-size: 11px;
-  color: var(--wf-text-dim, #8a8a95);
-}
-
 .field-row label {
   display: flex;
   align-items: center;
@@ -193,9 +177,9 @@ function emitConfig() {
   margin-left: 6px;
   padding: 1px 6px;
   font-size: 10px;
-  color: #b37feb;
-  background: rgba(179, 127, 235, 0.14);
-  border: 1px solid rgba(179, 127, 235, 0.35);
+  color: var(--wf-accent-prompt);
+  background: var(--wf-accent-prompt-bg);
+  border: 1px solid var(--wf-accent-prompt-border);
   border-radius: 999px;
 }
 
@@ -208,32 +192,9 @@ function emitConfig() {
   padding: 8px 10px;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--wf-text-dim, #8a8a95);
-  background: var(--wf-input, #0f0f13);
-  border: 1px dashed var(--wf-border, #29292f);
+  color: var(--wf-text-2);
+  background: var(--wf-input);
+  border: 1px dashed var(--wf-border);
   border-radius: 8px;
-}
-
-.text-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.text-input:focus {
-  border-color: var(--wf-accent, #ff6a54);
-}
-
-select.text-input option {
-  background: var(--wf-input, #0f0f13);
-  color: var(--wf-text, #e7e7ec);
 }
 </style>

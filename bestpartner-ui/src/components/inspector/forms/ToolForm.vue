@@ -207,60 +207,21 @@ function applyArguments(next: Record<string, unknown>) {
   </div>
 </template>
 
+<!-- .form / .field / .field label / .text-input 由 styles/wf-form.css 共用 -->
 <style scoped>
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field label {
-  font-size: 11px;
-  color: var(--wf-text-dim, #8a8a95);
-}
-
-.text-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.text-input:focus {
-  border-color: var(--wf-accent, #ff6a54);
-}
-
-select.text-input option {
-  background: var(--wf-input, #0f0f13);
-  color: var(--wf-text, #e7e7ec);
-}
-
 .setting-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-  border: 1px solid var(--wf-border, #29292f);
+  border: 1px solid var(--wf-border);
   border-radius: 8px;
 }
 
 .section-toggle {
   font-size: 12px;
   text-align: left;
-  color: var(--wf-accent, #ff6a54);
+  color: var(--wf-accent);
   background: none;
   border: none;
   cursor: pointer;
@@ -279,9 +240,9 @@ select.text-input option {
   padding: 6px 12px;
   font-size: 12.5px;
   font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-accent, #ff6a54);
+  color: var(--wf-text);
+  background: var(--wf-input);
+  border: 1px solid var(--wf-accent);
   border-radius: 8px;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -295,12 +256,12 @@ select.text-input option {
 .setting-error {
   margin: 0;
   font-size: 11.5px;
-  color: var(--wf-accent, #ff6a54);
+  color: var(--wf-accent);
 }
 
 .setting-success {
   margin: 0;
   font-size: 11.5px;
-  color: var(--wf-text-dim, #8a8a95);
+  color: var(--wf-text-2);
 }
 </style>

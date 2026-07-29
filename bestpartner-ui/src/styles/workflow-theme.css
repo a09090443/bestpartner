@@ -1,41 +1,140 @@
 /**
- * Workflow 編輯器深色主題（n8n 風格）
- * Token 作用域限定於 .wf-editor，避免污染 Login / WorkflowList 等淺色頁面。
+ * Workflow 編輯器主題 token（單一事實來源）。
+ *
+ * 作用域限定於 .wf-editor，避免污染 Login / WorkflowList 等未改版的頁面。
+ * 淺色為 base（屬性缺失時的安全預設），深色以 [data-wf-theme='dark'] 覆寫。
+ * 主題切換由 composables/useEditorTheme.ts 掛上 data-wf-theme。
+ *
+ * 命名依設計稿（claude.ai/design「N8n 工作流畫布設計」）：
+ *   panel / panel-2 / card / card-2 / border / border-2 / text / text-2 / text-3
+ *   / input / hover / line / dot / shadow / scroll
+ * ⚠️ 與舊命名的三個語意差異（改動時勿望文生義）：
+ *   - 舊 --wf-surface-2 是「工具列」（比 surface 亮）；新 --wf-panel-2 是「凹陷子面板」（比 panel 暗）。
+ *     工具列現在用 --wf-panel。
+ *   - 舊 --wf-border-2 比 --wf-border 亮（節點卡邊框用）；新 --wf-border-2 比 --wf-border 暗
+ *     （內部淡分隔線用）。節點卡邊框現在用 --wf-border。
+ *   - 舊 --wf-text-dim 依語境拆為 --wf-text-2（內文／說明）與 --wf-text-3（uppercase 小標／mono 副標）。
+ *
  * 字型（Manrope / IBM Plex Mono）由 index.html <link> 引入 Google Fonts。
  */
 
+@import './wf-form.css';
+
 .wf-editor {
-  /* 背景層次 */
-  --wf-bg: #131316; /* 畫布最底層背景 */
-  --wf-surface: #17171c; /* 左右側欄背景 */
-  --wf-surface-2: #1a1a20; /* 頂部工具列 */
-  --wf-card: #1e1e26; /* 節點卡片背景 */
-  --wf-input: #0f0f13; /* 輸入框背景 */
+  /* ---- 背景層次 ---- */
+  --wf-bg: #f3f3f6; /* 畫布最底層 */
+  --wf-panel: #ffffff; /* 工具列與左右側欄 */
+  --wf-panel-2: #fafafc; /* 凹陷子面板（Node Designer 的 Input / Output 欄） */
+  --wf-card: #ffffff; /* 節點卡片、統計卡 */
+  --wf-card-2: #f7f7fa; /* icon 按鈕底、分頁選中底 */
+  --wf-input: #f7f7fa; /* 輸入框底 */
+  --wf-hover: #f0f0f4; /* 可點項目 hover 底 */
 
-  /* 邊框 */
-  --wf-border: #29292f; /* 分隔線／欄框 */
-  --wf-border-2: #31313c; /* 節點邊框 */
+  /* ---- 邊框與線條 ---- */
+  --wf-border: #e4e5eb; /* 主要分隔線／欄框／節點卡邊框 */
+  --wf-border-2: #edeef2; /* 更淡的內部分隔線 */
+  --wf-line: #b9bcc8; /* 連線、輸入埠邊、breadcrumb 分隔符 */
+  --wf-dot: #d0d1d9; /* 畫布點陣格線 */
 
-  /* 文字 */
-  --wf-text: #e7e7ec; /* 主文字 */
-  --wf-text-dim: #8a8a95; /* 次要文字（副標） */
-  --wf-text-mute: #5c5c67; /* 分類標題 */
+  /* ---- 文字 ---- */
+  --wf-text: #16171c; /* 主文字 */
+  --wf-text-2: #5a5d6b; /* 內文、說明、欄位標籤 */
+  --wf-text-3: #8c90a0; /* uppercase 小標、mono 副標、placeholder */
 
-  /* 強調色 */
+  /* ---- 陰影與捲軸 ---- */
+  --wf-shadow: 0 6px 18px -10px rgba(20, 22, 35, 0.35);
+  --wf-shadow-lg: 0 24px 60px -18px rgba(20, 22, 35, 0.35);
+  --wf-scroll: #cfd0d8;
+  --wf-scroll-h: #b6b8c2;
+
+  /* ---- 強調色 ---- */
   --wf-accent: #ff6a54; /* 選取環、主要按鈕、暫時連線 */
-  --wf-success: #3ecf8e; /* 已存／完成狀態 */
+  --wf-on-accent: #ffffff; /* accent 實心底上的文字 */
+  --wf-success: #17a86e; /* 已存／完成狀態 */
 
-  /* 畫布 */
-  --wf-grid-dot: #2b2b34; /* 點陣格線 */
-  --wf-edge: #4a4a55; /* 邊線預設色 */
+  /* ---- 語意色（原先散在 6 個檔案的寫死值收編於此） ---- */
+  --wf-danger: #d1442f;
+  --wf-danger-bg: rgba(226, 76, 58, 0.08);
+  --wf-danger-border: rgba(226, 76, 58, 0.26);
+  --wf-warning: #b57314;
+  --wf-warning-bg: rgba(230, 162, 60, 0.14);
+  --wf-warning-border: rgba(230, 162, 60, 0.4);
 
-  /* 字型 */
+  /* PROMPT 節點代表色，用於「已由上游提示節點提供」徽章 */
+  --wf-accent-prompt: #8b4fd0;
+  --wf-accent-prompt-bg: rgba(179, 127, 235, 0.14);
+  --wf-accent-prompt-border: rgba(179, 127, 235, 0.35);
+
+  /* ---- 執行狀態（節點邊框／結果抽屜狀態標籤） ---- */
+  --wf-exec-running: #b57314;
+  --wf-exec-running-glow: rgba(230, 162, 60, 0.25);
+  --wf-exec-success: #2e8b3f;
+  --wf-exec-failed: #d1442f;
+  --wf-exec-cancelled: #9a7233;
+  --wf-exec-cancelled-stripe: rgba(230, 162, 60, 0.12);
+  --wf-exec-cancelled-stripe-2: rgba(120, 120, 130, 0.1);
+
+  /* ---- 畫布控制項 ---- */
+  --wf-minimap-mask: rgba(243, 243, 246, 0.6);
+
+  /*
+   * 節點型別色在前景（圖示、型別標籤）上的混色比例。
+   * 13 種型別色是為深色底挑的，其中 SKILL (#a0d911) / OUTPUT (#52c41a) 直接放到白底
+   * 對比不足；淺色主題下混入黑色壓暗，深色主題維持原色。
+   * 使用點：color-mix(in srgb, var(--node-color) var(--node-fg-mix), #000)
+   * ⚠️ 這是 CSS 層的處理——nodeTypes.ts 的色值本身不動（跨前後端語意 + 有測試依賴）。
+   */
+  --node-fg-mix: 72%;
+
+  /* ---- 字型 ---- */
   --wf-font: 'Manrope', 'Helvetica Neue', Arial, 'Microsoft JhengHei', sans-serif;
   --wf-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   font-family: var(--wf-font);
   color: var(--wf-text);
   background: var(--wf-bg);
+}
+
+.wf-editor[data-wf-theme='dark'] {
+  --wf-bg: #121216;
+  --wf-panel: #17171c;
+  --wf-panel-2: #141419;
+  --wf-card: #1e1e26;
+  --wf-card-2: #1b1b21;
+  --wf-input: #0f0f13;
+  --wf-hover: #25252d;
+
+  --wf-border: #29292f;
+  --wf-border-2: #232329;
+  --wf-line: #4a4a55;
+  --wf-dot: #2b2b34;
+
+  --wf-text: #eff0f4;
+  --wf-text-2: #b0b2bf;
+  --wf-text-3: #82848f;
+
+  --wf-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.7);
+  --wf-shadow-lg: 0 30px 70px -20px rgba(0, 0, 0, 0.8);
+  --wf-scroll: #33333d;
+  --wf-scroll-h: #43434f;
+
+  --wf-danger: #f56c6c;
+  --wf-danger-bg: rgba(245, 108, 108, 0.12);
+  --wf-danger-border: rgba(245, 108, 108, 0.35);
+  --wf-warning: #e6a23c;
+  --wf-warning-bg: rgba(230, 162, 60, 0.12);
+  --wf-warning-border: rgba(230, 162, 60, 0.35);
+
+  --wf-accent-prompt: #b37feb;
+
+  --wf-exec-running: #e6a23c;
+  --wf-exec-success: #67c23a;
+  --wf-exec-failed: #f56c6c;
+  --wf-exec-cancelled: #b88a4a;
+
+  --wf-minimap-mask: rgba(19, 19, 22, 0.55);
+
+  --node-fg-mix: 100%;
 }
 
 /* ---- Vue Flow 節點：選取狀態（Vue Flow 於外層 wrapper 掛 .selected） ---- */
@@ -50,11 +149,11 @@
   height: 13px;
   border-radius: 50%;
   background: var(--wf-card);
-  border: 2px solid var(--wf-text-mute); /* 輸入埠：灰邊 */
+  border: 2px solid var(--wf-line); /* 輸入埠：中性線色 */
 }
 
 .wf-editor .vue-flow__handle.source {
-  border-color: var(--node-color, var(--wf-text-mute)); /* 輸出埠：型別色邊 */
+  border-color: var(--node-color, var(--wf-line)); /* 輸出埠：型別色邊 */
 }
 
 /* 連線中的暫時線用 accent */
@@ -63,18 +162,20 @@
   stroke-width: 2;
 }
 
-/* ---- 執行狀態上色（依 execution store 的 nodeStates 即時掛上，class 綁在 .workflow-node 本身） ---- */
+/* ---- 執行狀態上色（依 execution store 的 nodeStates 即時掛上，class 綁在 .workflow-node 本身） ----
+   設計稿以「形狀」而非單純換色區分狀態：執行中是 accent 光暈、完成是右上角勾勾徽章，
+   避免與型別色撞色（TRIGGER 紅 ≡ FAILED 紅、CONDITION 橘 ≡ RUNNING 橘）。 */
 .wf-editor .workflow-node.is-exec-running {
-  border-color: #e6a23c !important;
+  border-color: var(--wf-accent) !important;
   animation: exec-pulse 1.2s infinite;
 }
 
 .wf-editor .workflow-node.is-exec-success {
-  border-color: #67c23a !important;
+  border-color: color-mix(in srgb, var(--wf-success) 55%, transparent) !important;
 }
 
 .wf-editor .workflow-node.is-exec-failed {
-  border-color: #f56c6c !important;
+  border-color: var(--wf-exec-failed) !important;
 }
 
 .wf-editor .workflow-node.is-exec-skipped {
@@ -84,19 +185,60 @@
 /* 取消/停止後仍在跑的節點：灰橘斜紋 + 虛線邊框，與 SKIPPED 的單純半透明區隔 */
 .wf-editor .workflow-node.is-exec-cancelled {
   border-style: dashed !important;
-  border-color: #b88a4a !important;
+  border-color: var(--wf-exec-cancelled) !important;
   opacity: 0.7;
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(230, 162, 60, 0.12),
-    rgba(230, 162, 60, 0.12) 6px,
-    rgba(120, 120, 130, 0.1) 6px,
-    rgba(120, 120, 130, 0.1) 12px
+    var(--wf-exec-cancelled-stripe),
+    var(--wf-exec-cancelled-stripe) 6px,
+    var(--wf-exec-cancelled-stripe-2) 6px,
+    var(--wf-exec-cancelled-stripe-2) 12px
   );
 }
 
 @keyframes exec-pulse {
-  50% {
-    box-shadow: 0 0 0 6px rgba(230, 162, 60, 0.25);
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--wf-accent) 50%, transparent),
+      0 0 18px color-mix(in srgb, var(--wf-accent) 25%, transparent);
   }
+  50% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--wf-accent) 50%, transparent),
+      0 0 26px color-mix(in srgb, var(--wf-accent) 35%, transparent);
+  }
+}
+
+/* ---- 執行中的連線：資料流動動畫（由 WorkflowEditorView 依 execution store 掛上 is-flowing） ---- */
+.wf-editor .vue-flow__edge.is-flowing .vue-flow__edge-path {
+  stroke: var(--wf-accent);
+  stroke-dasharray: 6 8;
+  animation: wf-flow 0.55s linear infinite;
+}
+
+@keyframes wf-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* ---- 自訂捲軸（設計稿：9px、圓角、透明外框） ---- */
+.wf-editor ::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.wf-editor ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wf-editor ::-webkit-scrollbar-thumb {
+  background: var(--wf-scroll);
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.wf-editor ::-webkit-scrollbar-thumb:hover {
+  background: var(--wf-scroll-h);
+  background-clip: content-box;
 }

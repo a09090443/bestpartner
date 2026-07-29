@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import NodeIcon from '../common/NodeIcon.vue'
 import { NODE_CATEGORIES, getNodesByCategory } from '../../constants/nodeTypes'
 import type { NodeCategory, NodeTypeMeta } from '../../constants/nodeTypes'
 import type { NodeType } from '../../types/workflow'
@@ -22,11 +23,6 @@ const groups = computed<PaletteGroup[]>(() => {
     ),
   })).filter((group) => group.items.length > 0)
 })
-
-/** 型別色轉 16% 透明度背景（色碼皆為 6 位 hex，直接附加 alpha） */
-function tint(color: string): string {
-  return `${color}29`
-}
 
 function handleDragStart(event: DragEvent, type: NodeType) {
   if (!event.dataTransfer) return
@@ -70,10 +66,9 @@ function handleDragStart(event: DragEvent, type: NodeType) {
         draggable="true"
         @dragstart="handleDragStart($event, meta.type)"
       >
-        <span
-          class="palette-icon"
-          :style="{ backgroundColor: tint(meta.color), borderColor: meta.color, color: meta.color }"
-        >{{ meta.icon }}</span>
+        <span class="palette-icon" :style="{ '--node-color': meta.color }">
+          <NodeIcon :type="meta.type" :size="16" />
+        </span>
         <span class="palette-label">{{ meta.label }}</span>
         <span class="palette-add" aria-hidden="true">+</span>
       </div>
@@ -92,14 +87,14 @@ function handleDragStart(event: DragEvent, type: NodeType) {
   width: 250px;
   box-sizing: border-box;
   flex-shrink: 0;
-  border-right: 1px solid var(--wf-border, #29292f);
-  background: var(--wf-surface, #17171c);
+  border-right: 1px solid var(--wf-border);
+  background: var(--wf-panel);
   overflow-y: auto;
 }
 
 .palette-title {
   font-weight: 700;
-  color: var(--wf-text-dim, #8a8a95);
+  color: var(--wf-text-3);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -115,7 +110,7 @@ function handleDragStart(event: DragEvent, type: NodeType) {
   position: absolute;
   left: 9px;
   display: flex;
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
   pointer-events: none;
 }
 
@@ -125,20 +120,20 @@ function handleDragStart(event: DragEvent, type: NodeType) {
   padding: 7px 10px 7px 28px;
   font-size: 12.5px;
   font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 8px;
+  color: var(--wf-text);
+  background: var(--wf-input);
+  border: 1px solid var(--wf-border);
+  border-radius: 9px;
   outline: none;
   transition: border-color 0.15s;
 }
 
 .search-input::placeholder {
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
 }
 
 .search-input:focus {
-  border-color: var(--wf-accent, #ff6a54);
+  border-color: var(--wf-accent);
 }
 
 .palette-group {
@@ -152,7 +147,7 @@ function handleDragStart(event: DragEvent, type: NodeType) {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
   margin: 6px 0 2px;
 }
 
@@ -161,14 +156,17 @@ function handleDragStart(event: DragEvent, type: NodeType) {
   align-items: center;
   gap: 10px;
   padding: 7px 8px;
-  border-radius: 8px;
+  /* 預設透明邊框：hover 才顯色，避免加邊時整列位移 */
+  border: 1px solid transparent;
+  border-radius: 9px;
   cursor: grab;
   user-select: none;
-  transition: background-color 0.12s;
+  transition: background-color 0.12s, border-color 0.12s;
 }
 
 .palette-item:hover {
-  background: #212128;
+  background: var(--wf-hover);
+  border-color: var(--wf-border);
 }
 
 .palette-item:hover .palette-add {
@@ -179,20 +177,21 @@ function handleDragStart(event: DragEvent, type: NodeType) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
-  font-size: 13px;
-  border: 1px solid;
-  border-radius: 7px;
+  color: color-mix(in srgb, var(--node-color) var(--node-fg-mix), #000);
+  background: color-mix(in srgb, var(--node-color) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--node-color) 26%, transparent);
+  border-radius: 9px;
 }
 
 .palette-label {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--wf-text, #e7e7ec);
+  color: var(--wf-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -200,7 +199,7 @@ function handleDragStart(event: DragEvent, type: NodeType) {
 
 .palette-add {
   font-size: 14px;
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
   opacity: 0;
   transition: opacity 0.12s;
 }
@@ -208,6 +207,6 @@ function handleDragStart(event: DragEvent, type: NodeType) {
 .palette-empty {
   margin: 4px 0 0;
   font-size: 12px;
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
 }
 </style>

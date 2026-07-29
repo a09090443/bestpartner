@@ -131,53 +131,26 @@ function onCheckbox(name: string, event: Event) {
   </div>
 </template>
 
+<!--
+  .form / .field / .field label 的基底與 .text-input 由 styles/wf-form.css 共用。
+  本檔只留獨有覆寫：label 需縱向堆疊（標題 + 說明），且 .hint 是「行內小字」，
+  與其他表單那種「虛線方框」的 .hint 語意不同，故不可上移為共用規則。
+-->
 <style scoped>
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .field label {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 11px;
-  color: var(--wf-text-dim, #8a8a95);
 }
 
 .required {
-  color: var(--wf-accent, #ff6a54);
+  color: var(--wf-accent);
   margin-left: 2px;
 }
 
 .hint {
   margin-left: 6px;
   opacity: 0.75;
-}
-
-.text-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.text-input:focus {
-  border-color: var(--wf-accent, #ff6a54);
 }
 
 .text-input.checkbox {

@@ -115,44 +115,4 @@ function emitConfig() {
   </div>
 </template>
 
-<style scoped>
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field label {
-  font-size: 11px;
-  color: var(--wf-text-dim, #8a8a95);
-}
-
-.text-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.text-input:focus {
-  border-color: var(--wf-accent, #ff6a54);
-}
-
-select.text-input option {
-  background: var(--wf-input, #0f0f13);
-  color: var(--wf-text, #e7e7ec);
-}
-</style>
+<!-- 樣式全部沿用 styles/wf-form.css 的共用規則，本元件無獨有樣式 -->

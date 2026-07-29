@@ -7,7 +7,7 @@ description: Use when user wants to run the BestPartner UI-driven E2E test plan,
 
 ## Overview
 
-每次 E2E 測試週期，依 `docs/e2e-test-plan.md` 的旅程矩陣（J1–J8），**基於固定模板** `./e2e-test-checklist.md` 建立一份帶日期的確認記錄檔。**每份測試報告都從該清單複製產出**，不得另行設計格式。
+每次 E2E 測試週期，依 `docs/e2e-test-plan.md` 的旅程矩陣（J1–J9），**基於固定模板** `./e2e-test-checklist.md` 建立一份帶日期的確認記錄檔。**每份測試報告都從該清單複製產出**，不得另行設計格式。
 
 E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash 指令驅動本機 Playwright，截圖與操作記錄產於 `final_runs/run_<id>/`），對 **port 80 真實後端 + PostgreSQL** 全貫穿；J5 執行案例使用**真實 LLM**（斷言看 SSE 事件序列與節點狀態，不比對輸出文字）。
 
@@ -89,7 +89,7 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 > ⚠️ 未做資源/認證前置確認即開測，視同違規。
 > 替代/加強：必要時可另跑 backend `@QuarkusTest`（如 `LLMServiceTest` 或 assistant 相關）深驗真實 LLM/MCP 呼叫（非預設）。
 
-### Step 5：逐旅程執行循環（J1 → J8 依序）
+### Step 5：逐旅程執行循環（J1 → J9 依序）
 
 **執行入口為 `webwright` skill**（非 Playwright spec）。對每條旅程的每個案例：
 
@@ -117,9 +117,18 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 
 ### Step 6：測試資料清理（強制）
 
-E2E 建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，測試中經 `workflow/delete` API 刪除；收尾時以前綴掃描 `workflow/list` 兜底清除任何殘留 `e2e-*`。
+E2E 建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名。**建立時把 id 記錄下來，收尾只刪這些 id**；需要兜底掃描時必須帶本次的 `runTag`。
 
 > ⚠️ 不得另建備份檔／目錄；殘留測試資料視為流程不完整（遵守「備份只能寫 `docs/sql/bestpartner-init-data.sql`」鐵則）。
+
+> 🚫 **絕不可依「使用者也會自然產生的名稱」批次刪除**（實際事故：曾把 `name === '未命名流程'` 加進清理條件，
+> 而那是使用者未命名就存檔的預設名稱，結果刪掉了使用者自己的流程）。
+> 名稱樣式無法區分測試資料與使用者資料；**唯一安全依據是本次執行記錄下來的 id**。
+> 同理，執行紀錄（`llm_workflow_execution` / `..._node_execution`）不隨 workflow 連鎖刪除，
+> 要清也只能以本次產生的 execution id 為範圍，不可依日期或「孤兒」條件整批刪。
+
+> 若使用者要求**保留**測試流程供其手動驗證，以其指示為準：不做清理、流程名稱避開 `e2e-` 前綴
+> （免得日後任何一輪的兜底掃描把它清掉），並於回報中明確標示保留了哪些資料。
 
 ### Step 6.5：測試後關閉服務（強制）
 

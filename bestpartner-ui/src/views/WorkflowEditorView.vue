@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import {
+  computed,
+  markRaw,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+  watch,
+} from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Connection, Node, NodeTypesObject } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
-import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import NodePalette from '../components/canvas/NodePalette.vue'
@@ -12,13 +20,18 @@ import WorkflowNode from '../components/canvas/WorkflowNode.vue'
 import ExecutionResultDrawer from '../components/canvas/ExecutionResultDrawer.vue'
 import InspectorPanel from '../components/inspector/InspectorPanel.vue'
 import { DRAG_NODE_TYPE_KEY } from '../components/canvas/dragKeys'
+import { OPEN_DESIGNER_KEY } from '../components/canvas/designerInjection'
+import NodeDesignerModal from '../components/nodeDesigner/NodeDesignerModal.vue'
 import { generateNodeKey } from '../composables/useNodeKey'
-import { getNodeTypeMeta } from '../constants/nodeTypes'
+import { useEditorTheme } from '../composables/useEditorTheme'
+import { NODE_FALLBACK_COLOR, getNodeTypeMeta } from '../constants/nodeTypes'
 import { flowToSaveRequest, makeEdgeId } from '../composables/useWorkflowSync'
 import { layoutGraph } from '../composables/useCanvasLayout'
 import { computeFitZoom } from '../composables/useDefaultZoom'
 import { validateGraph, CAPABILITY_SOURCE_TYPES } from '../composables/useGraphValidation'
-import { IN_PROMPT, IN_TOOL } from '../constants/handles'
+import { IN_MAIN, IN_PROMPT, IN_TOOL } from '../constants/handles'
+import type { UpstreamSource } from '../types/nodeDesigner'
+import { buildUpstreamRef, type UpstreamRef } from '../constants/nodeOutputKeys'
 import { useWorkflowStore, WorkflowVersionConflictError } from '../stores/workflow'
 import { useExecutionStore } from '../stores/execution'
 import { useAuthStore } from '../stores/auth'
@@ -39,9 +52,13 @@ const store = useWorkflowStore()
 const executionStore = useExecutionStore()
 const authStore = useAuthStore()
 
+// 編輯器深／淺主題（預設淺色，偏好存 localStorage；離開本頁時會清掉 <html class="dark">）
+const { theme, isDark, toggleTheme } = useEditorTheme()
+
 const {
   onConnect,
   onNodeClick,
+  onNodeDoubleClick,
   onPaneClick,
   onNodesChange,
   onEdgesChange,
@@ -55,6 +72,9 @@ const {
   setViewport,
   toObject,
   fitView,
+  zoomIn,
+  zoomOut,
+  viewport,
   nodes: flowNodesRef,
   edges: flowEdgesRef,
 } = useVueFlow()
@@ -64,6 +84,65 @@ const canvasRef = ref<HTMLElement | null>(null)
 
 const selectedNode = ref<FlowNode | null>(null)
 const configValid = ref(true)
+
+/**
+ * Node Designer 全屏編輯頁鎖定的節點 key（null 為關閉）。
+ * 與 selectedNode / configValid 同樣屬「畫布互動狀態」，一律留在 view 的 ref 不進 store；
+ * 且 modal 需要的 nodes/edges 只有此處的 useVueFlow() 拿得到。
+ */
+const designerNodeId = ref<string | null>(null)
+
+/**
+ * 開啟指定節點的編輯頁，並同步選取該節點——名稱／設定的更新一律走既有的
+ * selectedNode handler，避免出現第二套寫入路徑；關閉 modal 後 Inspector 也已對齊。
+ */
+function openDesigner(nodeId?: string) {
+  if (!nodeId) return
+  const node = (flowNodesRef?.value ?? []).find((n) => n.id === nodeId)
+  if (node) selectedNode.value = node as unknown as FlowNode
+  designerNodeId.value = nodeId
+}
+
+function closeDesigner() {
+  designerNodeId.value = null
+}
+
+/** modal 綁定的節點（節點被刪除時自動失效，template 的 v-if 隨即收起 modal） */
+const designerNode = computed<FlowNode | null>(() => {
+  if (!designerNodeId.value) return null
+  const node = (flowNodesRef?.value ?? []).find((n) => n.id === designerNodeId.value)
+  return (node as unknown as FlowNode) ?? null
+})
+
+/** modal 的上游輸入來源：畫布 edges ＋ execution store 的節點輸出（只有 view 拿得到 edges） */
+const designerSources = computed<UpstreamSource[]>(() => {
+  const targetId = designerNodeId.value
+  if (!targetId) return []
+  const nodes = flowNodesRef?.value ?? []
+  return (flowEdgesRef?.value ?? [])
+    .filter((edge) => edge.target === targetId)
+    .map((edge) => {
+      const from = nodes.find((n) => n.id === edge.source)
+      const data = from?.data as { name?: string; type?: NodeType } | undefined
+      return {
+        nodeId: edge.source,
+        name: data?.name?.trim() || getNodeTypeMeta(data?.type as NodeType)?.label || edge.source,
+        targetHandle: edge.targetHandle ?? IN_MAIN,
+        output: executionStore.nodeStates[edge.source]?.output,
+      }
+    })
+})
+
+/** 節點卡右上角的開啟鈕拿不到父層 listener，改以 provide/inject 下放 */
+provide(OPEN_DESIGNER_KEY, openDesigner)
+
+onNodeDoubleClick(({ node }) => openDesigner(node.id))
+
+/** 從 modal 刪除節點：先關閉再刪，避免 modal 綁著已不存在的節點 */
+function onDesignerDelete() {
+  closeDesigner()
+  onDeleteNode()
+}
 
 // 登出流程進行中：讓 onBeforeRouteLeave 略過未存確認（登出已自行確認過，避免二次跳窗）
 const loggingOut = ref(false)
@@ -83,12 +162,71 @@ const connectionCount = computed(() => flowEdgesRef?.value?.length ?? 0)
 const promptBoundNodeKeys = computed(() =>
   (flowEdgesRef?.value ?? []).filter((e) => e.targetHandle === IN_PROMPT).map((e) => e.target),
 )
+/**
+ * 供 OUTPUT 表單使用的「可引用上游輸出」建議。
+ *
+ * 列出圖上所有會產生輸出的節點（排除自己、以及不產生輸出的 SKILL / OUTPUT）——
+ * 引擎的 ExecutionContext 持有所有已執行節點的輸出，`{{任一nodeKey.欄位}}` 都引用得到，
+ * 不限直接上游。已執行過的節點以實際輸出鍵為準，未執行則用型別預設鍵（見 nodeOutputKeys.ts）。
+ */
+const upstreamRefs = computed<UpstreamRef[]>(() => {
+  const selfId = selectedNode.value?.id
+  return (flowNodesRef?.value ?? [])
+    .filter((n) => {
+      const type = (n.data as { type?: NodeType } | undefined)?.type
+      return n.id !== selfId && type !== 'SKILL' && type !== 'OUTPUT'
+    })
+    .map((n) => {
+      const data = n.data as
+        | { name?: string; type?: NodeType; config?: Record<string, unknown> }
+        | undefined
+      const type = data?.type as NodeType
+      return buildUpstreamRef({
+        nodeId: n.id,
+        name: data?.name?.trim() || getNodeTypeMeta(type)?.label || n.id,
+        type,
+        config: data?.config,
+        executedOutput: executionStore.nodeStates[n.id]?.output,
+      })
+    })
+    .filter((r) => r.refs.length > 0)
+})
+
+/**
+ * nodeKey → 人類可讀名稱，供 OUTPUT 的運算式編輯器把 `{{Mr7gjxEL.reply}}`
+ * 渲染成「LLM 助手 › reply」。
+ *
+ * 涵蓋**圖上全部節點**（不只有輸出的那些）——查不到才標成未知引用，
+ * 若這裡漏掉某節點，使用者會看到一個其實正確的引用被誤標成紅色。
+ * 另補上引擎的內建值：`__input__`（TriggerExecutor.INPUT_KEY）與 LOOP 的迭代別名。
+ */
+const refLabels = computed<Record<string, string>>(() => {
+  const labels: Record<string, string> = { __input__: '啟動資料（執行時傳入）' }
+  for (const n of flowNodesRef?.value ?? []) {
+    const data = n.data as
+      | { name?: string; type?: NodeType; config?: Record<string, unknown> }
+      | undefined
+    const type = data?.type as NodeType
+    labels[n.id] = data?.name?.trim() || getNodeTypeMeta(type)?.label || n.id
+    // LOOP 子圖內可用 `{{item}}` 引用當前迭代項，別名可由 itemAlias 覆寫
+    if (type === 'LOOP') {
+      const alias = data?.config?.itemAlias
+      const key = typeof alias === 'string' && alias.trim() ? alias.trim() : 'item'
+      labels[key] = `${labels[n.id]} 的迭代項`
+    }
+  }
+  return labels
+})
+
 const triggerCount = computed(
   () =>
     (flowNodesRef?.value ?? []).filter(
       (n) => (n.data as { type?: NodeType } | undefined)?.type === 'TRIGGER',
     ).length,
 )
+
+// zoom bar 顯示的縮放百分比（測試 mock 可能未提供 viewport，需防禦）
+const zoomPercent = computed(() => Math.round((viewport?.value?.zoom ?? 1) * 100))
 
 const isActive = computed(() => store.current?.status === 'ACTIVE')
 
@@ -107,13 +245,34 @@ function decorateEdge<T extends object>(edge: T): T & typeof EDGE_DEFAULTS {
 /** MiniMap 節點著色：沿用節點型別代表色 */
 function minimapNodeColor(node: Node): string {
   const type = (node.data as { type?: NodeType } | undefined)?.type
-  return (type && getNodeTypeMeta(type)?.color) || '#909399'
+  return (type && getNodeTypeMeta(type)?.color) || NODE_FALLBACK_COLOR
 }
 
 function currentId(): string | undefined {
   const idParam = route.params.id
   return Array.isArray(idParam) ? idParam[0] : idParam
 }
+
+/**
+ * 執行期間讓「資料已流過」的連線顯示流動虛線（樣式見 workflow-theme.css 的 .is-flowing）。
+ * 判準：來源節點已完成，且目標節點正在跑或已完成 —— 亦即這條線上的資料確實傳遞過。
+ * 直接改 edge 物件的 class（Vue Flow 的 edges 是響應式陣列），不另建 computed，
+ * 因為 :default-edge-options 只在建立時套用一次。
+ */
+watch(
+  () => [executionStore.running, executionStore.nodeStates] as const,
+  () => {
+    const states = executionStore.nodeStates
+    for (const edge of flowEdgesRef?.value ?? []) {
+      const from = states[edge.source]?.status
+      const to = states[edge.target]?.status
+      const flowing =
+        executionStore.running && from === 'SUCCESS' && (to === 'RUNNING' || to === 'SUCCESS')
+      edge.class = flowing ? 'is-flowing' : ''
+    }
+  },
+  { deep: true },
+)
 
 /** 依畫布可視寬度計算「容納約 5 個節點」的預設縮放；量不到寬度時退回固定值 */
 function defaultCanvasZoom(): number {
@@ -279,7 +438,8 @@ function onDrop(event: DragEvent) {
     id: generateNodeKey(),
     type: 'workflow',
     position,
-    data: { name: meta?.label ?? type, type, config: {} },
+    // defaultConfig 必須展開複製，否則同型別的多個節點會共用 nodeTypes.ts 上的同一個物件
+    data: { name: meta?.label ?? type, type, config: { ...(meta?.defaultConfig ?? {}) } },
   }
   addNodes([newNode])
   store.setDirty(true)
@@ -487,7 +647,7 @@ async function handleSave() {
 </script>
 
 <template>
-  <div class="wf-editor editor-layout">
+  <div class="wf-editor editor-layout" :data-wf-theme="theme">
     <!-- 頂部工具列 -->
     <div class="toolbar">
       <div class="toolbar-left">
@@ -506,6 +666,48 @@ async function handleSave() {
       </div>
 
       <div class="toolbar-right">
+        <button
+          type="button"
+          class="icon-btn"
+          data-test="theme-toggle"
+          :aria-label="isDark ? '切換為淺色主題' : '切換為深色主題'"
+          :title="isDark ? '切換為淺色主題' : '切換為深色主題'"
+          @click="toggleTheme"
+        >
+          <!-- 深色時顯示太陽（點了會變亮），淺色時顯示月亮 -->
+          <svg
+            v-if="isDark"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="4.2" />
+            <path
+              d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"
+            />
+          </svg>
+          <svg
+            v-else
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20.5 13.4A8.5 8.5 0 1 1 10.6 3.5a6.8 6.8 0 0 0 9.9 9.9z" />
+          </svg>
+        </button>
+
         <div class="tabs">
           <button type="button" class="tab active">Editor</button>
           <button type="button" class="tab" disabled title="即將推出">Executions</button>
@@ -521,19 +723,31 @@ async function handleSave() {
           />
         </div>
 
-        <button
-          type="button"
-          class="btn primary"
-          data-test="run-button"
-          @click="handleRun"
-        >
-          {{ executionStore.running ? '■ 停止' : '▶ 執行' }}
-        </button>
         <button type="button" class="btn ghost" data-test="tidy-button" @click="handleTidyUp">
           整理版面
         </button>
-        <button type="button" class="btn primary" data-test="save-button" @click="handleSave">
+        <button type="button" class="btn ghost" data-test="save-button" @click="handleSave">
           存檔
+        </button>
+        <!-- 執行是工具列唯一的 accent 實心按鈕（設計稿的主要行動） -->
+        <button
+          type="button"
+          class="btn primary run-btn"
+          :class="{ 'is-running': executionStore.running }"
+          data-test="run-button"
+          @click="handleRun"
+        >
+          <span v-if="executionStore.running" class="run-spinner" aria-hidden="true" />
+          <svg
+            v-else
+            class="run-glyph"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M8 5.6v12.8L19 12z" />
+          </svg>
+          {{ executionStore.running ? '停止' : '執行' }}
         </button>
         <button
           type="button"
@@ -555,10 +769,33 @@ async function handleSave() {
           :default-edge-options="EDGE_DEFAULTS"
           delete-key-code="Delete"
         >
-          <Background variant="dots" :gap="20" :size="1.4" color="#2b2b34" />
+          <!-- 點色不走 color prop：該 prop 會變成 <circle fill> presentation attribute，
+               無法用 CSS 變數。改由下方 :deep(.vue-flow__background circle) 的 fill 覆寫，
+               才能跟著主題切換。 -->
+          <Background variant="dots" :gap="20" :size="1.4" />
           <MiniMap :node-color="minimapNodeColor" pannable zoomable />
-          <Controls position="bottom-left" />
         </VueFlow>
+
+        <!-- 自訂 zoom bar（取代 @vue-flow/controls 的預設樣式，才能與設計稿一致並跟著主題切換） -->
+        <div class="zoom-bar" data-test="zoom-bar">
+          <button type="button" class="zoom-btn" data-test="zoom-out" aria-label="縮小" @click="zoomOut()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+          <span class="zoom-value" data-test="zoom-value">{{ zoomPercent }}%</span>
+          <button type="button" class="zoom-btn" data-test="zoom-in" aria-label="放大" @click="zoomIn()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+          <span class="zoom-divider" />
+          <button type="button" class="zoom-btn" data-test="zoom-fit" aria-label="適應視窗" @click="fitView({ padding: 0.2 })">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" />
+            </svg>
+          </button>
+        </div>
         <ExecutionResultDrawer />
       </div>
 
@@ -573,6 +810,8 @@ async function handleSave() {
           :workflow-status="store.current?.status"
           :required-fields="requiredFields"
           :prompt-bound-node-keys="promptBoundNodeKeys"
+          :upstream-refs="upstreamRefs"
+          :ref-labels="refLabels"
           @update:node-name="onNodeNameUpdate"
           @update:node-config="onNodeConfigUpdate"
           @update:workflow-name="onWorkflowNameUpdate"
@@ -580,9 +819,31 @@ async function handleSave() {
           @duplicate-node="onDuplicateNode"
           @delete-node="onDeleteNode"
           @config-validity="configValid = $event"
+          @open-designer="openDesigner(selectedNode?.id)"
         />
       </div>
     </div>
+
+    <!-- 節點全屏編輯頁。刻意留在 .wf-editor 內（不 teleport），否則主題 token 與
+         wf-form.css 的 `.wf-editor ` 前綴規則都會失效——說明見該元件註解。 -->
+    <NodeDesignerModal
+      v-if="designerNode"
+      :key="designerNode.id"
+      :node-id="designerNode.id"
+      :type="designerNode.data.type"
+      :name="designerNode.data.name ?? ''"
+      :config="designerNode.data.config ?? {}"
+      :sources="designerSources"
+      :run="executionStore.nodeStates[designerNode.id]"
+      :required-fields="requiredFields"
+      :prompt-bound-node-keys="promptBoundNodeKeys"
+      @close="closeDesigner"
+      @update:node-name="onNodeNameUpdate"
+      @update:node-config="onNodeConfigUpdate"
+      @config-validity="configValid = $event"
+      @duplicate-node="onDuplicateNode"
+      @delete-node="onDesignerDelete"
+    />
   </div>
 </template>
 
@@ -604,7 +865,7 @@ async function handleSave() {
   flex-shrink: 0;
   padding: 0 14px;
   box-sizing: border-box;
-  background: var(--wf-surface-2);
+  background: var(--wf-panel);
   border-bottom: 1px solid var(--wf-border);
 }
 
@@ -630,12 +891,12 @@ async function handleSave() {
 
 .breadcrumb {
   font-size: 12.5px;
-  color: var(--wf-text-dim);
+  color: var(--wf-text-2);
   white-space: nowrap;
 }
 
 .breadcrumb-sep {
-  color: var(--wf-text-mute);
+  color: var(--wf-line);
   margin-left: 2px;
 }
 
@@ -680,8 +941,30 @@ async function handleSave() {
 .version {
   font-size: 11px;
   font-family: var(--wf-font-mono);
-  color: var(--wf-text-mute);
+  color: var(--wf-text-3);
   white-space: nowrap;
+}
+
+/* 方形圖示按鈕（主題切換） */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  color: var(--wf-text-2);
+  background: var(--wf-card-2);
+  border: 1px solid var(--wf-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.icon-btn:hover {
+  color: var(--wf-text);
+  background: var(--wf-hover);
 }
 
 .tabs {
@@ -698,7 +981,7 @@ async function handleSave() {
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
-  color: var(--wf-text-dim);
+  color: var(--wf-text-2);
   background: transparent;
   border: none;
   border-radius: 7px;
@@ -711,7 +994,7 @@ async function handleSave() {
 }
 
 .tab:disabled {
-  color: var(--wf-text-mute);
+  color: var(--wf-text-3);
   cursor: not-allowed;
 }
 
@@ -724,7 +1007,7 @@ async function handleSave() {
 .toggle-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--wf-text-dim);
+  color: var(--wf-text-2);
 }
 
 .btn {
@@ -741,15 +1024,15 @@ async function handleSave() {
 .btn.ghost {
   color: var(--wf-text);
   background: var(--wf-card);
-  border: 1px solid var(--wf-border-2);
+  border: 1px solid var(--wf-border);
 }
 
 .btn.ghost:hover {
-  border-color: var(--wf-text-mute);
+  border-color: var(--wf-text-3);
 }
 
 .btn.primary {
-  color: #fff;
+  color: var(--wf-on-accent);
   background: var(--wf-accent);
   border: 1px solid var(--wf-accent);
 }
@@ -758,9 +1041,36 @@ async function handleSave() {
   filter: brightness(1.08);
 }
 
+/* 執行鈕：圖示 + 文字並排；執行中換成旋轉指示器 */
+.run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.run-glyph {
+  width: 13px;
+  height: 13px;
+}
+
+.run-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--wf-on-accent) 35%, transparent);
+  border-top-color: var(--wf-on-accent);
+  border-radius: 50%;
+  animation: run-spin 0.7s linear infinite;
+}
+
+@keyframes run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .btn.ghost.logout {
   margin-left: 4px;
-  color: var(--wf-text-dim);
+  color: var(--wf-text-2);
 }
 
 .btn.ghost.logout:hover {
@@ -784,17 +1094,23 @@ async function handleSave() {
   background: var(--wf-bg);
 }
 
+/* 點陣格線：Background 的 color prop 產生的是 <circle fill> presentation attribute，
+   優先權低於任何 CSS 規則，故以 fill 屬性覆寫即可跟隨主題 */
+.canvas :deep(.vue-flow__background circle) {
+  fill: var(--wf-dot);
+}
+
 .inspector {
   width: 322px;
   flex-shrink: 0;
   border-left: 1px solid var(--wf-border);
-  background: var(--wf-surface);
+  background: var(--wf-panel);
   overflow-y: auto;
 }
 
 /* ---- 連線：深色預設，hover / 選取轉 accent ---- */
 .canvas :deep(.vue-flow__edge-path) {
-  stroke: var(--wf-edge);
+  stroke: var(--wf-line);
   transition: stroke 0.15s, stroke-width 0.15s;
 }
 
@@ -808,32 +1124,72 @@ async function handleSave() {
   stroke-width: 4;
 }
 
-/* ---- Controls 深色覆寫 ---- */
-.canvas :deep(.vue-flow__controls) {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-  border-radius: 10px;
+/* ---- 自訂 zoom bar（左下角，浮在畫布之上） ---- */
+.zoom-bar {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--wf-panel);
+  border: 1px solid var(--wf-border);
+  border-radius: 11px;
+  box-shadow: var(--wf-shadow);
+}
+
+.zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--wf-text-2);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.zoom-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.zoom-btn:hover {
+  color: var(--wf-text);
+  background: var(--wf-hover);
+}
+
+.zoom-value {
+  min-width: 42px;
+  text-align: center;
+  font-family: var(--wf-font-mono);
+  font-size: 11px;
+  color: var(--wf-text-2);
+  user-select: none;
+}
+
+.zoom-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--wf-border);
+}
+
+/* ---- MiniMap 主題覆寫 ---- */
+.canvas :deep(.vue-flow__minimap) {
+  background: var(--wf-panel);
+  border: 1px solid var(--wf-border);
+  border-radius: 11px;
   overflow: hidden;
 }
 
-.canvas :deep(.vue-flow__controls-button) {
-  background: var(--wf-surface-2);
-  border-bottom: 1px solid var(--wf-border);
-  fill: var(--wf-text-dim);
-}
-
-.canvas :deep(.vue-flow__controls-button:hover) {
-  background: var(--wf-card);
-  fill: var(--wf-text);
-}
-
-/* ---- MiniMap 深色覆寫 ---- */
-.canvas :deep(.vue-flow__minimap) {
-  background: var(--wf-surface-2);
-  border: 1px solid var(--wf-border);
-  border-radius: 10px;
-}
-
 .canvas :deep(.vue-flow__minimap-mask) {
-  fill: rgba(19, 19, 22, 0.55);
+  fill: var(--wf-minimap-mask);
 }
 </style>

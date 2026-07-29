@@ -35,6 +35,7 @@ vi.mock('@vue-flow/core', () => ({
   useVueFlow: () => ({
     onConnect: vi.fn(),
     onNodeClick: vi.fn(),
+    onNodeDoubleClick: vi.fn(),
     onPaneClick: vi.fn(),
     onNodesChange: h.onNodesChangeMock,
     onEdgesChange: vi.fn(),

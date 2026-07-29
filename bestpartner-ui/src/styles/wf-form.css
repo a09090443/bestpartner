@@ -1,0 +1,52 @@
+/**
+ * Workflow 編輯器共用表單樣式。
+ *
+ * 由 workflow-theme.css 於檔首 @import 引入，故載入順序在各元件 scoped 樣式之後，
+ * 同特異性時由本檔勝出。所有選擇器一律加 `.wf-editor ` 前綴作為命名空間，
+ * 不會外洩到 Login / WorkflowList 等未套用 .wf-editor 的頁面。
+ *
+ * 收斂對象：inspector/forms/ 底下 8 支表單與 InspectorPanel 原本各自複製一份的
+ * .form / .field / .field label / .text-input。各元件仍保留自己的 <style scoped>，
+ * 只放「該元件獨有」的規則（如 .text-input.muted、.hint 的兩種不同樣式）。
+ */
+
+.wf-editor .form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wf-editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wf-editor .field label {
+  font-size: 11px;
+  color: var(--wf-text-2);
+}
+
+.wf-editor .text-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--wf-text);
+  background: var(--wf-input);
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.wf-editor .text-input:focus {
+  border-color: var(--wf-accent);
+}
+
+/* 原生 select 的選單項在部分瀏覽器不繼承父層配色，需明確指定 */
+.wf-editor select.text-input option {
+  background: var(--wf-input);
+  color: var(--wf-text);
+}

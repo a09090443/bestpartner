@@ -1,4 +1,5 @@
 import dagre from '@dagrejs/dagre'
+import { NODE_BOX } from '../constants/canvas'
 import type { FlowNode, FlowEdge } from './useWorkflowSync'
 
 /** 排版參數（以 Vue Flow 座標為單位） */
@@ -14,10 +15,11 @@ export interface LayoutOptions {
 }
 
 const DEFAULTS: Required<LayoutOptions> = {
-  nodeWidth: 160,
-  nodeHeight: 64,
-  nodeSep: 40,
-  rankSep: 80,
+  nodeWidth: NODE_BOX.width,
+  nodeHeight: NODE_BOX.height,
+  // 加大間距以容納較寬的節點卡與輸出埠旁的文字標示（True / False / 迴圈 / 結束）
+  nodeSep: 48,
+  rankSep: 110,
 }
 
 /**

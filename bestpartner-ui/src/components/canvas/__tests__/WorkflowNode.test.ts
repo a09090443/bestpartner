@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import WorkflowNode from '../WorkflowNode.vue'
 import { useExecutionStore } from '../../../stores/execution'
+import { OPEN_DESIGNER_KEY } from '../designerInjection'
 
 // Vue Flow 的 Handle 需 VueFlow context，單元測試以 stub 取代。
 // stub 暴露 id/type 為 data 屬性，供斷言埠數量與 handle id。
@@ -143,5 +144,47 @@ describe('WorkflowNode', () => {
       global: globalConfig,
     })
     expect(noConfig.find('[data-test="node-subtitle"]').text()).toBe('code')
+  })
+
+  it('執行成功時顯示完成徽章，其他狀態不顯示', () => {
+    const store = useExecutionStore()
+    store.nodeStates['n1'] = { status: 'SUCCESS' }
+    store.nodeStates['n2'] = { status: 'RUNNING' }
+
+    const done = mount(WorkflowNode, {
+      props: { id: 'n1', data: { type: 'TOOL' } },
+      global: globalConfig,
+    })
+    expect(done.find('[data-test="node-done-badge"]').exists()).toBe(true)
+
+    const running = mount(WorkflowNode, {
+      props: { id: 'n2', data: { type: 'TOOL' } },
+      global: globalConfig,
+    })
+    expect(running.find('[data-test="node-done-badge"]').exists()).toBe(false)
+  })
+
+  it('右上角開啟鈕呼叫 inject 進來的 openDesigner 並帶入節點 id', async () => {
+    const calls: string[] = []
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'n7', data: { type: 'TOOL' } },
+      global: {
+        ...globalConfig,
+        provide: { [OPEN_DESIGNER_KEY as symbol]: (id: string) => calls.push(id) },
+      },
+    })
+
+    await wrapper.find('[data-test="node-open-designer"]').trigger('click')
+    expect(calls).toEqual(['n7'])
+  })
+
+  it('未 provide openDesigner 時點開啟鈕不報錯（預設 no-op）', async () => {
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'n8', data: { type: 'TOOL' } },
+      global: globalConfig,
+    })
+    await expect(
+      wrapper.find('[data-test="node-open-designer"]').trigger('click'),
+    ).resolves.not.toThrow()
   })
 })

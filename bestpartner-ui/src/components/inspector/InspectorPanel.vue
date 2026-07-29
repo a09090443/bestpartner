@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { computed, markRaw, watch } from 'vue'
+import { computed, watch } from 'vue'
 import JsonConfigEditor from './JsonConfigEditor.vue'
-import LlmAssistantForm from './forms/LlmAssistantForm.vue'
-import PromptForm from './forms/PromptForm.vue'
-import ToolForm from './forms/ToolForm.vue'
-import McpServerForm from './forms/McpServerForm.vue'
-import SkillForm from './forms/SkillForm.vue'
-import KnowledgeRagForm from './forms/KnowledgeRagForm.vue'
-import OutputForm from './forms/OutputForm.vue'
-import { NODE_CATEGORIES, getNodeTypeMeta, getNodesByCategory } from '../../constants/nodeTypes'
+import NodeIcon from '../common/NodeIcon.vue'
+import { resolveTypedForm, buildTypedFormProps } from './typedForms'
+import {
+  NODE_CATEGORIES,
+  NODE_FALLBACK_COLOR,
+  getNodeTypeMeta,
+  getNodesByCategory,
+} from '../../constants/nodeTypes'
 import { missingRequiredForNode, formatMissingFields } from '../../utils/nodeRequiredFields'
 import { useExecutionStore } from '../../stores/execution'
 import type { FlowNode } from '../../composables/useWorkflowSync'
 import type { WorkflowStatus } from '../../types/workflow'
 import type { NodeRequiredFields } from '../../api/workflow'
+import type { UpstreamRef } from '../../constants/nodeOutputKeys'
 
 const props = defineProps<{
   selectedNode?: FlowNode | null
@@ -28,6 +29,10 @@ const props = defineProps<{
   requiredFields?: NodeRequiredFields
   /** 已有 PROMPT 節點連到其 in:prompt 埠的 LLM 節點 key 清單（由編輯器依畫布 edges 計算） */
   promptBoundNodeKeys?: string[]
+  /** 圖上可供 OUTPUT 引用的上游輸出建議（由編輯器依畫布節點計算） */
+  upstreamRefs?: UpstreamRef[]
+  /** nodeKey → 顯示名稱，供 OUTPUT 的運算式編輯器渲染可讀色塊 */
+  refLabels?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -38,36 +43,23 @@ const emit = defineEmits<{
   'config-validity': [valid: boolean]
   'duplicate-node': []
   'delete-node': []
+  /** 請父層開啟該節點的全屏編輯頁（Node Designer）；modal 狀態由編輯器持有 */
+  'open-designer': []
 }>()
 
-/** 型別化表單分派表；其餘型別退回 JsonConfigEditor */
-const TYPED_FORMS = markRaw({
-  LLM_ASSISTANT: LlmAssistantForm,
-  PROMPT: PromptForm,
-  TOOL: ToolForm,
-  MCP_SERVER: McpServerForm,
-  SKILL: SkillForm,
-  KNOWLEDGE_RAG: KnowledgeRagForm,
-  OUTPUT: OutputForm,
-})
+/** 型別化表單分派（與 Node Designer 共用，見 typedForms.ts）；其餘型別退回 JsonConfigEditor */
+const typedForm = computed(() => resolveTypedForm(props.selectedNode?.data.type))
 
-const typedForm = computed(() => {
-  const type = props.selectedNode?.data.type
-  return (type && TYPED_FORMS[type as keyof typeof TYPED_FORMS]) || null
-})
-
-/**
- * 傳給型別化表單的 props。
- * hasUpstreamPrompt 只加給 LLM 表單——其他表單未宣告此 prop，硬傳會變成落在根元素的
- * fallthrough attribute。
- */
-const typedFormProps = computed<Record<string, unknown>>(() => {
-  const base: Record<string, unknown> = { config: props.selectedNode?.data.config ?? {} }
-  if (props.selectedNode?.data.type === 'LLM_ASSISTANT') {
-    base.hasUpstreamPrompt = (props.promptBoundNodeKeys ?? []).includes(props.selectedNode.id)
-  }
-  return base
-})
+const typedFormProps = computed(() =>
+  buildTypedFormProps({
+    type: props.selectedNode?.data.type,
+    nodeId: props.selectedNode?.id,
+    config: props.selectedNode?.data.config,
+    promptBoundNodeKeys: props.promptBoundNodeKeys,
+    upstreamRefs: props.upstreamRefs,
+    refLabels: props.refLabels,
+  }),
+)
 
 // 型別化表單為結構化輸入，永遠有效；選中時通知 config 有效，清除先前 JSON 無效狀態
 watch(
@@ -86,16 +78,11 @@ function nodeTypeLabel(node: FlowNode): string {
   return getNodeTypeMeta(node.data.type)?.label ?? node.data.type
 }
 
-/** hex 轉 16% 透明底色（型別色 icon box 用） */
-function tint(color: string): string {
-  return `${color}29`
-}
-
 /** overview 圖例：每分類取該分類第一個型別的代表色 */
 const legend = computed(() =>
   NODE_CATEGORIES.map((category) => ({
     category,
-    color: getNodesByCategory(category)[0]?.color ?? '#909399',
+    color: getNodesByCategory(category)[0]?.color ?? NODE_FALLBACK_COLOR,
   })),
 )
 
@@ -138,23 +125,45 @@ const nodeRun = computed(() =>
       <div class="node-header">
         <span
           class="node-icon-box"
-          :style="{
-            backgroundColor: tint(selectedMeta?.color ?? '#909399'),
-            borderColor: selectedMeta?.color ?? '#909399',
-          }"
-        >{{ selectedMeta?.icon ?? '⬜' }}</span>
+          :style="{ '--node-color': selectedMeta?.color ?? NODE_FALLBACK_COLOR }"
+        >
+          <NodeIcon :type="props.selectedNode.data.type" :size="20" />
+        </span>
         <div class="node-header-info">
-          <div class="node-type-label" :style="{ color: selectedMeta?.color ?? '#909399' }">
+          <div
+            class="node-type-label"
+            :style="{ '--node-color': selectedMeta?.color ?? NODE_FALLBACK_COLOR }"
+          >
             {{ nodeTypeLabel(props.selectedNode) }}
           </div>
           <input
-            class="text-input name-input"
+            class="name-input"
             data-test="node-name-input"
             :value="props.selectedNode.data.name"
             @input="emit('update:node-name', ($event.target as HTMLInputElement).value)"
           />
         </div>
       </div>
+
+      <button
+        type="button"
+        class="designer-btn"
+        data-test="open-node-designer-button"
+        @click="emit('open-designer')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M15 3h6v6M21 3l-8 8M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" />
+        </svg>
+        開啟節點編輯頁
+      </button>
 
       <div
         v-if="missingRequired.length > 0"
@@ -281,8 +290,8 @@ const nodeRun = computed(() =>
   height: 100%;
   box-sizing: border-box;
   padding: 14px;
-  background: var(--wf-surface, #17171c);
-  color: var(--wf-text, #e7e7ec);
+  background: var(--wf-panel);
+  color: var(--wf-text);
 }
 
 /* ---- 已選節點 header ---- */
@@ -291,19 +300,20 @@ const nodeRun = computed(() =>
   align-items: center;
   gap: 10px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--wf-border, #29292f);
+  border-bottom: 1px solid var(--wf-border);
 }
 
 .node-icon-box {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  font-size: 17px;
-  border: 1px solid;
-  border-radius: 10px;
+  color: color-mix(in srgb, var(--node-color) var(--node-fg-mix), #000);
+  background: color-mix(in srgb, var(--node-color) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--node-color) 28%, transparent);
+  border-radius: 11px;
 }
 
 .node-header-info {
@@ -319,10 +329,63 @@ const nodeRun = computed(() =>
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--node-color) var(--node-fg-mix), #000);
 }
 
+/* 名稱採 inline 編輯：平時看起來像純文字，hover 才浮出邊框、focus 才上底色 */
 .name-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  margin-left: -6px;
+  font-size: 15px;
   font-weight: 700;
+  font-family: inherit;
+  color: var(--wf-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.name-input:hover {
+  border-color: var(--wf-border);
+}
+
+.name-input:focus {
+  background: var(--wf-input);
+  border-color: var(--wf-accent);
+}
+
+/* ---- 開啟 Node Designer ---- */
+.designer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--wf-text);
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.designer-btn svg {
+  width: 14px;
+  height: 14px;
+  color: var(--wf-text-2);
+}
+
+.designer-btn:hover {
+  background: var(--wf-hover);
+  border-color: var(--wf-text-3);
 }
 
 /* ---- 必填欄位缺漏提示 ---- */
@@ -336,16 +399,16 @@ const nodeRun = computed(() =>
 
 /* DRAFT / INACTIVE：可存檔但未來啟用時會被擋，橘色 warning 語意 */
 .required-warning--warning {
-  color: #e6a23c;
-  background: rgba(230, 162, 60, 0.12);
-  border-color: rgba(230, 162, 60, 0.35);
+  color: var(--wf-warning);
+  background: var(--wf-warning-bg);
+  border-color: var(--wf-warning-border);
 }
 
 /* ACTIVE：存檔當下即被擋，紅色 error 語意 */
 .required-warning--error {
-  color: #f56c6c;
-  background: rgba(245, 108, 108, 0.12);
-  border-color: rgba(245, 108, 108, 0.35);
+  color: var(--wf-danger);
+  background: var(--wf-danger-bg);
+  border-color: var(--wf-danger-border);
 }
 
 /* ---- 區段 ---- */
@@ -360,44 +423,17 @@ const nodeRun = computed(() =>
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
 }
 
 .overview-hint {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--wf-text-dim, #8a8a95);
+  color: var(--wf-text-2);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field label {
-  font-size: 11px;
-  color: var(--wf-text-dim, #8a8a95);
-}
-
-.text-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.text-input:focus {
-  border-color: var(--wf-accent, #ff6a54);
-}
+/* .field / .field label / .text-input 由 styles/wf-form.css 共用 */
 
 /* ---- 統計卡 2×2 ---- */
 .stat-grid {
@@ -410,22 +446,24 @@ const nodeRun = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 10px 12px;
-  background: var(--wf-card, #1e1e26);
-  border: 1px solid var(--wf-border, #29292f);
-  border-radius: 10px;
+  padding: 11px 13px;
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
+  border-radius: 11px;
 }
 
 .stat-value {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 800;
-  color: var(--wf-text, #e7e7ec);
+  line-height: 1.15;
+  color: var(--wf-text);
 }
 
 .stat-value.status {
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.9;
   letter-spacing: 0.08em;
-  color: var(--wf-success, #3ecf8e);
+  color: var(--wf-success);
 }
 
 .stat-label {
@@ -433,7 +471,7 @@ const nodeRun = computed(() =>
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--wf-text-mute, #5c5c67);
+  color: var(--wf-text-3);
 }
 
 /* ---- 圖例 ---- */
@@ -450,34 +488,34 @@ const nodeRun = computed(() =>
 }
 
 .legend-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 
 .legend-label {
   font-size: 12px;
-  color: var(--wf-text-dim, #8a8a95);
+  color: var(--wf-text-2);
 }
 
 /* ---- 本次執行 ---- */
 .exec-section p {
   margin: 0;
   font-size: 12px;
-  color: var(--wf-text-dim, #8a8a95);
+  color: var(--wf-text-2);
 }
 
 .exec-section .error-text {
-  color: #f56c6c;
+  color: var(--wf-danger);
 }
 
 .exec-section .output-json {
   margin: 0;
   font-size: 11.5px;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-input, #0f0f13);
-  border: 1px solid var(--wf-border, #29292f);
+  color: var(--wf-text);
+  background: var(--wf-input);
+  border: 1px solid var(--wf-border);
   border-radius: 8px;
   padding: 8px;
   white-space: pre-wrap;
@@ -490,7 +528,7 @@ const nodeRun = computed(() =>
   gap: 8px;
   margin-top: auto;
   padding-top: 12px;
-  border-top: 1px solid var(--wf-border, #29292f);
+  border-top: 1px solid var(--wf-border);
 }
 
 .action-btn {
@@ -499,23 +537,28 @@ const nodeRun = computed(() =>
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
-  color: var(--wf-text, #e7e7ec);
-  background: var(--wf-card, #1e1e26);
-  border: 1px solid var(--wf-border-2, #31313c);
+  color: var(--wf-text);
+  background: var(--wf-card);
+  border: 1px solid var(--wf-border);
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.12s, color 0.12s;
 }
 
 .action-btn:hover {
-  border-color: var(--wf-text-mute, #5c5c67);
+  border-color: var(--wf-text-3);
 }
 
+/* Delete 不佔滿寬（Duplicate flex:1 吃掉剩餘空間），並以 danger 底色與之區隔 */
 .action-btn.danger {
-  color: #f56c6c;
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  color: var(--wf-danger);
+  background: var(--wf-danger-bg);
+  border-color: var(--wf-danger-border);
 }
 
 .action-btn.danger:hover {
-  border-color: #f56c6c;
+  border-color: var(--wf-danger);
 }
 </style>

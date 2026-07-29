@@ -5,12 +5,14 @@
  * 讓水平排列的 nodeCount 個節點（每個含間距約 slotWidth）剛好塞入畫布可視寬，
  * 使節點不至於過大重疊、且好對準連線點拉線。
  */
+import { NODE_SLOT_WIDTH } from '../constants/canvas'
+
 export interface FitZoomOptions {
   /** 畫布可視寬度（px）；不可用（≤0 或非有限值）時回傳 fallbackZoom */
   canvasWidth: number
   /** 目標容納節點數 */
   nodeCount?: number
-  /** 單一節點含水平間距的估算寬（節點約 200 + 間距約 60） */
+  /** 單一節點含水平間距的估算寬，見 constants/canvas.ts 的 NODE_SLOT_WIDTH */
   slotWidth?: number
   /** 縮放下限 */
   minZoom?: number
@@ -23,7 +25,7 @@ export interface FitZoomOptions {
 /** 預設參數：集中管理，避免魔術數字散落於呼叫端 */
 export const FIT_ZOOM_DEFAULTS = {
   nodeCount: 5,
-  slotWidth: 260,
+  slotWidth: NODE_SLOT_WIDTH,
   minZoom: 0.3,
   maxZoom: 1,
   fallbackZoom: 0.8,

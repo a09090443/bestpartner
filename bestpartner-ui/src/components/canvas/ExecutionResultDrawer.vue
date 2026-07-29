@@ -25,17 +25,17 @@ const store = useExecutionStore()
   max-height: 40%;
   overflow: auto;
   padding: 12px 16px;
-  background: var(--wf-surface-2, #17171c);
-  border-top: 1px solid var(--wf-border, #29292f);
+  background: var(--wf-panel);
+  border-top: 1px solid var(--wf-border);
   z-index: 10;
 }
 .drawer-header { display: flex; align-items: center; gap: 10px; }
-.drawer-title { font-weight: 700; font-size: 13px; color: var(--wf-text, #e7e7ec); }
+.drawer-title { font-weight: 700; font-size: 13px; color: var(--wf-text); }
 .status { font-size: 11px; font-weight: 700; }
-.status-success { color: #67c23a; }
-.status-failed { color: #f56c6c; }
-.status-cancelled { color: #e6a23c; }
-.close-btn { margin-left: auto; background: none; border: none; color: var(--wf-text-dim, #8a8a95); cursor: pointer; }
-.error-text { color: #f56c6c; font-size: 12px; }
-.output-json { font-size: 12px; color: var(--wf-text, #e7e7ec); white-space: pre-wrap; }
+.status-success { color: var(--wf-exec-success); }
+.status-failed { color: var(--wf-exec-failed); }
+.status-cancelled { color: var(--wf-exec-cancelled); }
+.close-btn { margin-left: auto; background: none; border: none; color: var(--wf-text-2); cursor: pointer; }
+.error-text { color: var(--wf-danger); font-size: 12px; }
+.output-json { font-size: 12px; color: var(--wf-text); white-space: pre-wrap; }
 </style>

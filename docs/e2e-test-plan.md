@@ -170,6 +170,8 @@
 | P1 | 某節點設定錯誤導致失敗 | 該節點顯示 `node.failed` 狀態與錯誤；執行標記失敗 |
 | P1 | 執行中途 client 斷線（關抽屜 / 離開頁面） | 執行標記 `CANCELLED`，未執行下游節點標記 `SKIPPED`（對應 commit b24c128 的視覺行為） |
 
+| P1 | execute 被後端擋下時（如含孤兒 PROMPT 節點）檢視執行結果面板 | 顯示**後端業務訊息**（含 nodeKey 與應連往的埠），**不得**只顯示 `HTTP 400`。⚠️ execute 是唯一走原生 `fetch`、不經 axios 攔截器的端點，其錯誤訊息解析在 `api/workflowExecution.ts` 自行實作，改動該檔時須重驗此條 |
+
 > **真實 LLM 斷言策略**：因輸出非確定，**不比對文字內容**；斷言聚焦於
 > ①SSE 事件序列與型別正確、②每個節點狀態最終為 completed、③整體 `execution.completed=SUCCESS`、④DB 執行紀錄寫入。
 > 逾時放寬（見 §6）；此案例需有效 `E2E_LLM_ID`，缺席時 skip 並在報告標註。
@@ -178,6 +180,11 @@
 
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
+| P0 | 自 palette 拖入 TRIGGER 後直接檢視 Inspector | `TriggerForm`（`data-test="trigger-type"`）顯示且值已為 `MANUAL`，**無必填欄位警告**——`triggerType` 由 `NodeTypeMeta.defaultConfig` 於拖放時帶入。`WEBHOOK` / `CRON` 選項列出但 `disabled` |
+| P1 | 對無型別化表單的節點（如 CODE）在 JSON 編輯器的**表格模式**新增欄位 | 以 `new-field-key` + `add-field` 可新增鍵（空鍵名／重複鍵顯示 `new-field-error`），`remove-field-<key>` 可移除；config 為空時不再只能切 JSON 模式手打 |
+| P0 | 選取尚未設定的 OUTPUT 節點 | 顯示 `output-both-empty`（擇一必填提示）與 `output-ref-suggestions`（上游可引用輸出 chip，顯示為「節點名 › 欄位」）；點 chip 插入到模板游標處，提示隨即消失。⚠️ 建議鍵取自上游**實際執行輸出**，未執行過則用 `constants/nodeOutputKeys.ts` 的型別預設鍵——該表手抄自後端 executor，改 executor 預設鍵須同步 |
+| P0 | 檢視含引用的輸出模板 | 引用渲染成色塊 `expr-token-<path>`，文字為「節點名 › 欄位」、`data-ref` 保留原始 `{{...}}`；**節點改名**後色塊文字跟著變而 `data-ref` 不變；引用不存在的節點時色塊帶 `is-unknown`。⚠️ 該欄位是 **contenteditable 而非 textarea**：Playwright 斷言要用 `textContent()`，**不可用 `inputValue()`** |
+| P1 | 於輸出模板以**中文輸入法**打字 | 組字期間不得吃字、不得把注音／拼音半成品寫進 config；commit 後文字完整、既有引用色塊不受影響。存檔後 DB 中的 `template` 應為「原始 `{{...}}` ＋ 中文」，**不含**畫面上的顯示文字（如「LLM 助手 ›」） |
 | P1 | LlmAssistantForm 選 `llmId`（下拉來自 LLM setting；表單已精簡，無工具/MCP/Skill/知識庫欄位） | 值寫回並可存檔；不再出現 `tool-ids` / `mcp-ids` / `skill-ids` / `knowledge-id` 欄位 |
 | P1 | ToolForm / McpServerForm / SkillForm / KnowledgeRagForm / PromptForm / OutputForm 填寫 | 各節點 config 正確寫回；save 後重載一致（SkillForm 選 `skillId`，下拉來自 `/llm/skill/list`；PromptForm 填 `prompt`（`data-test="prompt-text"`）與選填 `outputKey`） |
 | P1 | LLM 節點接上 PROMPT 後檢視 LlmAssistantForm | 顯示 `prompt-overridden-badge`（已由上游提示節點提供）與 `prompt-source-hint`；`user-prompt` 仍可編輯（作為後備值，非 disabled） |
@@ -232,6 +239,31 @@
 
 ---
 
+### J9 編輯器外觀與節點編輯頁（P1 / P2）
+
+> 本旅程只驗 UI 行為，**不需後端資料變更**，可併入 J3 的同一個 workflow 進行。
+
+| 優先 | 案例 | 預期 |
+|:---:|------|------|
+| P1 | 首次進編輯器（localStorage 無 `wf-theme`） | 根元素 `.wf-editor` 的 `data-wf-theme="light"`（淺色為預設） |
+| P1 | 點主題切換鈕（`data-test="theme-toggle"`） | `data-wf-theme` 翻為 `dark`、`<html>` 加上 `dark` class、`localStorage.wf-theme="dark"`；重整後仍為深色 |
+| P1 | 深色狀態下離開編輯器到 `/login` 或 `/`（列表） | `<html>` 的 `dark` class 已移除，兩頁維持 Element Plus 淺色（驗證 `onScopeDispose` 清理） |
+| P2 | 深色下觸發 `ElMessageBox`（未存離開／登出確認） | 對話框為深色配色且文字可讀（EP 深色走 `html.dark`，teleport 到 body 仍生效） |
+| P1 | 自訂縮放列（`zoom-bar`）：點 `zoom-in` / `zoom-out` / `zoom-fit` | 畫布縮放改變，`data-test="zoom-value"` 的百分比隨之更新 |
+| P0 | **雙擊節點**開啟 Node Designer | 出現 `data-test="node-designer-modal"`；header 顯示型別、分類與名稱；該節點同時被選取（Inspector 亦切到該節點） |
+| P1 | 由節點卡右上角鈕（`data-test="node-open-designer"`）開啟 | 同上；且**不會**觸發節點拖曳或取消選取（按鈕已 `@click.stop` / `@mousedown.stop`） |
+| P1 | 由 Inspector 的 `data-test="open-node-designer-button"` 開啟 | 同上 |
+| P1 | 三種關閉方式：Esc、點遮罩、`node-designer-close` | modal 皆消失；再次開啟時分頁回到 Parameters（`v-if` 卸載重建） |
+| P0 | 在 modal 的 Parameters 改 config → 關閉 | Inspector 表單與畫布節點副標同步更新（兩處共用同一份 `node.data.config`）；工具列標記為「未存」 |
+| P1 | 在 modal 的名稱輸入框打字後按 <kbd>Delete</kbd> | **節點不會被刪除**（Vue Flow 的 `delete-key-code` 綁在 pane 上，modal 在 `.vue-flow` DOM 之外） |
+| P1 | 未執行流程時檢視 Input / Output 欄 | 兩側皆顯示 `node-designer-input-empty` / `node-designer-output-empty`（「尚未執行」） |
+| P1 | 執行流程後開啟中段節點的 Designer | Input 顯示 `node-designer-input-json`（含 `來自 <上游名>`）、Output 顯示 `node-designer-output-json` 與可引用欄位 `{{nodeKey.欄位}}` |
+| P1 | 開啟 TRIGGER 的 Designer | Input 為虛線空狀態「這是觸發節點…」；**不顯示** JSON |
+| P1 | 開啟 SKILL 的 Designer | Input 空狀態為「這是能力提供節點…」；Output 空狀態為「不會產生自己的輸出」 |
+| P1 | 開啟已掛能力節點的 LLM 的 Designer | Input 下半段出現 `node-designer-capability-list`，以 chip 列出掛在 `in:tool` 的節點名，**不顯示其 JSON** |
+| P1 | 切到 Settings 分頁 | 顯示 nodeKey（可複製）、型別、分類、必填檢核與本次執行摘要；`node-designer-duplicate` / `node-designer-delete` 可用（刪除後 modal 自動關閉） |
+| P2 | 切到 Docs 分頁（逐一檢視 13 種型別） | 皆有說明與行為要點；連接埠清單與該型別實際 handle 一致（如 CONDITION 出現 `out:true` / `out:false`） |
+
 ## 4. 測試資料策略
 
 - **命名**：測試建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，便於識別與掃描殘留。
@@ -281,6 +313,9 @@ bestpartner-ui/
   - **節點連線**才是 pointer/滑鼠序列：`mouse.move(sourceHandle)→down→move(targetHandle,{steps})→up`，handle 以 `[data-node-type="X"] .vue-flow__handle[data-handleid="in:tool"]` 定位。
   - 每步後斷言 `.vue-flow__node` / `.vue-flow__edge` 數量再繼續，避免競態。
 - **選擇器策略**：專案用 `data-test`（非 Playwright 預設 `data-testid`），config 須設 `testIdAttribute:'data-test'`。節點根已加 `data-node-type` 供依型別定位；優先 `getByRole`/`getByTestId`，避免耦合 i18n 文字。
+- **Node Designer 是全屏遮罩**：開啟後畫布完全不可點。任何「開 Designer → 回畫布繼續操作」的流程，**必須先確認 `node-designer-modal` 已消失**再進行下一步，否則點擊會落在遮罩上。
+- **主題狀態會跨 spec 殘留**：偏好存於 `localStorage.wf-theme`，且深色會在 `<html>` 掛 `dark` class。斷言外觀相關項目前先明確設定或清除該鍵，不要依賴上一支 spec 的殘留狀態。
+- **本次改版新增的 `data-test`**：`theme-toggle`、`zoom-bar` / `zoom-in` / `zoom-out` / `zoom-fit` / `zoom-value`、`node-open-designer`、`node-done-badge`、`open-node-designer-button`、`node-designer-modal` / `-close` / `-name-input` / `-tab-parameters|settings|docs` / `-parameters` / `-settings` / `-docs` / `-input-panel` / `-input-empty` / `-input-json` / `-capability-list` / `-output-panel` / `-output-empty` / `-output-json` / `-output-status` / `-output-error` / `-output-preview` / `-copy-key` / `-duplicate` / `-delete`。
 - **登入**：email 欄位為 `type=email`（原生驗證擋非 email），須用真實 email（admin 為 `admin@bestpartner.com.tw`）而非裸 `admin`。
 - **ID 動態解析（重要）**：運行 dev DB 的 `llmId`/`toolId` 與 `docs/sql` 種子檔會漂移（實測 OpenRouter CHAT 於本機為 `1ee80ffa…`、種子檔為 `583b9222…`）。**禁止硬編 ID**；於 `global-setup` 以 API 依 alias/platform/name 解析當前 DB 真實 ID，寫入 `.artifacts/seed.json` 供 spec 讀取（`E2E_LLM_ID` 可覆寫，缺則 J5 skip）。
 - **隔離性**：各 spec 自建自清資料；storageState 唯讀復用，不被測試改寫。
@@ -325,6 +360,7 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 - 新增或修改 UI 路由 / workflow 節點型別 / 執行事件時，本文件與對應 spec 須同步更新（由 `documentation-sync` skill 把關）。
 - **`in:tool` 能力來源白名單（`CAPABILITY_SOURCE_TYPES`）異動時**，§J3（能力掛載）、§J4（不相容連線 + 白名單註）、§J5（Agent 模式）、§J8（若涉及 RAG）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此白名單前後端各有一份（`WorkflowEngine.kt` / `useGraphValidation.ts`），改一邊必改另一邊。
 - **`in:prompt` 提示埠規則異動時**（允許來源、提問優先序、兩項提示接線驗證），§J3（提示接線）、§J4（負向案例 + 兩埠對照表）、§J5（分支擇一執行）、§J6（PromptForm 與徽章）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此規則前後端各有一份（`WorkflowEngine.kt` 的 `PROMPT_INPUT_HANDLE` ＋兩個純函式 / `useGraphValidation.ts` 的相容性與 `PROMPT_WIRING_INCOMPLETE`），改一邊必改另一邊。
+- **編輯器外觀／互動殼層異動時**（主題切換、縮放列、Node Designer 的開關入口或三欄內容），§J9 與 `e2e-test-checklist.md` 的對應項目須一併更新；新增可互動元素一律補 `data-test` 並登錄於 §6 的清單。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
 - 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
 
