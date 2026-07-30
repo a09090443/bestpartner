@@ -2,7 +2,7 @@
 import { computed, inject } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import NodeIcon from '../common/NodeIcon.vue'
-import { OPEN_DESIGNER_KEY } from './designerInjection'
+import { OPEN_DESIGNER_KEY, RUN_FROM_TRIGGER_KEY } from './designerInjection'
 import { NODE_FALLBACK_COLOR, getNodeTypeMeta } from '../../constants/nodeTypes'
 import { useExecutionStore } from '../../stores/execution'
 import type { NodeType } from '../../types/workflow'
@@ -22,6 +22,7 @@ const executionStore = useExecutionStore()
 
 // 預設 no-op：單獨 mount 節點的測試不必補 provide（見 designerInjection.ts）
 const openDesigner = inject(OPEN_DESIGNER_KEY, () => {})
+const runFromTrigger = inject(RUN_FROM_TRIGGER_KEY, () => {})
 
 const execStatus = computed(() => executionStore.nodeStates[props.id]?.status)
 
@@ -107,6 +108,26 @@ function portTop(index: number, total: number): string {
         :style="{ top: portTop(i, outputs.length) }"
       >{{ port.label }}</span>
     </template>
+
+    <!-- 從此觸發點執行（僅 TRIGGER 節點）；同一畫布可有多個觸發點，各自獨立執行 -->
+    <button
+      v-if="isTrigger"
+      type="button"
+      class="node-run-btn"
+      data-test="node-run-from-here"
+      aria-label="從此觸發點執行"
+      title="從此觸發點執行"
+      @click.stop="runFromTrigger(props.id)"
+      @mousedown.stop
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M8 5.5v13l11-6.5z" />
+      </svg>
+    </button>
 
     <!-- 開啟全屏節點編輯頁；.stop 同時擋掉選取與 Vue Flow 的拖曳起手式 -->
     <button
@@ -200,8 +221,8 @@ function portTop(index: number, total: number): string {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* 讓出右上角開啟鈕的位置，避免長名稱壓到按鈕下方 */
-  padding-right: 20px;
+  /* 讓出右上角按鈕的位置，避免長名稱壓到按鈕下方（TRIGGER 節點右上為兩顆鈕） */
+  padding-right: 44px;
 }
 
 /* 右上角開啟鈕：未選取時淡化，hover / 選取時全亮 */
@@ -234,6 +255,40 @@ function portTop(index: number, total: number): string {
 .node-open-btn:hover {
   opacity: 1;
   color: var(--wf-text);
+}
+
+/*
+ * 「從此觸發點執行」鈕：緊靠開啟鈕左側（開啟鈕佔 right:6px、寬 22px）。
+ * 勾勾徽章在左上（top:-7px; left:-7px），故右上角只需避開彼此。
+ */
+.node-run-btn {
+  position: absolute;
+  top: 6px;
+  right: 32px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--node-fg);
+  background: var(--wf-card-2);
+  border: 1px solid var(--wf-border);
+  border-radius: 7px;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.node-run-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.workflow-node:hover .node-run-btn,
+.node-run-btn:hover {
+  opacity: 1;
 }
 
 .node-type-label {

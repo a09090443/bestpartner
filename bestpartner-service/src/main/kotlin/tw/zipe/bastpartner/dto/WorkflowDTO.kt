@@ -101,6 +101,14 @@ class WorkflowDTO {
 
     /** 執行輸入（僅 /execute 端點使用，任意巢狀 JSON；可空） */
     var inputPayload: JsonObject? = null
+
+    /**
+     * 指定由哪個 TRIGGER 節點發起本次執行（僅 /execute 端點使用；可空）。
+     *
+     * 帶值時僅該觸發點被活化，其餘 TRIGGER 與其獨佔下游落 SKIPPED；
+     * 省略或空白＝維持「所有 TRIGGER 皆執行」的既有行為。
+     */
+    var triggerNodeKey: String? = null
 }
 
 /**

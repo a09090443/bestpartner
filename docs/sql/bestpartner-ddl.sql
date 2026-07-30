@@ -355,6 +355,7 @@ CREATE TABLE "llm_workflow_execution" (
     "workflow_id"      varchar(36) NOT NULL,
     "workflow_version" int         NOT NULL,
     "trigger_id"       varchar(36) DEFAULT NULL,
+    "trigger_node_key" varchar(64) DEFAULT NULL,
     "trigger_type"     varchar(10) NOT NULL,
     "triggered_by"     varchar(80) NOT NULL,
     "status"           varchar(12) NOT NULL,

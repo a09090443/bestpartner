@@ -90,15 +90,18 @@ AI 模型決定需要調用工具
 
 ## Workflow 引擎資料模型
 
-視覺化 Workflow 引擎以 6 張 `llm_workflow*` 資料表落地（Phase 1 已建立定義相關表）：
+視覺化 Workflow 引擎以 6 張 `llm_workflow*` 資料表落地：
 
 | 資料表 | 說明 |
 |--------|------|
 | `llm_workflow` | Workflow 定義主檔（名稱、擁有者、狀態、版本、畫布視口）|
 | `llm_workflow_node` | 節點（類型、座標、節點專屬設定 `config`）|
 | `llm_workflow_edge` | 連線（來源/目標節點、連接點、條件）|
-| `llm_workflow_trigger` | 觸發器（manual/webhook/cron）※後續階段啟用 |
-| `llm_workflow_execution` | 執行紀錄主檔 ※後續階段啟用 |
-| `llm_workflow_node_execution` | 各節點執行明細 ※後續階段啟用 |
+| `llm_workflow_trigger` | 觸發器設定（webhook token、cron 表達式）※後續階段啟用——目前僅支援手動觸發，`triggerType` 的 `WEBHOOK` / `CRON` 尚未實作 |
+| `llm_workflow_execution` | 執行紀錄主檔（狀態、輸入輸出、錯誤節點、耗時；`trigger_node_key` 記錄本次由哪個 TRIGGER 節點發起）|
+| `llm_workflow_node_execution` | 各節點執行明細（狀態、輸入輸出、`seq_no`、`loop_index`、耗時）|
+
+> 手動執行（`POST /llm/workflow/execute`）已完整落地：執行過程逐節點寫入上述兩張紀錄表，
+> 並以 SSE 事件流即時回報進度。多觸發點畫布可用 `triggerNodeKey` 指定執行入口。
 
 > 詳見 [視覺化 Workflow](../features/workflow.md)。

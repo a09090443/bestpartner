@@ -6,6 +6,7 @@
 > 2026-07-03 修訂：§2.2 LLM_ASSISTANT config 補齊為 `ChatRequestDTO` 全集（toolSettingIds / mcpIds+mcpSettingIds / knowledgeId / files / responseFormat+outputSchema / memoryId 語意）；§2.5 補兩條 RAG 路徑取捨；§9 新增 2 個 i18n 訊息鍵。
 > 2026-07-12 修訂：**LLM 節點簡化為 Agent 模式**——§2 新增 `SKILL` 型別與「能力掛載（`in:tool` 埠）」機制；§2.2 移除 LLM config 的 toolIds/mcpIds/skillIds/knowledgeId/files（改由 TOOL/MCP/SKILL 獨立節點連接）；新增 §2.4.1 SKILL；新增 i18n `workflow.skill.node.not.mounted`。
 > 2026-07-25 修訂：**`KNOWLEDGE_RAG` 可作為 LLM 外掛（自動注入型 RAG）**——加入 `CAPABILITY_SOURCE_TYPES`，連 `in:tool` 時由 langchain4j `RetrievalAugmentor` 於推論前自動檢索注入（可同時掛多個知識庫，`DefaultQueryRouter` 合併），連 `out:main` 維持 §2.5 顯式檢索（並存，依出邊型別二選一）；§2.5 必填契約簡化為僅 `knowledgeId`（`query`/`embeddingModelId` 降為選填）；新增 `dto/KnowledgeMount`、`ChatRequestDTO.knowledgeMounts`。
+> 2026-07-30 修訂：**多觸發點各自獨立執行**——同一畫布可有多個 TRIGGER、各接一條下游流程並匯流到同一顆節點；`execute` 新增選填 `triggerNodeKey` 指定入口，未選定的 TRIGGER 與其獨佔下游落 SKIPPED（沿用 CONDITION 分支的活化規則，刻意不做可達性剪枝）。新增 §2.1.1；§1 ERD 與 §1.2 DDL 新增 `llm_workflow_execution.trigger_node_key varchar(64)`；§3 流程圖加入未選定 TRIGGER 分支；§5 契約補參數；§9 新增 i18n `workflow.trigger.node.not.found`、`workflow.trigger.node.invalid`。
 > 2026-07-28 修訂：**新增 `PROMPT` 提示詞節點（第 13 種）**——把 LLM 的提問內容抽成獨立節點，經 LLM 新增的**提示輸入埠 `in:prompt`** 餵入；該邊為一般資料流邊（參與活化與拓撲排序），故 CONDITION 分支可擇一驅動同一顆 LLM。§2 開頭新增「提示節點」段、新增 §2.2.1 PROMPT；§2.2 LLM 提問來源改為「PROMPT 節點優先、`userPrompt` 後備」；§9 新增 i18n `workflow.prompt.node.not.connected`、`workflow.llm.prompt.required`。
 
 ---
@@ -104,6 +105,7 @@ erDiagram
         varchar(36)  workflow_id FK "NOT NULL, index"
         int          workflow_version "NOT NULL, 執行當下版本快照"
         varchar(36)  trigger_id "NULL, FK->llm_workflow_trigger.id"
+        varchar(64)  trigger_node_key "NULL, 發起本次執行的 TRIGGER 節點 node_key；NULL=未指定(全部觸發點皆執行)"
         varchar(10)  trigger_type "NOT NULL, ENUM(MANUAL/WEBHOOK/CRON)"
         varchar(80)  triggered_by "NOT NULL, userId 或 cron:{id}/webhook:{id}"
         varchar(12)  status "NOT NULL, ENUM ExecutionStatus, index"
@@ -242,6 +244,7 @@ CREATE TABLE "llm_workflow_execution" (
     "workflow_id"      varchar(36) NOT NULL,
     "workflow_version" int         NOT NULL,
     "trigger_id"       varchar(36) DEFAULT NULL,
+    "trigger_node_key" varchar(64) DEFAULT NULL,
     "trigger_type"     varchar(10) NOT NULL,
     "triggered_by"     varchar(80) NOT NULL,
     "status"           varchar(12) NOT NULL,
@@ -329,6 +332,44 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
   "cron": { "expression": "0 0 9 * * ?", "overlapPolicy": "SKIP" }
 }
 ```
+
+#### 2.1.1 多觸發點：同一畫布多個入口，各自獨立執行
+
+同一張畫布可放**多個 TRIGGER 節點**，每個各接一條下游流程，且這些流程可**匯流到同一顆節點**
+（典型情境：多個入口共用一顆 `LLM_ASSISTANT`，各自搭配自己的 `PROMPT`）。
+圖驗證只要求「至少一顆 TRIGGER」（`WorkflowEngine.validateNodes`），**無上限**。
+
+執行時以 `POST /llm/workflow/execute` 的 `triggerNodeKey` 指定入口：
+
+| 情形 | 行為 |
+|------|------|
+| 帶合法 `triggerNodeKey` | 僅該 TRIGGER 被活化；其餘 TRIGGER 落 `SKIPPED`，其獨佔下游連鎖 `SKIPPED`。值記入 `llm_workflow_execution.trigger_node_key` |
+| 省略 / 空白 | **所有 TRIGGER 皆執行**（向後相容；webhook / cron 端點上線後亦沿用此路徑）。`trigger_node_key` 為 NULL |
+| nodeKey 不存在 | 400 `workflow.trigger.node.not.found`（含 nodeKey） |
+| nodeKey 型別非 TRIGGER | 400 `workflow.trigger.node.invalid`（含 nodeKey 與實際型別） |
+
+驗證位於 `validateNodes`（緊接「至少一顆 TRIGGER」檢查之後），故 `validateForExecution`
+與 `execute` 兩條路徑一致，且**於建立執行紀錄之前**即失敗，不留孤兒紀錄。
+
+**實作機制：只擋 TRIGGER 的活化，不做可達性剪枝。**
+下游剪枝由既有活化規則自然導出——未選定的 TRIGGER 不執行 → 不活化出邊 →
+其獨佔下游「有入邊但無一被活化」→ 走既有 SKIPPED 路徑（與 §2 開頭 CONDITION 分支同一套規則）。
+
+> ⚠️ **刻意不採「計算選定 TRIGGER 的可達集合、集合外一律 SKIPPED」**：那會誤殺 indegree 0 的
+> **非** TRIGGER 節點。畫布並未要求 `PROMPT` 必須有入邊，因此「只有 `out:main → LLM in:prompt`
+> 的孤立 PROMPT」是合法形狀，今日靠「無入邊則恆 active」而照常執行；常數型
+> `HTTP_REQUEST` / `DATA_TRANSFORM` / `CODE` 同理。剪掉它們會讓共用 LLM 取不到提問。
+
+匯流節點的提問來源由既有 `resolvePromptSources` + `LlmAssistantExecutor.resolveMessage`
+自動處理：後者取「**第一個已有輸出**」的提示來源，未選中分支的 PROMPT 是 SKIPPED、無輸出，
+故自動命中被選中那條——與 CONDITION 分支走的是同一條路，無需額外邏輯。
+
+**最終輸出形狀會隨之改變**（`collectFinalOutput` 只計入實際執行成功的 OUTPUT 節點）：
+畫布有 t1→outA、t2→outB 時，不指定觸發點會得到 `{outA: {...}, outB: {...}}` 的合併形狀；
+指定 t1 後只剩一個已執行的 OUTPUT，直接回該節點的 map 本身。
+
+> **遺留陷阱**：共用節點若以 `{{t2.field}}` 引用未被選中分支的節點，選 t1 執行時會
+> `workflow.variable.not.found`。這與「引用 CONDITION 未活化分支的節點」是同一個既有陷阱。
 
 ### 2.2 LLM_ASSISTANT（LLM / 自定義助手，Agent 模式）
 
@@ -544,11 +585,13 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 flowchart TD
     A[觸發來源: manual/webhook/cron] --> B[建立 workflow_execution\nstatus=RUNNING, started_at=now]
     B --> C[載入 workflow + nodes + edges]
-    C --> D{圖驗證: 無環? 有 Trigger?\n節點數<=上限?}
+    C --> D{圖驗證: 無環? 有 Trigger?\n節點數<=上限?\n指定的 triggerNodeKey 存在且為 TRIGGER?}
     D -- 否 --> E[execution=FAILED\n寫 error_message] --> Z[回傳結果/落地]
     D -- 是 --> F[拓樸排序 nodes]
     F --> G[依序取下一個 node]
-    G --> H[解析 input: 套用 {{變數}} 引用上游 output]
+    G --> G1{是未被選定的 TRIGGER?\n(有指定 triggerNodeKey 時)}
+    G1 -- 是 --> G2[node_execution=SKIPPED\n不執行、不活化出邊、不發事件\n其獨佔下游隨之連鎖 SKIPPED] --> U
+    G1 -- 否 --> H[解析 input: 套用 {{變數}} 引用上游 output]
     H --> I[寫 node_execution\nstatus=RUNNING, started_at]
     I --> J{節點類型分派\nLLM/Tool/MCP/RAG/Condition/Loop/Code/HTTP/Transform}
     J --> K{執行成功?}
@@ -620,7 +663,7 @@ stateDiagram-v2
 | 4 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta） | `id`, `name?`, `description?`, `canvasMeta?` | `WorkflowDTO` | `@Authenticated`（擁有者或 admin） |
 | 5 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge/trigger/execution） | `id` | success 訊息 | `@Authenticated`（擁有者或 admin） |
 | 6 | POST | `/llm/workflow/switchStatus` | 啟用 / 停用 workflow | `id`, `active`(bool) | `WorkflowDTO` | `@Authenticated`（擁有者或 admin） |
-| 7 | POST | `/llm/workflow/execute` | 手動同步執行 | `id`, `inputPayload?`(JSON) | `WorkflowExecutionDTO`(executionId, status, output, nodeExecutions) | `@Authenticated`（擁有者或 admin） |
+| 7 | POST | `/llm/workflow/execute` | 手動執行（**實作為 SSE 事件流** `Multi<String>`，非表中的單一 DTO 回應） | `id`, `inputPayload?`(JSON), `triggerNodeKey?`（指定入口，見 §2.1.1；省略＝所有 TRIGGER 皆執行） | SSE：`execution.started` / `node.started` / `node.completed` / `node.failed` / `execution.completed` | `@Authenticated`（擁有者或 admin） |
 | 8 | POST | `/llm/workflow/webhook/{token}` | Webhook 觸發（外部系統） | path `token`；body = inputPayload | 同步回傳執行結果（200） | `@PermitAll` + token 驗證 |
 | 9 | POST | `/llm/workflow/trigger/save` | 新增 / 更新 trigger（webhook 產 token、cron 設表達式） | `workflowId`, `type`, `nodeKey?`, `cronExpression?`, `overlapPolicy?`, `enabled` | `WorkflowTriggerDTO`(含 webhookToken) | `@Authenticated`（擁有者）；**CRON 設定 `@RolesAllowed("admin")`** |
 | 10 | POST | `/llm/workflow/trigger/delete` | 刪除 trigger | `triggerId` | success 訊息 | `@Authenticated`（擁有者）；CRON `@RolesAllowed("admin")` |
@@ -685,6 +728,7 @@ data class WorkflowExecutionDTO(
     var status: ExecutionStatus? = null,
     var triggerType: TriggerType? = null,
     var triggeredBy: String? = null,
+    var triggerNodeKey: String? = null,   // 發起本次執行的 TRIGGER 節點；null=未指定（見 §2.1.1）
     var inputPayload: JsonElement? = null,
     var outputResult: JsonElement? = null,
     var errorNodeKey: String? = null,
@@ -799,6 +843,8 @@ data class NodeExecutionDTO(
 | `workflow.llm.file.not.found` | WORKFLOW_LLM_FILE_NOT_FOUND | LLM 節點引用的上傳檔案不存在 |
 | `workflow.prompt.node.not.connected` | WORKFLOW_PROMPT_NODE_NOT_CONNECTED | 孤兒 PROMPT 節點（未連任何 LLM 的 `in:prompt`） |
 | `workflow.llm.prompt.required` | WORKFLOW_LLM_PROMPT_REQUIRED | LLM 節點既無 `userPrompt` 也無 PROMPT 連入 |
+| `workflow.trigger.node.not.found` | WORKFLOW_TRIGGER_NODE_NOT_FOUND | execute 指定的 `triggerNodeKey` 在圖上找不到（見 §2.1.1） |
+| `workflow.trigger.node.invalid` | WORKFLOW_TRIGGER_NODE_INVALID | execute 指定的 nodeKey 存在但型別不是 TRIGGER |
 
 ---
 

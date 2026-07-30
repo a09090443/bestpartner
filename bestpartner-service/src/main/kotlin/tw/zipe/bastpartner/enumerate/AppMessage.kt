@@ -110,6 +110,8 @@ enum class AppMessage(val key: String) {
     WORKFLOW_SKILL_NODE_NOT_MOUNTED("workflow.skill.node.not.mounted"),
     WORKFLOW_PROMPT_NODE_NOT_CONNECTED("workflow.prompt.node.not.connected"),
     WORKFLOW_LLM_PROMPT_REQUIRED("workflow.llm.prompt.required"),
+    WORKFLOW_TRIGGER_NODE_NOT_FOUND("workflow.trigger.node.not.found"),
+    WORKFLOW_TRIGGER_NODE_INVALID("workflow.trigger.node.invalid"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),

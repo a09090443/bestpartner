@@ -163,7 +163,7 @@ Skill 以 `.zip` 壓縮檔上傳，解壓後存於伺服器使用者專屬目錄
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta），須傳入 id |
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge），須傳入 id |
 | POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow（啟用前須具備 Trigger 節點、圖無環、逐節點驗 config 必填欄位——驗不過回報 nodeKey 與缺漏欄位，且不得有孤兒 SKILL 節點（未掛載到任何 LLM `in:tool` 埠）→ 回 `workflow.skill.node.not.mounted`、不得有孤兒 PROMPT 節點（未連到任何 LLM `in:prompt` 埠）→ 回 `workflow.prompt.node.not.connected`、每個 LLM 節點須有提問來源（`userPrompt` 或連入的 PROMPT 節點）→ 否則回 `workflow.llm.prompt.required`，三者訊息皆含 nodeKey；停用不跑圖驗證），須傳入 id + active |
-| POST | `/llm/workflow/execute` | 手動執行 workflow（SSE 逐節點事件流：execution.started / node.started / node.completed / node.failed / execution.completed），須傳入 id，可帶 inputPayload |
+| POST | `/llm/workflow/execute` | 手動執行 workflow（SSE 逐節點事件流：execution.started / node.started / node.completed / node.failed / execution.completed），須傳入 id，可帶 inputPayload 與 `triggerNodeKey`。`triggerNodeKey` 指定由哪個 TRIGGER 節點發起：僅該觸發點被活化，其餘 TRIGGER 與其獨佔下游落 SKIPPED（與 CONDITION 分支同一套活化規則），並記入 `llm_workflow_execution.trigger_node_key`；**省略＝所有 TRIGGER 皆執行**（向後相容，多觸發點請務必指定）。指定的 nodeKey 不存在回 `workflow.trigger.node.not.found`、型別非 TRIGGER 回 `workflow.trigger.node.invalid`，皆於 request scope 預檢即 400、不建立執行紀錄 |
 
 ---
 

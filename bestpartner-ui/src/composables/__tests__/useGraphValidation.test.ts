@@ -255,3 +255,45 @@ describe('validateGraph — 必填欄位規則', () => {
     expect(errors.some((e) => e.type === 'REQUIRED_FIELD_MISSING')).toBe(false)
   })
 })
+
+describe('validateGraph — 多觸發點與觸發點下游', () => {
+  it('多個 TRIGGER 不產生任何 error（多觸發點是刻意支援的形狀）', () => {
+    const errors = validateGraph(
+      [node('t1', 'TRIGGER'), node('t2', 'TRIGGER'), node('a'), node('b')],
+      [edge('t1', 'a'), edge('t2', 'b')],
+    )
+    expect(errors.filter((e) => e.severity === 'error')).toEqual([])
+  })
+
+  it('TRIGGER 無任何出邊時回報 TRIGGER_NO_DOWNSTREAM warning', () => {
+    const errors = validateGraph([node('t1', 'TRIGGER'), node('a')], [])
+    const warn = errors.find((e) => e.type === 'TRIGGER_NO_DOWNSTREAM')
+    expect(warn).toBeDefined()
+    expect(warn?.severity).toBe('warning')
+    expect(warn?.key).toBe('t1')
+  })
+
+  it('TRIGGER 有出邊時不回報 TRIGGER_NO_DOWNSTREAM', () => {
+    const errors = validateGraph([node('t1', 'TRIGGER'), node('a')], [edge('t1', 'a')])
+    expect(errors.some((e) => e.type === 'TRIGGER_NO_DOWNSTREAM')).toBe(false)
+  })
+
+  it('多觸發點中只有未接線那顆被回報', () => {
+    const errors = validateGraph(
+      [node('t1', 'TRIGGER'), node('t2', 'TRIGGER'), node('a')],
+      [edge('t1', 'a')],
+    )
+    const warns = errors.filter((e) => e.type === 'TRIGGER_NO_DOWNSTREAM')
+    expect(warns).toHaveLength(1)
+    expect(warns[0].key).toBe('t2')
+  })
+
+  it('無上游的 PROMPT 節點不被回報（合法形狀，引擎照常執行）', () => {
+    const errors = validateGraph(
+      [node('t1', 'TRIGGER'), node('p', 'PROMPT', { prompt: 'x' }), node('llm', 'LLM_ASSISTANT', { llmId: 'l1', userPrompt: 'x' })],
+      [edge('t1', 'llm'), { sourceNodeKey: 'p', targetNodeKey: 'llm', targetHandle: 'in:prompt' }],
+    )
+    expect(errors.filter((e) => e.severity === 'error')).toEqual([])
+    expect(errors.some((e) => e.type === 'TRIGGER_NO_DOWNSTREAM')).toBe(false)
+  })
+})

@@ -3696,7 +3696,31 @@
               "protocol": "http",
               "host": [ "{{domain}}" ],
               "path": [ "llm", "workflow", "execute" ]
-            }
+            },
+            "description": "手動執行（SSE 事件流）。省略 triggerNodeKey 時所有 TRIGGER 皆執行；多觸發點畫布請改用「execute（指定觸發點）」。"
+          },
+          "response": []
+        },
+        {
+          "name": "execute（指定觸發點）",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"afea1019-f335-4770-9095-98e7b1aa7f36\",\n    \"triggerNodeKey\": \"t1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://{{domain}}/llm/workflow/execute",
+              "protocol": "http",
+              "host": [ "{{domain}}" ],
+              "path": [ "llm", "workflow", "execute" ]
+            },
+            "description": "指定由哪個 TRIGGER 節點發起：僅該觸發點被活化，其餘 TRIGGER 與其獨佔下游落 SKIPPED，並記入 llm_workflow_execution.trigger_node_key。nodeKey 不存在回 workflow.trigger.node.not.found、型別非 TRIGGER 回 workflow.trigger.node.invalid（皆 400，不建立執行紀錄）。"
           },
           "response": []
         }

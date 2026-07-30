@@ -37,6 +37,21 @@ async function readErrorMessage(res: Response): Promise<string> {
 }
 
 /**
+ * `executeWorkflow` 的選用請求欄位。
+ *
+ * 刻意做成 options bag 而非再長一個位置參數：後端 `WorkflowDTO` 已支援但前端至今未送的
+ * `inputPayload` 之後也應該放這裡，不必再改簽名。
+ */
+export interface ExecuteOptions {
+  /**
+   * 指定由哪個 TRIGGER 節點發起本次執行。
+   * 帶值時後端僅活化該觸發點，其餘 TRIGGER 與其獨佔下游落 SKIPPED；
+   * 省略＝後端執行所有 TRIGGER（向後相容行為）。
+   */
+  triggerNodeKey?: string
+}
+
+/**
  * 呼叫 POST /llm/workflow/execute（SSE 串流），逐事件回呼 onEvent；
  * 正常結束呼叫 onDone，發生非取消性錯誤呼叫 onError。
  * URL 使用相對路徑，與既有 axios（baseURL 未設定，走 Vite dev proxy `/llm` → localhost:80）一致。
@@ -47,6 +62,7 @@ export function executeWorkflow(
   onEvent: (e: ExecutionEvent) => void,
   onDone: () => void,
   onError: (err: unknown) => void,
+  options: ExecuteOptions = {},
 ): () => void {
   const controller = new AbortController()
   const token = localStorage.getItem('token')
@@ -59,7 +75,11 @@ export function executeWorkflow(
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ id: workflowId }),
+        // 條件展開而非直接給 undefined：避免送出 "triggerNodeKey": null
+        body: JSON.stringify({
+          id: workflowId,
+          ...(options.triggerNodeKey ? { triggerNodeKey: options.triggerNodeKey } : {}),
+        }),
         signal: controller.signal,
       })
       if (!res.ok) throw new Error(await readErrorMessage(res))

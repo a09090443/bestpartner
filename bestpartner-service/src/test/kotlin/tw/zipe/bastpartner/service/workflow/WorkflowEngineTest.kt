@@ -4,6 +4,7 @@ import io.quarkus.security.runtime.QuarkusPrincipal
 import io.quarkus.security.runtime.QuarkusSecurityIdentity
 import io.quarkus.security.runtime.SecurityIdentityAssociation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -124,7 +125,7 @@ class WorkflowEngineTest {
         .setAnonymous(false)
         .build()
 
-    private fun triggerNode() = node("trigger", NodeType.TRIGGER, mapOf("triggerType" to "MANUAL"))
+    private fun triggerNode(key: String = "trigger") = node(key, NodeType.TRIGGER, mapOf("triggerType" to "MANUAL"))
     private fun toolNode(key: String = "A") = node(key, NodeType.TOOL, mapOf("toolId" to "t1"))
     private fun outputNode(key: String = "out") = node(key, NodeType.OUTPUT, mapOf("template" to "x"))
 
@@ -1033,5 +1034,229 @@ class WorkflowEngineTest {
         val (engine, _, _) = buildEngine(nodes, edges, emptyList())
 
         engine.validateForExecution(WORKFLOW_ID)
+    }
+
+    // ---------- 多觸發點各自獨立執行（指定 triggerNodeKey） ----------
+
+    @Test
+    fun `指定觸發點時僅該觸發流程執行且另一觸發點與其獨佔下游落 SKIPPED`() {
+        // t1 → A(TOOL)、t2 → B(OUTPUT)；指定 t1 只跑 t1 那條
+        val nodes = listOf(triggerNode("t1"), triggerNode("t2"), toolNode("A"), outputNode("B"))
+        val edges = listOf(edge("t1", "A"), edge("t2", "B"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "A-done") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "B-done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink, "t1") { false }
+
+        // t1 那條有事件；t2 與其獨佔下游 B 完全沒有事件（SKIPPED 只落庫）
+        assertTrue(sink.events.any { it.nodeKey == "t1" && it.event == "node.completed" })
+        assertTrue(sink.events.any { it.nodeKey == "A" && it.event == "node.completed" })
+        assertTrue(sink.events.none { it.nodeKey == "t2" }, "未選定的觸發點不應發事件")
+        assertTrue(sink.events.none { it.nodeKey == "B" }, "未選定觸發點的下游不應發事件")
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "t2" }.status
+        )
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "B" }.status
+        )
+    }
+
+    @Test
+    fun `多觸發點匯流的同一顆 LLM 仍被活化且取被選中分支的 PROMPT 提問`() {
+        // t1 → promptA -(in:prompt)→ llm；t2 → promptB -(in:prompt)→ llm；llm → out
+        // 指定 t1：promptB 落 SKIPPED 無輸出，故 LLM 取 promptA 的提問
+        val nodes = listOf(
+            triggerNode("t1"),
+            triggerNode("t2"),
+            promptNode("promptA", "正式語氣"),
+            promptNode("promptB", "條列語氣"),
+            node("llm", NodeType.LLM_ASSISTANT, mapOf("llmId" to "m1")),
+            outputNode()
+        )
+        val edges = listOf(
+            edge("t1", "promptA"),
+            edge("t2", "promptB"),
+            promptEdge("promptA", "llm"),
+            promptEdge("promptB", "llm"),
+            edge("llm", "out")
+        )
+        val captured = mutableListOf<String?>()
+        val executors = listOf(
+            FakeNodeExecutor(NodeType.TRIGGER) { emptyMap() },
+            // 依已有輸出判斷當前是哪顆 PROMPT（沿用既有 CONDITION 分支測試的手法）
+            FakeNodeExecutor(NodeType.PROMPT) { ctx ->
+                if (ctx.allOutputs().containsKey("promptA")) mapOf("prompt" to "條列語氣") else mapOf("prompt" to "正式語氣")
+            },
+            capturingLlmExecutor("llm", captured),
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("output" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink(), "t1") { false }
+
+        assertEquals(listOf<String?>("正式語氣"), captured)
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "promptB" }.status
+        )
+        // 共用的 LLM 有兩條入邊，選定分支活化其中一條即 active，且恰執行一次
+        val llmRecords = nodeExecutionRepo.saved.filter { it.nodeKey == "llm" }
+        assertEquals(1, llmRecords.size, "共用的 LLM 應恰執行一次")
+        assertEquals(tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SUCCESS, llmRecords.single().status)
+    }
+
+    @Test
+    fun `未指定觸發點時所有觸發點皆執行（向後相容）`() {
+        val nodes = listOf(triggerNode("t1"), triggerNode("t2"), toolNode("A"), toolNode("B"))
+        val edges = listOf(edge("t1", "A"), edge("t2", "B"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "done") }
+        )
+        val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink) { false }
+
+        assertTrue(sink.events.any { it.nodeKey == "t1" && it.event == "node.completed" })
+        assertTrue(sink.events.any { it.nodeKey == "t2" && it.event == "node.completed" })
+        assertEquals("SUCCESS", sink.events.last().status)
+        assertNull(executionRepo.lastSaved?.triggerNodeKey, "未指定時執行紀錄的 triggerNodeKey 應為 null")
+    }
+
+    @Test
+    fun `指定的觸發節點不存在時 validateForExecution 即報錯`() {
+        val nodes = listOf(triggerNode("t1"), toolNode("A"))
+        val edges = listOf(edge("t1", "A"))
+        val (engine, _, _) = buildEngine(nodes, edges, emptyList())
+
+        val ex = assertThrows(tw.zipe.bastpartner.exception.ServiceException::class.java) {
+            engine.validateForExecution(WORKFLOW_ID, "no-such")
+        }
+        assertTrue(ex.message!!.contains("no-such"), "訊息應指出找不到的 nodeKey：${ex.message}")
+    }
+
+    @Test
+    fun `指定的節點不是 TRIGGER 型別時 validateForExecution 即報錯`() {
+        val nodes = listOf(triggerNode("t1"), toolNode("A"))
+        val edges = listOf(edge("t1", "A"))
+        val (engine, _, _) = buildEngine(nodes, edges, emptyList())
+
+        val ex = assertThrows(tw.zipe.bastpartner.exception.ServiceException::class.java) {
+            engine.validateForExecution(WORKFLOW_ID, "A")
+        }
+        assertTrue(ex.message!!.contains("A"), "訊息應指出該 nodeKey：${ex.message}")
+        assertTrue(ex.message!!.contains("TOOL"), "訊息應指出實際型別：${ex.message}")
+    }
+
+    @Test
+    fun `空字串 triggerNodeKey 視同未指定`() {
+        val nodes = listOf(triggerNode("t1"), triggerNode("t2"), toolNode("A"), toolNode("B"))
+        val edges = listOf(edge("t1", "A"), edge("t2", "B"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "done") }
+        )
+        val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
+        val sink = CollectingSink()
+
+        // 不應被當成「找不到觸發節點」而拋錯，且兩顆 TRIGGER 都要執行
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), sink, "  ") { false }
+
+        assertTrue(sink.events.any { it.nodeKey == "t1" && it.event == "node.completed" })
+        assertTrue(sink.events.any { it.nodeKey == "t2" && it.event == "node.completed" })
+        assertNull(executionRepo.lastSaved?.triggerNodeKey)
+    }
+
+    @Test
+    fun `指定觸發點時最終輸出只取該分支的 OUTPUT 節點`() {
+        // t1 → outA、t2 → outB：兩顆都跑會得到以 nodeKey 為鍵的合併形狀；
+        // 指定 t1 後只剩一個已執行的 OUTPUT，故直接回該節點的 map 本身
+        val nodes = listOf(triggerNode("t1"), triggerNode("t2"), outputNode("outA"), outputNode("outB"))
+        val edges = listOf(edge("t1", "outA"), edge("t2", "outB"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.OUTPUT) { ctx ->
+                if (ctx.allOutputs().containsKey("outA")) mapOf("final" to "B") else mapOf("final" to "A")
+            }
+        )
+        val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink(), "t1") { false }
+
+        assertEquals(mapOf<String, Any?>("final" to "A"), executionRepo.lastSaved?.outputResult)
+    }
+
+    @Test
+    fun `未選中分支節點在失敗收尾時不重複落 SKIPPED 紀錄`() {
+        // 選定分支的 A 失敗 → 觸發收尾補 SKIPPED 迴圈；未選中的 t2 / B 已在主迴圈落過紀錄
+        val nodes = listOf(triggerNode("t1"), triggerNode("t2"), toolNode("A"), outputNode("B"))
+        val edges = listOf(edge("t1", "A"), edge("t2", "B"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { throw RuntimeException("boom") },
+            FakeNodeExecutor(NodeType.OUTPUT) { mapOf("final" to "B") }
+        )
+        val (engine, executionRepo, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink(), "t1") { false }
+
+        assertEquals(tw.zipe.bastpartner.enumerate.ExecutionStatus.FAILED, executionRepo.lastSaved?.status)
+        assertEquals(1, nodeExecutionRepo.saved.count { it.nodeKey == "t2" }, "t2 應恰一筆紀錄")
+        assertEquals(1, nodeExecutionRepo.saved.count { it.nodeKey == "B" }, "B 應恰一筆紀錄")
+    }
+
+    @Test
+    fun `未選中觸發點的 LOOP 子圖節點不落紀錄`() {
+        // t2 → loop -(out:loop)→ B1；指定 t1 執行 → loop 落 SKIPPED、子圖節點 B1 零紀錄
+        val nodes = listOf(
+            triggerNode("t1"),
+            triggerNode("t2"),
+            toolNode("A"),
+            loopNode(inputArrayPath = "{{t2.list}}", entry = "B1"),
+            toolBodyNode("B1")
+        )
+        val edges = listOf(
+            edge("t1", "A"),
+            edge("t2", "loop"),
+            edge("loop", "B1", "out:loop")
+        )
+        val executors = listOf(
+            triggerExecutor(),
+            tw.zipe.bastpartner.service.workflow.executor.LoopExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "done") }
+        )
+        val (engine, _, nodeExecutionRepo) = buildEngine(nodes, edges, executors)
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink(), "t1") { false }
+
+        assertEquals(
+            tw.zipe.bastpartner.enumerate.NodeExecutionStatus.SKIPPED,
+            nodeExecutionRepo.saved.single { it.nodeKey == "loop" }.status
+        )
+        assertTrue(nodeExecutionRepo.saved.none { it.nodeKey == "B1" }, "LOOP 子圖節點不應落紀錄")
+    }
+
+    @Test
+    fun `指定觸發點時執行紀錄寫入 triggerNodeKey`() {
+        val nodes = listOf(triggerNode("t1"), triggerNode("t2"), toolNode("A"))
+        val edges = listOf(edge("t1", "A"))
+        val executors = listOf(
+            triggerExecutor(),
+            FakeNodeExecutor(NodeType.TOOL) { mapOf("result" to "done") }
+        )
+        val (engine, executionRepo, _) = buildEngine(nodes, edges, executors)
+
+        engine.execute(WORKFLOW_ID, USER_ID, null, testIdentity(), CollectingSink(), "t1") { false }
+
+        assertEquals("t1", executionRepo.lastSaved?.triggerNodeKey)
     }
 }

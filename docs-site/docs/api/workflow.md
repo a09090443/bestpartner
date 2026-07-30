@@ -34,7 +34,7 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 | POST | `/llm/workflow/update` | 僅更新 meta（name/description/canvasMeta）|
 | POST | `/llm/workflow/delete` | 刪除 workflow（連鎖刪 node/edge）|
 | POST | `/llm/workflow/switchStatus` | 啟用/停用 workflow |
-| POST | `/llm/workflow/execute` | 執行 workflow，以 SSE 事件流回報進度與結果 |
+| POST | `/llm/workflow/execute` | 執行 workflow，以 SSE 事件流回報進度與結果；可帶 `triggerNodeKey` 指定執行入口 |
 
 ---
 
@@ -336,9 +336,46 @@ Workflow API 提供視覺化工作流定義的管理功能。所有端點路徑�
 ```json
 {
   "id": "workflow-id",
-  "inputPayload": { "message": "選填的觸發輸入" }
+  "inputPayload": { "message": "選填的觸發輸入" },
+  "triggerNodeKey": "trigger-1"
 }
 ```
+
+| 欄位 | 必填 | 說明 |
+|------|:---:|------|
+| `id` | ✓ | workflow id |
+| `inputPayload` | | 啟動輸入，下游以 `{{triggerKey.欄位}}` 引用 |
+| `triggerNodeKey` | | 指定由哪個 `TRIGGER` 節點發起（見下方「多觸發點」）。**省略＝所有 TRIGGER 皆執行** |
+
+### 多觸發點：指定執行入口
+
+同一張畫布可放多個 `TRIGGER` 節點，各接一條下游流程，並可**匯流到同一顆節點**
+（例如多個入口共用一顆 `LLM_ASSISTANT`，各自搭配自己的 `PROMPT`）。
+
+帶 `triggerNodeKey` 時，只有該觸發點被活化；其餘 `TRIGGER` 與**僅由它們可達**的節點落 `SKIPPED`
+（與 `CONDITION` 分支同一套活化規則，`SKIPPED` 節點不發 SSE 事件、僅落執行紀錄）。
+發起入口記入 `llm_workflow_execution.trigger_node_key`。
+
+匯流節點的提問來源會自動命中被選中的分支：`LLM_ASSISTANT` 取「第一個**已有輸出**」的提示來源，
+未選中分支的 `PROMPT` 是 `SKIPPED`、無輸出，故自然跳過。
+
+| 錯誤 | 條件 |
+|------|------|
+| `workflow.trigger.node.not.found` | 指定的 nodeKey 在圖上不存在 |
+| `workflow.trigger.node.invalid` | nodeKey 存在但型別不是 `TRIGGER`（訊息含實際型別） |
+
+兩者皆於執行前預檢即回 **400**，**不會建立執行紀錄**。`triggerNodeKey` 傳空字串或空白視同未指定。
+
+:::note 最終輸出形狀會隨指定與否而不同
+`execution.completed` 的 `output` 只彙整**實際執行成功**的 `OUTPUT` 節點：恰一個時直接回該節點的 map；
+多個時以 nodeKey 為鍵合併。因此畫布有 `t1→outA`、`t2→outB` 時，不指定觸發點會得到
+`{"outA": {...}, "outB": {...}}`，指定 `t1` 則直接得到 `outA` 的內容。
+:::
+
+:::warning 跨分支引用會執行失敗
+共用節點若以 `{{t2.field}}` 引用未被選中分支的節點，選 `t1` 執行時會回 `workflow.variable.not.found`。
+這與引用 `CONDITION` 未活化分支的節點是同一種情形。
+:::
 
 **Response（SSE 事件流範例）**
 

@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import WorkflowNode from '../WorkflowNode.vue'
 import { useExecutionStore } from '../../../stores/execution'
-import { OPEN_DESIGNER_KEY } from '../designerInjection'
+import { OPEN_DESIGNER_KEY, RUN_FROM_TRIGGER_KEY } from '../designerInjection'
 
 // Vue Flow 的 Handle 需 VueFlow context，單元測試以 stub 取代。
 // stub 暴露 id/type 為 data 屬性，供斷言埠數量與 handle id。
@@ -185,6 +185,44 @@ describe('WorkflowNode', () => {
     })
     await expect(
       wrapper.find('[data-test="node-open-designer"]').trigger('click'),
+    ).resolves.not.toThrow()
+  })
+
+  it('TRIGGER 節點渲染「從此觸發點執行」鈕，非 TRIGGER 不渲染', () => {
+    const trigger = mount(WorkflowNode, {
+      props: { id: 'n1', data: { type: 'TRIGGER' } },
+      global: globalConfig,
+    })
+    expect(trigger.find('[data-test="node-run-from-here"]').exists()).toBe(true)
+
+    const tool = mount(WorkflowNode, {
+      props: { id: 'n2', data: { type: 'TOOL' } },
+      global: globalConfig,
+    })
+    expect(tool.find('[data-test="node-run-from-here"]').exists()).toBe(false)
+  })
+
+  it('「從此觸發點執行」呼叫 inject 進來的回呼並帶入節點 id', async () => {
+    const calls: string[] = []
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'trg-9', data: { type: 'TRIGGER' } },
+      global: {
+        ...globalConfig,
+        provide: { [RUN_FROM_TRIGGER_KEY as symbol]: (key: string) => calls.push(key) },
+      },
+    })
+
+    await wrapper.find('[data-test="node-run-from-here"]').trigger('click')
+    expect(calls).toEqual(['trg-9'])
+  })
+
+  it('未 provide runFromTrigger 時點執行鈕不報錯（預設 no-op）', async () => {
+    const wrapper = mount(WorkflowNode, {
+      props: { id: 'trg-1', data: { type: 'TRIGGER' } },
+      global: globalConfig,
+    })
+    await expect(
+      wrapper.find('[data-test="node-run-from-here"]').trigger('click'),
     ).resolves.not.toThrow()
   })
 })

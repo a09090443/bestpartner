@@ -14,6 +14,7 @@ export type GraphErrorType =
   | 'BRANCH_INCOMPLETE'
   | 'REQUIRED_FIELD_MISSING'
   | 'PROMPT_WIRING_INCOMPLETE'
+  | 'TRIGGER_NO_DOWNSTREAM'
 
 /**
  * 可掛載到 LLM 工具埠（in:tool）的來源節點型別（Agent 模式能力掛載）。
@@ -212,6 +213,22 @@ export function validateGraph(
         severity: 'warning',
         key: n.nodeKey,
         message: `LLM 節點缺少提問來源（使用者提示或提示詞節點）：${n.nodeKey}`,
+      })
+    }
+  })
+
+  // 觸發點無下游（warning）：選它執行時什麼都不會跑。
+  // 在「指定觸發點執行」之前這只是無害的無用節點，之後有了實際後果，故提示但不擋 DRAFT 存檔。
+  // ⚠️ 刻意不對「indegree 0 的非 TRIGGER 節點」提示——無上游的 PROMPT 與常數型
+  // HTTP_REQUEST / DATA_TRANSFORM / CODE 都是合法形狀，引擎照常執行它們。
+  const hasOutgoing = new Set(edges.map((e) => e.sourceNodeKey))
+  nodes.forEach((n) => {
+    if (n.type === 'TRIGGER' && !hasOutgoing.has(n.nodeKey)) {
+      errors.push({
+        type: 'TRIGGER_NO_DOWNSTREAM',
+        severity: 'warning',
+        key: n.nodeKey,
+        message: `觸發節點未連接任何下游節點，選它執行時不會跑任何步驟：${n.nodeKey}`,
       })
     }
   })

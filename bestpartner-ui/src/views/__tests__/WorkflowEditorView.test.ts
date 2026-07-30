@@ -18,6 +18,9 @@ const {
   confirmMock,
   successMock,
   errorMock,
+  warningMock,
+  executeWorkflowMock,
+  abortMock,
 } = vi.hoisted(() => ({
   setNodesMock: vi.fn(),
   setEdgesMock: vi.fn(),
@@ -34,6 +37,9 @@ const {
   confirmMock: vi.fn(() => Promise.resolve('confirm')),
   successMock: vi.fn(),
   errorMock: vi.fn(),
+  warningMock: vi.fn(),
+  executeWorkflowMock: vi.fn(),
+  abortMock: vi.fn(),
 }))
 
 // ---- mock api/workflow（保留真實 store 以取得 WorkflowVersionConflictError） ----
@@ -82,12 +88,17 @@ vi.mock('vue-router', () => ({
   onBeforeRouteLeave: vi.fn(),
 }))
 
+// ---- mock 執行 SSE api（避免真實 fetch；斷言 options 是否帶 triggerNodeKey） ----
+vi.mock('../../api/workflowExecution', () => ({
+  executeWorkflow: executeWorkflowMock,
+}))
+
 // ---- mock element-plus 訊息元件 ----
 vi.mock('element-plus', async () => {
   const actual = await vi.importActual<typeof import('element-plus')>('element-plus')
   return {
     ...actual,
-    ElMessage: { success: successMock, error: errorMock },
+    ElMessage: { success: successMock, error: errorMock, warning: warningMock },
     ElMessageBox: { confirm: confirmMock },
   }
 })
@@ -329,5 +340,142 @@ describe('WorkflowEditorView', () => {
 
     await wrapper.find('[data-test="node-designer-close"]').trigger('click')
     expect(wrapper.find('[data-test="node-designer-modal"]').exists()).toBe(false)
+  })
+})
+
+describe('WorkflowEditorView — 指定觸發點執行', () => {
+  /** 建構畫布節點（Vue Flow 內部形狀），供 triggerNodes computed 讀取 */
+  function flowNode(id: string, type: string, name?: string) {
+    return { id, type: 'workflow', position: { x: 0, y: 0 }, data: { type, name, config: {} } }
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    routeParams.id = 'wf-1'
+    vi.clearAllMocks()
+    toObjectMock.mockReturnValue({ nodes: [], edges: [] })
+    flowNodes.value = []
+    localStorage.clear()
+    __resetEditorThemeForTest()
+    executeWorkflowMock.mockReturnValue(abortMock)
+  })
+
+  afterEach(() => vi.clearAllMocks())
+
+  /** 取出 executeWorkflow 收到的第 5 個引數（ExecuteOptions） */
+  const optionsOfLastCall = () => executeWorkflowMock.mock.calls.at(-1)![4]
+
+  it('單一觸發點時點執行直接以該 nodeKey 開跑，不顯示選擇器', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [flowNode('t1', 'TRIGGER', '客服進線'), flowNode('a', 'TOOL')]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    expect(wrapper.find('[data-test="trigger-picker"]').exists()).toBe(false)
+    expect(executeWorkflowMock).toHaveBeenCalledTimes(1)
+    expect(optionsOfLastCall()).toEqual({ triggerNodeKey: 't1' })
+  })
+
+  it('多觸發點時點執行先顯示選擇器且尚未開跑', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [flowNode('t1', 'TRIGGER', '客服進線'), flowNode('t2', 'TRIGGER', '每日報表')]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    expect(wrapper.find('[data-test="trigger-picker"]').exists()).toBe(true)
+    expect(executeWorkflowMock).not.toHaveBeenCalled()
+    // 選項以節點顯示名稱呈現
+    expect(wrapper.find('[data-test="trigger-option-t1"]').text()).toContain('客服進線')
+    expect(wrapper.find('[data-test="trigger-option-t2"]').text()).toContain('每日報表')
+  })
+
+  it('選擇某個觸發點後以該 key 開跑，其餘觸發點預先標為 SKIPPED', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [
+      flowNode('t1', 'TRIGGER', '客服進線'),
+      flowNode('t2', 'TRIGGER', '每日報表'),
+      flowNode('t3', 'TRIGGER', '批次匯入'),
+    ]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    await wrapper.find('[data-test="trigger-option-t2"]').trigger('click')
+
+    expect(optionsOfLastCall()).toEqual({ triggerNodeKey: 't2' })
+    // 選完即關閉選擇器
+    expect(wrapper.find('[data-test="trigger-picker"]').exists()).toBe(false)
+
+    const { useExecutionStore } = await import('../../stores/execution')
+    const executionStore = useExecutionStore()
+    expect(executionStore.triggerNodeKey).toBe('t2')
+    expect(executionStore.nodeStates['t1'].status).toBe('SKIPPED')
+    expect(executionStore.nodeStates['t3'].status).toBe('SKIPPED')
+    expect(executionStore.nodeStates['t2']).toBeUndefined()
+  })
+
+  it('無觸發節點時點執行顯示提示且不開跑', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [flowNode('a', 'TOOL')]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    expect(warningMock).toHaveBeenCalled()
+    expect(executeWorkflowMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="trigger-picker"]').exists()).toBe(false)
+  })
+
+  it('選擇器可取消，取消後不開跑', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [flowNode('t1', 'TRIGGER'), flowNode('t2', 'TRIGGER')]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    await wrapper.find('[data-test="trigger-picker-cancel"]').trigger('click')
+
+    expect(wrapper.find('[data-test="trigger-picker"]').exists()).toBe(false)
+    expect(executeWorkflowMock).not.toHaveBeenCalled()
+  })
+
+  it('執行中點按鈕走停止（abort），不重新開跑', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [flowNode('t1', 'TRIGGER')]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+    expect(executeWorkflowMock).toHaveBeenCalledTimes(1)
+
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    expect(abortMock).toHaveBeenCalled()
+    expect(executeWorkflowMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('未存檔（dirty）時點執行維持原提示且不開跑', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+    flowNodes.value = [flowNode('t1', 'TRIGGER')]
+
+    const wrapper = mountEditor()
+    await flushPromises()
+    // 改名造成未存變更
+    await wrapper.find('[data-test="toolbar-name-input"]').setValue('改過的名字')
+
+    await wrapper.find('[data-test="run-button"]').trigger('click')
+
+    expect(warningMock).toHaveBeenCalledWith('有未存變更，請先存檔再執行')
+    expect(executeWorkflowMock).not.toHaveBeenCalled()
   })
 })

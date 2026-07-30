@@ -35,6 +35,15 @@ class WorkflowExecutionEntity : BaseEntity() {
     @Column(name = "trigger_id")
     var triggerId: String? = null
 
+    /**
+     * 本次執行由哪個 TRIGGER 節點發起；null = 未指定觸發點（所有 TRIGGER 皆執行）。
+     *
+     * 與 [triggerId] 不同：[triggerId] 指向 llm_workflow_trigger.id（webhook / cron 的觸發器設定），
+     * 本欄位存的是 llm_workflow_node.node_key。兩者刻意分開，避免 webhook / cron 上線後語義撞名。
+     */
+    @Column(name = "trigger_node_key")
+    var triggerNodeKey: String? = null
+
     @Column(name = "trigger_type", nullable = false)
     @Enumerated(EnumType.STRING)
     var triggerType: TriggerType = TriggerType.MANUAL

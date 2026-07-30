@@ -20,7 +20,7 @@ import WorkflowNode from '../components/canvas/WorkflowNode.vue'
 import ExecutionResultDrawer from '../components/canvas/ExecutionResultDrawer.vue'
 import InspectorPanel from '../components/inspector/InspectorPanel.vue'
 import { DRAG_NODE_TYPE_KEY } from '../components/canvas/dragKeys'
-import { OPEN_DESIGNER_KEY } from '../components/canvas/designerInjection'
+import { OPEN_DESIGNER_KEY, RUN_FROM_TRIGGER_KEY } from '../components/canvas/designerInjection'
 import NodeDesignerModal from '../components/nodeDesigner/NodeDesignerModal.vue'
 import { generateNodeKey } from '../composables/useNodeKey'
 import { useEditorTheme } from '../composables/useEditorTheme'
@@ -135,6 +135,8 @@ const designerSources = computed<UpstreamSource[]>(() => {
 
 /** 節點卡右上角的開啟鈕拿不到父層 listener，改以 provide/inject 下放 */
 provide(OPEN_DESIGNER_KEY, openDesigner)
+/** TRIGGER 節點卡的「從此觸發點執行」鈕同理（函式宣告有 hoisting，可在定義前 provide） */
+provide(RUN_FROM_TRIGGER_KEY, runFromTrigger)
 
 onNodeDoubleClick(({ node }) => openDesigner(node.id))
 
@@ -218,12 +220,23 @@ const refLabels = computed<Record<string, string>>(() => {
   return labels
 })
 
-const triggerCount = computed(
-  () =>
-    (flowNodesRef?.value ?? []).filter(
-      (n) => (n.data as { type?: NodeType } | undefined)?.type === 'TRIGGER',
-    ).length,
+/**
+ * 畫布上所有 TRIGGER 節點（key ＝ nodeKey，label ＝ 顯示名稱）。
+ * 同一畫布可有多個觸發點，各自獨立執行；選擇器與 Inspector 統計共用此來源。
+ */
+const triggerNodes = computed(() =>
+  (flowNodesRef?.value ?? [])
+    .filter((n) => (n.data as { type?: NodeType } | undefined)?.type === 'TRIGGER')
+    .map((n) => ({
+      key: n.id,
+      label: (n.data as { name?: string } | undefined)?.name?.trim() || n.id,
+    })),
 )
+
+const triggerCount = computed(() => triggerNodes.value.length)
+
+/** 多觸發點時，執行前的觸發點選擇面板是否開啟 */
+const triggerPickerVisible = ref(false)
 
 // zoom bar 顯示的縮放百分比（測試 mock 可能未提供 viewport，需防禦）
 const zoomPercent = computed(() => Math.round((viewport?.value?.zoom ?? 1) * 100))
@@ -516,22 +529,56 @@ async function handleActiveToggle(value: string | number | boolean) {
   }
 }
 
-// 執行/停止：執行中按鈕轉為停止；否則需先存檔（有 id 且無未存變更）才能開始執行
+/**
+ * 執行前守衛：需先存檔（有 id 且無未存變更）。通過回傳 workflowId，否則提示並回傳 null。
+ * 訊息與檢查順序刻意與抽出前的 handleRun 一致，避免既有行為漂移。
+ */
+function ensureRunnable(): string | null {
+  const id = store.current?.id
+  if (!id) {
+    ElMessage.warning('請先存檔後再執行')
+    return null
+  }
+  if (store.dirty) {
+    ElMessage.warning('有未存變更，請先存檔再執行')
+    return null
+  }
+  return id
+}
+
+/**
+ * 以指定觸發點啟動執行；工具列選擇器與 TRIGGER 節點卡兩條入口共用。
+ *
+ * 未選中的觸發點預先標為 SKIPPED——後端對 SKIPPED 節點不發 SSE 事件，
+ * 不預標的話畫布上會完全無狀態，使用者分不清「刻意沒跑」與「還沒跑到」。
+ * 只標觸發點本身、不推算下游（見 stores/execution.ts 的 StartOptions.skipNodeKeys）。
+ */
+function runFromTrigger(triggerNodeKey: string) {
+  const id = ensureRunnable()
+  if (!id) return
+  triggerPickerVisible.value = false
+  const skipNodeKeys = triggerNodes.value.map((t) => t.key).filter((k) => k !== triggerNodeKey)
+  executionStore.start(id, { triggerNodeKey, skipNodeKeys })
+}
+
+// 執行/停止：執行中按鈕轉為停止；否則依觸發點數量決定直接跑或先選擇入口
 async function handleRun() {
   if (executionStore.running) {
     executionStore.stop()
     return
   }
-  const id = store.current?.id
-  if (!id) {
-    ElMessage.warning('請先存檔後再執行')
+  if (!ensureRunnable()) return
+  const triggers = triggerNodes.value
+  if (triggers.length === 0) {
+    ElMessage.warning('流程尚無觸發節點，請先加入觸發節點')
     return
   }
-  if (store.dirty) {
-    ElMessage.warning('有未存變更，請先存檔再執行')
+  // 單一觸發點直接跑（仍明確帶上 triggerNodeKey，使 UI 永遠是「個別執行」語義）
+  if (triggers.length === 1) {
+    runFromTrigger(triggers[0].key)
     return
   }
-  executionStore.start(id)
+  triggerPickerVisible.value = true
 }
 
 // 登出：路由守衛會把「已登入卻訪問 /login」導回首頁，故必須先清 token 再導航。
@@ -795,6 +842,42 @@ async function handleSave() {
               <path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" />
             </svg>
           </button>
+        </div>
+        <!--
+          多觸發點時的入口選擇面板。刻意不用 <Teleport>／el-dialog 預設 teleport：
+          --wf-* token 與 wf-form.css 的 `.wf-editor ` 前綴規則都綁在 .wf-editor 上，
+          teleport 到 body 兩者會同時失效（同 NodeDesignerModal 的取捨）。
+        -->
+        <div
+          v-if="triggerPickerVisible"
+          class="trigger-picker-backdrop"
+          @click.self="triggerPickerVisible = false"
+        >
+          <div class="trigger-picker" data-test="trigger-picker">
+            <div class="trigger-picker-title">選擇要執行的觸發點</div>
+            <div class="trigger-picker-hint">只會執行該觸發點的流程，其餘觸發點不啟動</div>
+            <button
+              v-for="t in triggerNodes"
+              :key="t.key"
+              type="button"
+              class="trigger-option"
+              :data-test="`trigger-option-${t.key}`"
+              @click="runFromTrigger(t.key)"
+            >
+              <svg class="trigger-option-glyph" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5.6v12.8L19 12z" />
+              </svg>
+              <span class="trigger-option-label">{{ t.label }}</span>
+            </button>
+            <button
+              type="button"
+              class="btn ghost trigger-picker-cancel"
+              data-test="trigger-picker-cancel"
+              @click="triggerPickerVisible = false"
+            >
+              取消
+            </button>
+          </div>
         </div>
         <ExecutionResultDrawer />
       </div>
@@ -1191,5 +1274,79 @@ async function handleSave() {
 
 .canvas :deep(.vue-flow__minimap-mask) {
   fill: var(--wf-minimap-mask);
+}
+
+/* ---- 多觸發點的入口選擇面板（浮在畫布之上，留在 .wf-editor 作用域內） ---- */
+.trigger-picker-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--wf-bg) 62%, transparent);
+}
+
+.trigger-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(320px, 84%);
+  padding: 16px;
+  background: var(--wf-panel);
+  border: 1px solid var(--wf-border);
+  border-radius: 12px;
+  box-shadow: var(--wf-shadow);
+}
+
+.trigger-picker-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--wf-text);
+}
+
+.trigger-picker-hint {
+  margin-bottom: 4px;
+  font-size: 11.5px;
+  color: var(--wf-text-3);
+}
+
+.trigger-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  color: var(--wf-text);
+  text-align: left;
+  background: var(--wf-card-2);
+  border: 1px solid var(--wf-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.trigger-option:hover {
+  background: color-mix(in srgb, var(--wf-accent) 12%, var(--wf-card-2));
+  border-color: var(--wf-accent);
+}
+
+.trigger-option-glyph {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  color: var(--wf-accent);
+}
+
+.trigger-option-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.trigger-picker-cancel {
+  margin-top: 4px;
+  align-self: flex-end;
 }
 </style>

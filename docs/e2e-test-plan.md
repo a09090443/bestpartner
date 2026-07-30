@@ -171,6 +171,14 @@
 | P1 | 執行中途 client 斷線（關抽屜 / 離開頁面） | 執行標記 `CANCELLED`，未執行下游節點標記 `SKIPPED`（對應 commit b24c128 的視覺行為） |
 
 | P1 | execute 被後端擋下時（如含孤兒 PROMPT 節點）檢視執行結果面板 | 顯示**後端業務訊息**（含 nodeKey 與應連往的埠），**不得**只顯示 `HTTP 400`。⚠️ execute 是唯一走原生 `fetch`、不經 axios 攔截器的端點，其錯誤訊息解析在 `api/workflowExecution.ts` 自行實作，改動該檔時須重驗此條 |
+| P0 | **多觸發點選擇器**：畫布放兩顆 TRIGGER（各接一條分支匯流到同一顆 LLM）後點工具列執行鈕 | 出現 `data-test="trigger-picker"`，列出兩個選項（`trigger-option-<nodeKey>`，顯示節點名稱）；**尚未**開始執行 |
+| P0 | **選定入口後只跑該分支**：點 `trigger-option-<t1>` | 只有 t1 那條分支的節點依序亮起（`node.started`/`node.completed`）；**另一顆 TRIGGER 呈 skipped 樣式**（`.is-exec-skipped`，由前端預標——後端對 SKIPPED 不發事件）；結果面板輸出對應該分支 |
+| P1 | **改從另一個入口執行**：再點執行鈕、改選 `trigger-option-<t2>` | 前一輪的 skipped 標記不殘留；本輪換成 t1 呈 skipped；`llm_workflow_execution.trigger_node_key` = `t2` |
+| P1 | **節點卡「從此處執行」**：直接點 TRIGGER 節點卡右上的 `data-test="node-run-from-here"` | 不經選擇器直接以該觸發點開跑；且**不會**觸發節點拖曳或取消選取（按鈕已 `@click.stop` / `@mousedown.stop`） |
+| P1 | **單一觸發點不彈選擇器**：畫布只有一顆 TRIGGER 時點執行鈕 | 直接開跑、無額外點擊；請求仍明確帶 `triggerNodeKey`（UI 永遠是個別執行語義） |
+| P2 | 選擇器點取消（`trigger-picker-cancel`）或點遮罩 | 關閉選擇器且不開始執行 |
+| P2 | **無觸發節點**：畫布無 TRIGGER 時點執行鈕 | 顯示「流程尚無觸發節點」提示，不開跑、不彈選擇器 |
+| P2 | **觸發點未接下游**：畫布有 TRIGGER 但無出邊 | 前端回報 `TRIGGER_NO_DOWNSTREAM`（warning，不擋存檔） |
 
 > **真實 LLM 斷言策略**：因輸出非確定，**不比對文字內容**；斷言聚焦於
 > ①SSE 事件序列與型別正確、②每個節點狀態最終為 completed、③整體 `execution.completed=SUCCESS`、④DB 執行紀錄寫入。
@@ -316,6 +324,7 @@ bestpartner-ui/
 - **Node Designer 是全屏遮罩**：開啟後畫布完全不可點。任何「開 Designer → 回畫布繼續操作」的流程，**必須先確認 `node-designer-modal` 已消失**再進行下一步，否則點擊會落在遮罩上。
 - **主題狀態會跨 spec 殘留**：偏好存於 `localStorage.wf-theme`，且深色會在 `<html>` 掛 `dark` class。斷言外觀相關項目前先明確設定或清除該鍵，不要依賴上一支 spec 的殘留狀態。
 - **本次改版新增的 `data-test`**：`theme-toggle`、`zoom-bar` / `zoom-in` / `zoom-out` / `zoom-fit` / `zoom-value`、`node-open-designer`、`node-done-badge`、`open-node-designer-button`、`node-designer-modal` / `-close` / `-name-input` / `-tab-parameters|settings|docs` / `-parameters` / `-settings` / `-docs` / `-input-panel` / `-input-empty` / `-input-json` / `-capability-list` / `-output-panel` / `-output-empty` / `-output-json` / `-output-status` / `-output-error` / `-output-preview` / `-copy-key` / `-duplicate` / `-delete`。
+- **多觸發點執行新增的 `data-test`**：`node-run-from-here`（TRIGGER 節點卡的「從此處執行」鈕）、`trigger-picker`（多觸發點選擇面板）、`trigger-option-<nodeKey>`（各觸發點選項）、`trigger-picker-cancel`。
 - **登入**：email 欄位為 `type=email`（原生驗證擋非 email），須用真實 email（admin 為 `admin@bestpartner.com.tw`）而非裸 `admin`。
 - **ID 動態解析（重要）**：運行 dev DB 的 `llmId`/`toolId` 與 `docs/sql` 種子檔會漂移（實測 OpenRouter CHAT 於本機為 `1ee80ffa…`、種子檔為 `583b9222…`）。**禁止硬編 ID**；於 `global-setup` 以 API 依 alias/platform/name 解析當前 DB 真實 ID，寫入 `.artifacts/seed.json` 供 spec 讀取（`E2E_LLM_ID` 可覆寫，缺則 J5 skip）。
 - **隔離性**：各 spec 自建自清資料；storageState 唯讀復用，不被測試改寫。

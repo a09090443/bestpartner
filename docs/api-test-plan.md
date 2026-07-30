@@ -131,6 +131,23 @@
 | P1 | execute 未帶 token（未認證） | 401 |
 | P2 | execute 中途 client 斷線 | 執行標記 `CANCELLED`，未執行的下游節點標記 `SKIPPED` |
 
+### 多觸發點各自獨立執行（`triggerNodeKey`）
+
+> 契約見 `docs/workflow-engine/system-design.md` §2.1.1；實作為 `WorkflowEngine` 主遍歷的活化閘門。
+> DB 查核指令：`SELECT trigger_node_key, output_result FROM bestpartner.llm_workflow_execution ORDER BY started_at DESC LIMIT 1;`
+
+| 優先 | 案例 | 預期 |
+|:---:|------|------|
+| P0 | **指定觸發點只跑該分支**：畫布 t1→A、t2→B，execute 帶 `triggerNodeKey="t1"` | SSE 只出現 t1／A 的 `node.started`/`node.completed`，**完全無** t2／B 的事件；`llm_workflow_node_execution` 中 t2 與 B 各一筆 `SKIPPED`；整體 SUCCESS |
+| P0 | **匯流的同一顆 LLM 取被選中分支的提問**：t1→promptA→LLM(`in:prompt`)、t2→promptB→LLM，指定 t1 | LLM 恰執行一次且 SUCCESS，回覆對應 promptA 的提問；promptB 為 `SKIPPED` |
+| P1 | **未指定時全部觸發點皆執行**（向後相容）：同上圖形省略 `triggerNodeKey` | t1 與 t2 皆 `node.completed`；`trigger_node_key` 為 NULL |
+| P1 | execute 帶不存在的 `triggerNodeKey` | 400，`workflow.trigger.node.not.found`，訊息含該 nodeKey；**不建立**執行紀錄 |
+| P1 | execute 帶非 TRIGGER 型別的 nodeKey（如 TOOL 節點） | 400，`workflow.trigger.node.invalid`，訊息含 nodeKey 與實際型別；**不建立**執行紀錄 |
+| P1 | **執行紀錄記錄發起入口**：指定 t1 後查 DB | `llm_workflow_execution.trigger_node_key` = `t1` |
+| P2 | `triggerNodeKey` 傳空字串或空白 | 視同未指定，不報錯且所有 TRIGGER 皆執行 |
+| P2 | **最終輸出形狀**：t1→outA、t2→outB，指定 t1 | `output_result` 為 outA 的 map 本身（非 `{outA:…, outB:…}` 的 nodeKey 合併形狀） |
+| P2 | **未選中分支的 LOOP 子圖不落紀錄**：t2→LOOP→(`out:loop`)B1，指定 t1 | LOOP 節點為 `SKIPPED`，子圖節點 B1 **零筆**紀錄 |
+
 ### HTTP_REQUEST 機密欄位（`secretHeaders`）
 
 > 契約見 `docs/workflow-engine/system-design.md` §2.9；實作為 `converter/WorkflowSecretConverter.kt`。

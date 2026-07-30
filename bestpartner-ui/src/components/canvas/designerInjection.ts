@@ -9,3 +9,12 @@ import type { InjectionKey } from 'vue'
  */
 export const OPEN_DESIGNER_KEY: InjectionKey<(nodeId: string) => void> =
   Symbol('workflow-open-designer')
+
+/**
+ * 「從此觸發點執行」回呼，由 WorkflowEditorView provide、TRIGGER 節點卡片 inject。
+ *
+ * 與 [OPEN_DESIGNER_KEY] 同樣的理由走 provide/inject（Vue Flow 自訂節點拿不到父層 listener），
+ * inject 時同樣**必須給 no-op 預設值**。
+ */
+export const RUN_FROM_TRIGGER_KEY: InjectionKey<(nodeKey: string) => void> =
+  Symbol('workflow-run-from-trigger')

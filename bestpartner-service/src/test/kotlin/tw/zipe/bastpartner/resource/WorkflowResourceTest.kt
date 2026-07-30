@@ -157,4 +157,60 @@ class WorkflowResourceTest {
             .body("data.LLM_ASSISTANT", org.hamcrest.Matchers.hasItem("llmId"))
             .body("data.PROMPT", org.hamcrest.Matchers.hasItem("prompt"))
     }
+
+    /**
+     * 建立一張含 TRIGGER（t1）與 TOOL（a）的 workflow，回傳其 id。
+     * 供指定觸發點的驗證案例共用。
+     */
+    private fun saveTriggerWorkflow(): String = given().contentType(ContentType.JSON)
+        .body(
+            """
+            {
+              "name":"指定觸發點驗證",
+              "nodes":[
+                {"nodeKey":"t1","type":"TRIGGER","positionX":0,"positionY":0,"config":{"triggerType":"MANUAL"}},
+                {"nodeKey":"a","type":"TOOL","positionX":1,"positionY":1,"config":{}}
+              ],
+              "edges":[{"sourceNodeKey":"t1","targetNodeKey":"a"}]
+            }
+            """.trimIndent()
+        )
+        .`when`().post("/llm/workflow/save")
+        .then().statusCode(200)
+        .extract().path<String>("data.id")
+
+    /**
+     * 案例 7：execute 帶不存在的 triggerNodeKey → 400，且訊息含該 nodeKey。
+     *
+     * 驗證於 request scope 內同步拋出（[WorkflowEngine.validateForExecution]），
+     * 故回應是純 JSON 而非 SSE 串流，也不會留下孤兒執行紀錄。
+     */
+    @Test
+    @TestSecurity(user = TEST_USER, roles = ["user"])
+    fun testExecuteWithUnknownTriggerNodeKeyRejected() {
+        val id = saveTriggerWorkflow()
+
+        given().contentType(ContentType.JSON)
+            .body("""{"id":"$id","triggerNodeKey":"no-such"}""")
+            .`when`().post("/llm/workflow/execute")
+            .then().statusCode(400)
+            .body("code", equalTo(400))
+            .body("message", org.hamcrest.Matchers.containsString("no-such"))
+    }
+
+    /**
+     * 案例 8：execute 帶非 TRIGGER 型別的 triggerNodeKey → 400，且訊息含該 nodeKey 與實際型別
+     */
+    @Test
+    @TestSecurity(user = TEST_USER, roles = ["user"])
+    fun testExecuteWithNonTriggerNodeKeyRejected() {
+        val id = saveTriggerWorkflow()
+
+        given().contentType(ContentType.JSON)
+            .body("""{"id":"$id","triggerNodeKey":"a"}""")
+            .`when`().post("/llm/workflow/execute")
+            .then().statusCode(400)
+            .body("code", equalTo(400))
+            .body("message", org.hamcrest.Matchers.containsString("TOOL"))
+    }
 }

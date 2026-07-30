@@ -104,3 +104,32 @@ describe('executeWorkflow 正常串流', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer test-token')
   })
 })
+
+describe('executeWorkflow 指定觸發點', () => {
+  /** 取出送出的 request body（已 JSON.parse） */
+  async function bodyOf(options?: { triggerNodeKey?: string }): Promise<Record<string, unknown>> {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(streamOf([]), { status: 200 }))
+    globalThis.fetch = fetchMock
+    executeWorkflow('wf-1', vi.fn(), vi.fn(), vi.fn(), options)
+    await settle()
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    return JSON.parse(init.body as string) as Record<string, unknown>
+  }
+
+  it('帶 triggerNodeKey 時放入 request body', async () => {
+    const body = await bodyOf({ triggerNodeKey: 'trg-1' })
+    expect(body.triggerNodeKey).toBe('trg-1')
+    expect(body.id).toBe('wf-1')
+  })
+
+  it('未帶 triggerNodeKey 時 body 完全不含該鍵（避免送出 null）', async () => {
+    const body = await bodyOf()
+    expect('triggerNodeKey' in body).toBe(false)
+    expect(body.id).toBe('wf-1')
+  })
+
+  it('triggerNodeKey 為空字串時視同未指定，不放入 body', async () => {
+    const body = await bodyOf({ triggerNodeKey: '' })
+    expect('triggerNodeKey' in body).toBe(false)
+  })
+})

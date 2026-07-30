@@ -180,6 +180,8 @@ class WorkflowEngine(
      * 還原該身分，確保背景執行緒內的服務能正確取得目前使用者。
      *
      * @param identity 呼叫端（request scope）取得的呼叫者身分，用於還原背景 request context 的登入狀態
+     * @param triggerNodeKey 指定由哪個 TRIGGER 節點發起：僅該觸發點會被活化，其餘 TRIGGER 與其
+     *   獨佔下游落 SKIPPED（見主遍歷的活化閘門）。null / 空白＝維持「所有 TRIGGER 皆執行」的既有行為。
      * @param cancelled 每節點執行前檢查；true 則中止並標 CANCELLED
      * @return 落庫後的 execution id
      */
@@ -190,15 +192,18 @@ class WorkflowEngine(
         input: Map<String, Any?>?,
         identity: SecurityIdentity,
         sink: ExecutionEventSink,
+        triggerNodeKey: String? = null,
         cancelled: () -> Boolean
     ): String {
         currentIdentityAssociation.setIdentity(identity)
+        // 空字串視同「未指定」：呼叫端送 "" 不該被當成「找不到該觸發節點」而擋下
+        val selectedTriggerKey = triggerNodeKey?.takeIf { it.isNotBlank() }
         val workflow = workflowRepository.findOptionalById(workflowId)
             ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
         val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
         val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
 
-        validateNodes(nodes, edges)
+        validateNodes(nodes, edges, selectedTriggerKey)
 
         val order = topologicalOrder(nodes, edges)
         // LOOP 子圖：loopNodeKey → 子圖節點鍵集合；子圖節點不在主遍歷執行，由 LOOP 迭代驅動
@@ -216,6 +221,7 @@ class WorkflowEngine(
             workflowVersion = workflow.version
             triggerType = TriggerType.MANUAL
             triggeredBy = userId
+            this.triggerNodeKey = selectedTriggerKey
             status = ExecutionStatus.RUNNING
             inputPayload = input
             this.startedAt = startedAt
@@ -257,7 +263,16 @@ class WorkflowEngine(
                 if (node.nodeKey in capabilityKeys) continue
                 val seqNo = seq.incrementAndGet()
                 val incoming = incomingEdges[node.nodeKey].orEmpty()
-                if (incoming.isNotEmpty() && incoming.none { it in activatedEdges }) {
+                // 觸發點選擇：未被選定的 TRIGGER 視為非 active。其獨佔下游因「有入邊但無一被活化」
+                // 自動連鎖 SKIPPED——與 CONDITION 只活化判定分支是同一套規則，無需額外機制。
+                //
+                // ⚠️ 刻意「只擋 TRIGGER」而非「剪掉選定 TRIGGER 的不可達集合」：後者會誤殺 indegree 0
+                // 的**非** TRIGGER 節點（無上游的 PROMPT、常數型 HTTP_REQUEST / DATA_TRANSFORM / CODE），
+                // 這些節點今日靠下方 incoming.isEmpty() 恆 active 且與觸發點選擇無關，剪掉會讓
+                // 多觸發點共用的 LLM 取不到提問。
+                val deselectedTrigger = selectedTriggerKey != null &&
+                    node.type == NodeType.TRIGGER && node.nodeKey != selectedTriggerKey
+                if (deselectedTrigger || (incoming.isNotEmpty() && incoming.none { it in activatedEdges })) {
                     // 非 active：落 SKIPPED 紀錄（含 seqNo），不執行、不活化出邊、不發事件
                     skippedKeys.add(node.nodeKey)
                     persist {
@@ -394,21 +409,35 @@ class WorkflowEngine(
      * 供 resource 於 request scope 內預檢——失敗即拋 [ServiceException]，由 GlobalExceptionMapper
      * 轉為 HTTP 400，避免先建立執行紀錄再失敗（spec §5）。
      */
-    fun validateForExecution(workflowId: String) {
+    fun validateForExecution(workflowId: String, triggerNodeKey: String? = null) {
         workflowRepository.findOptionalById(workflowId)
             ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
         val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
         val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
-        validateNodes(nodes, edges)
+        validateNodes(nodes, edges, triggerNodeKey?.takeIf { it.isNotBlank() })
     }
 
-    /** 無 TRIGGER 節點檢查 + 逐節點 parse/必填驗證（同啟用等級）+ 巢狀 LOOP 檢查 */
+    /**
+     * 無 TRIGGER 節點檢查 + 指定觸發點檢查 + 逐節點 parse/必填驗證（同啟用等級）+ 巢狀 LOOP 檢查
+     *
+     * @param triggerNodeKey 已正規化（空白轉 null）的指定觸發點；非 null 時額外驗證它存在且型別為 TRIGGER
+     */
     private fun validateNodes(
         nodes: List<WorkflowNodeEntity>,
-        edges: List<WorkflowEdgeEntity>
+        edges: List<WorkflowEdgeEntity>,
+        triggerNodeKey: String? = null
     ) {
         if (nodes.none { it.type == NodeType.TRIGGER }) {
             throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_REQUIRED)
+        }
+        // 置於「至少一顆 TRIGGER」之後：空白畫布回報 WORKFLOW_TRIGGER_NODE_REQUIRED
+        // 比「找不到指定的觸發節點」更能讓呼叫端據以修正。
+        if (triggerNodeKey != null) {
+            val selected = nodes.firstOrNull { it.nodeKey == triggerNodeKey }
+                ?: throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_NOT_FOUND, triggerNodeKey)
+            if (selected.type != NodeType.TRIGGER) {
+                throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_INVALID, triggerNodeKey, selected.type.name)
+            }
         }
         nodes.forEach { n ->
             val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
