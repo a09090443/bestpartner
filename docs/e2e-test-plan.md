@@ -27,6 +27,10 @@
 
 ## 2. 測試環境與前置
 
+> **流程守門已 hook 化**：`.claude/hooks/e2e-flow-guard.ps1` 會機械化把關「開測前確實停過服務」
+> 「未經使用者核准不得改產品程式碼」「收工前報告填完且服務已關」。
+> 說明見 [`.claude/hooks/README.md`](../.claude/hooks/README.md)。
+
 ### 2.1 前置條件（由 globalSetup 檢查，不自動亂啟以免污染）
 
 1. PostgreSQL（`localhost:5432/pgdb`）已初始化（`docs/sql/bestpartner-ddl.sql` + `bestpartner-init-data.sql`）。
@@ -419,6 +423,12 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 - **`in:prompt` 提示埠規則異動時**（允許來源、提問優先序、兩項提示接線驗證），§J3（提示接線）、§J4（負向案例 + 兩埠對照表）、§J5（分支擇一執行）、§J6（PromptForm 與徽章）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此規則前後端各有一份（`WorkflowEngine.kt` 的 `PROMPT_INPUT_HANDLE` ＋兩個純函式 / `useGraphValidation.ts` 的相容性與 `PROMPT_WIRING_INCOMPLETE`），改一邊必改另一邊。
 - **編輯器外觀／互動殼層異動時**（主題切換、縮放列、Node Designer 的開關入口或三欄內容），§J9 與 `e2e-test-checklist.md` 的對應項目須一併更新；新增可互動元素一律補 `data-test` 並登錄於 §6 的清單。
 - **能力節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`）的設定解析或加解密方式異動時**，§J10 的資源前置與 deep-verify 案例須一併檢視（三種能力併掛的路徑只在此覆蓋），並同步 `e2e-test-checklist.md`。
+- **旅程矩陣（§3）增刪旅程或案例數異動時**，除 `e2e-test-checklist.md` 摘要表外，還須同步
+  `e2e-test-confirmation` skill 的 **Step 1.5 範圍選單**（旅程清單與案例數），否則使用者選到的範圍與實際案例數會漂移。
+- **失敗分流判準異動時**（API 直呼／後端日誌／瀏覽器 console／SSE 事件／DB 落庫這五類訊號），
+  須同步 skill 的 Step 5.7 判準表與 `e2e-test-checklist.md` 的「問題分流與修正紀錄」欄位。
+- **停服務範圍異動時**（port 清單或行程樣式），須同步 `.claude/hooks/e2e-flow-guard.ps1` 的 `$script:Ports`、
+  skill 的 Step 4 / 6.5 指令與模板的前置檢查清單——三者不一致會導致 hook 擋下正常流程或漏擋。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
 - 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
 

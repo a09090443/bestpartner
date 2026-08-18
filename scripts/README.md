@@ -44,6 +44,18 @@ pwsh ./scripts/docker-package.ps1
 > 此步驟不可移除——它是雙份實作能被信任的唯一理由。
 > 若哪天決定收斂回單一實作，先刪腳本再刪守衛，順序不可反。
 
+### 例外：`.claude/hooks/` 不適用本契約
+
+`.claude/hooks/` 下的 Claude Code hook 腳本（目前只有 `e2e-flow-guard.ps1`）**只維護單份 `.ps1`**，
+不放進 `scripts/`、也不做 `.sh` 雙實作。理由：
+
+- 它們的路徑由 `.claude/settings.json` 的 hooks 設定綁定，性質等同 `.claude/skills/`（Claude Code 的設定），
+  不是專案的建置／維運腳本。
+- 只在本機由 Claude Code 執行（Windows + `pwsh`），**不進 CI 的執行路徑**，
+  因此「兩份實作結論一致」這道守衛對它們無意義。
+
+用途、事件契約與手動測試方式見 [`.claude/hooks/README.md`](../.claude/hooks/README.md)。
+
 ## 腳本一覽
 
 | 腳本 | 用途 | 是否進 CI |

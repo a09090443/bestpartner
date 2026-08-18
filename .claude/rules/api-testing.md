@@ -11,6 +11,10 @@
 
 > ⚠️ 若未透過此 skill 啟動測試流程，視同違規。
 
+> **與 UI / E2E 測試互斥**：本文件只管 API 測試。UI（E2E）測試走 `e2e-test-confirmation` skill，
+> 並由 `.claude/hooks/e2e-flow-guard.ps1` 機械化守門（開測前停服務、失敗分流後先報告再修、收尾關服務）。
+> 「執行測試」觸發 API 流程、「跑 E2E / UI 測試」觸發 E2E 流程，兩者不共用狀態，不可混用模板。
+
 ## Postman Collection
 
 位置：`docs/postman/basepartner.postman_collection.json`

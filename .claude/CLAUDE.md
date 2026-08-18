@@ -97,6 +97,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](rul
 |------|-----------------|
 | 改動 API / entity / 資料表 / 設定鍵 / UI / workflow 節點型別 / 執行事件後，宣告完成前 | `documentation-sync`（含測試文件同步檢視：e2e-test-plan / api-test-plan，見 policy「測試文件同步」）→ [`documentation-update-policy.md`](rules/documentation-update-policy.md) |
 | 執行任何 API 測試前 | `test-confirmation` → [`api-testing.md`](rules/api-testing.md) |
+| 執行 UI / E2E 測試前（說「跑 E2E」「UI 測試」時由 hook 自動觸發） | `e2e-test-confirmation`（開測前先停服務 → 複選旅程範圍 → 逐步截圖 → 失敗分流後**先報告等核准再修** → 修正後重跑選定範圍全部旅程 → 收尾關服務）→ [`hooks/README.md`](hooks/README.md) |
 | 寫 git commit 訊息 | `git-commit-message`（`<類型>(<範圍>): <主旨>`，繁中主旨） |
 | 建立 / 匯出 Docker image | `docker-build`（固定 prod profile 建置 → 啟動驗證 → 自動匯出 tar；tar 內含 JWT 私鑰，勿隨意流通） |
 | 加密 / 解密設定值（`${enc::}`）、輪替 `CONFIG_ENCRYPTION_KEY` | `config-secret`（勿與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` 混用） |
@@ -136,8 +137,26 @@ pwsh ./scripts/harness-drift-scan.ps1    # Windows
 > 所有可執行腳本集中於 repo 根目錄的 `scripts/`，各腳本用途見 `scripts/README.md`。
 > ⚠️ 每支腳本有 `.sh`（Linux/macOS 原生）與 `.ps1`（Windows）**兩份實作，改動時兩份都要改**；
 > CI 會同時執行兩者並比對結論，不一致即擋下。
+> ⚠️ **唯一例外**：`.claude/hooks/` 下的 Claude Code hook 腳本只維護單份 `.ps1`——其路徑由
+> `.claude/settings.json` 綁定、僅在本機由 Claude Code 執行、不進 CI，故不適用「集中於 `scripts/`」
+> 與雙實作規範；理由與手動驗證方式見該目錄的 README。
 
 涵蓋：套件拼字（`bastpartner`）、i18n 寫死字串、`build.gradle.kts` 版本硬編碼、`@Entity` 命名後綴、service/repository 的 `@ApplicationScoped`、SQL 金鑰外洩、**AGENTS.md 與 `.claude/CLAUDE.md` 一致性**、**Workflow NodeType 前後端契約一致**（`NodeType.kt` ≡ `bestpartner-ui` 的 `types/workflow.ts`）、**前端測試命名**（新測試一律 `.test.ts`）。既有基線（如 `jsqlparser` 硬編碼版本、`LLMResource.kt` 寫死例外訊息、3 個既存 `.spec.ts`）已登錄於腳本 `$Baseline`，新增程式碼若擴大漂移會被標為 `NEW`。
+
+## 機械化強制（Claude Code hooks）
+
+`.claude/settings.json` 掛載 `.claude/hooks/e2e-flow-guard.ps1`，把 UI / E2E 測試流程的關卡變成擋得住的閘：
+
+| 事件 | 把關內容 |
+|------|---------|
+| UserPromptSubmit | 說「跑 ui test」「e2e」「端到端」時自動注入強制流程；輸入 `[e2e-off]` 可解除；回覆「同意／確認修正」時解鎖改碼 |
+| PreToolUse | 未實測停過服務就開瀏覽器、未經使用者核准就改產品程式碼、`npx playwright test`、`docker compose down` → exit 2 擋下 |
+| PostToolUse | 以「實際發生的事」推進流程狀態（port 真的淨空、正在問使用者） |
+| Stop | 確認表沒填完或服務沒關就想收工 → 擋下（上限 2 次；等使用者回覆時不擋） |
+| SessionEnd | 清除狀態檔，殘留服務時告警 |
+
+> 只在本機 Windows（`pwsh`）生效，且**改動 `.claude/settings.json` 後需重開 session 才套用**。
+> 各事件契約、狀態檔格式與手動測試指令見 [`hooks/README.md`](hooks/README.md)。
 
 ## CI 把關
 
