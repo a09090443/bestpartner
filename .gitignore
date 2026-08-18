@@ -52,3 +52,6 @@ nb-configuration.xml
 # Git worktrees
 .worktrees/
 /bestpartner-service/.kotlin/
+
+# Docker compose 產生的容器持久化資料（Milvus / etcd / MinIO 等），屬本機執行期產物
+docs/docker/*/volumes/
