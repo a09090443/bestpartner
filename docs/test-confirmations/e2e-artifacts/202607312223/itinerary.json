@@ -1,0 +1,43 @@
+{
+  "title": "台東開車二日遊",
+  "days": [
+    {
+      "day": 1,
+      "spots": [
+        {
+          "name": "三仙台",
+          "placeId": "ChIJ5RcBzEhwbzQRSWjpXLndbWU",
+          "address": "台灣臺東縣三仙台",
+          "lat": 23.120627900000002,
+          "lng": 121.40275740000001,
+          "rating": 0
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "spots": [
+        {
+          "name": "臺東池上錦新三號道路 伯朗大道",
+          "placeId": "ChIJZatyKu4JbzQRyHuSojQ6qQ0",
+          "address": "958台灣臺東縣池上鄉錦新三號道路",
+          "lat": 23.0988065,
+          "lng": 121.2130022,
+          "rating": 0
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "2026臺灣國際熱氣球嘉年華",
+      "date": "2026-07-04～2026-08-20",
+      "sourceUrl": "https://tour.taitung.gov.tw/zh-tw/event-calendar"
+    },
+    {
+      "name": "2026台東最美星空系列活動",
+      "date": "2026-06-06～2026-08-22",
+      "sourceUrl": "https://tour.taitung.gov.tw/zh-tw/event-calendar"
+    }
+  ]
+}

@@ -272,6 +272,53 @@
 | P1 | 切到 Settings 分頁 | 顯示 nodeKey（可複製）、型別、分類、必填檢核與本次執行摘要；`node-designer-duplicate` / `node-designer-delete` 可用（刪除後 modal 自動關閉） |
 | P2 | 切到 Docs 分頁（逐一檢視 13 種型別） | 皆有說明與行為要點；連接埠清單與該型別實際 handle 一致（如 CONDITION 出現 `out:true` / `out:false`） |
 
+---
+
+### J10 複合能力掛載：旅遊行程規劃（P1，**真實 MCP + 真實 Web 搜尋 + 真實 LLM**）
+
+> 業務情境：台東開車二日遊行程規劃。單一 `LLM_ASSISTANT` 於 `in:tool` **同時掛載三種異質能力節點**——
+> `MCP_SERVER`(google_map，Google Places API) 取景點座標、`TOOL`(TavilySearch) 查在地活動、`SKILL`(pdf) 提供輸出排版規範。
+>
+> **與既有旅程的分工**：J5 驗單一 MCP 掛載、J8-B 驗 KNOWLEDGE_RAG 外掛掛載，本旅程首次驗**三種能力併掛**，
+> 且是 `SKILL` 節點型別的**首條 E2E 覆蓋**（`llm_skill` 在此之前為 0 筆）。
+
+圖形：
+
+```
+TRIGGER(MANUAL) ──► LLM_ASSISTANT ──► OUTPUT
+                          ▲ in:prompt
+                    PROMPT(台東二日遊需求)
+                          ▲ in:tool
+        MCP_SERVER(google_map) · TOOL(TavilySearch) · SKILL(pdf)
+```
+
+| 案例 | 優先 | 案例 | 預期 |
+|:---:|:---:|------|------|
+| J10-01 | P1 | 拖出 6 節點並連線（3 條 `in:tool`、1 條 `in:prompt`、2 條 `out:main`） | 連線皆成立，畫布無驗證紅框 |
+| J10-02 | P1 | 先斷開 SKILL 的 `in:tool` 邊再按啟用 | 擋下並回 `workflow.skill.node.not.mounted`，訊息含該 SKILL 的 nodeKey |
+| J10-03 | P1 | 補回 SKILL 邊後啟用 | 啟用成功，狀態轉 ACTIVE |
+| J10-04 | P1 | 執行 workflow，觀察 SSE 與 ExecutionResultDrawer | `execution.started` → 各 `node.started`/`node.completed` → `execution.completed`；全節點 SUCCESS |
+| J10-05 | P1 | **deep-verify：景點真實性** | 輸出景點為真實臺東地點（地址含「臺東縣」），每點帶 `place_id` 與經緯度（源自 google_map，非模型臆造） |
+| J10-06 | P1 | **deep-verify：活動查證** | 輸出含 TavilySearch 取得的活動／營業資訊與可追溯來源 URL |
+| J10-07 | P2 | DB 落庫檢查 | `llm_workflow_execution` 一筆 SUCCESS；`llm_workflow_node_execution` **恰 4 筆**（TRIGGER/PROMPT/LLM/OUTPUT，三個純能力節點不落紀錄） |
+| J10-08 | P1 | 由 OUTPUT 產出 PDF 行程表 | PDF 含 Day1/Day2 行程、每景點的 Google Maps 連結、活動資訊與來源 |
+
+> **執行身分＝設定擁有者（沿用 §12 第 2 點）**：LLM 設定、google_map userSetting、Tavily toolSetting、pdf skill
+> 必須同屬登入者，否則 `buildUserSpecificMcpClient` / `buildToolWithSetting` 以 `(settingId, userId)` 配對會查無資料。
+>
+> **MCP 節點務必帶 `userSettingId`**（§12 第 1 點）：google_map 需 `GOOGLE_MAPS_API_KEY`，
+> 僅填 `mcpId` 會走 `buildDefaultMcpClient`、`${google_maps_api_key}` 佔位符不替換，工具形同不可用。
+>
+> **`searchPlaces` 有三個必填參數**：`query`、`language`、`maxResults`，缺任一個回
+> `Missing required argument: <name>`。PROMPT 節點須明確要求模型呼叫時帶齊，否則第一輪工具呼叫即失敗。
+>
+> **SKILL 節點不執行程式碼**：`SkillService.buildSkills()` 只把 `skill.md` 與 resources **全文**注入 LLM
+> （`resolveSkillResources` 逐檔 `readText`），`service/workflow/executor/` 下無 SkillNodeExecutor。
+> 故 PDF 的實際渲染在平台外完成，本旅程對 SKILL 的斷言是「掛載契約成立且內容有進 LLM」，非「平台產出 PDF」。
+>
+> **斷言策略**：J10-04 只驗 SSE 事件序列與節點狀態（比照 J5，不比對輸出文字）；
+> J10-05／06 為 deep-verify，依賴有效的 Google Places 與 Tavily 金鑰，金鑰缺席時標 ⏭️。
+
 ## 4. 測試資料策略
 
 - **命名**：測試建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，便於識別與掃描殘留。
@@ -342,6 +389,7 @@ bestpartner-ui/
 | WORKFLOW save 型別驗證、樂觀鎖 | J7 |
 | TOOL settingSchema、LLM SETTING 取值 | J6（間接，經 Inspector 下拉 / 動態表單） |
 | VECTOR save / uploadFiles / getDataFromEmbeddingStore、WORKFLOW execute（KNOWLEDGE_RAG 節點） | J8 |
+| SKILL upload / list / get、TOOL saveSetting、MCP SERVER saveSetting / getSetting | J10（間接，經 Step 4.5 資源前置與能力節點掛載） |
 
 > API 測試計畫仍是端點行為的權威來源；E2E 只驗「使用者路徑上這些契約確實被正確串接」。
 
@@ -370,6 +418,7 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 - **`in:tool` 能力來源白名單（`CAPABILITY_SOURCE_TYPES`）異動時**，§J3（能力掛載）、§J4（不相容連線 + 白名單註）、§J5（Agent 模式）、§J8（若涉及 RAG）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此白名單前後端各有一份（`WorkflowEngine.kt` / `useGraphValidation.ts`），改一邊必改另一邊。
 - **`in:prompt` 提示埠規則異動時**（允許來源、提問優先序、兩項提示接線驗證），§J3（提示接線）、§J4（負向案例 + 兩埠對照表）、§J5（分支擇一執行）、§J6（PromptForm 與徽章）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此規則前後端各有一份（`WorkflowEngine.kt` 的 `PROMPT_INPUT_HANDLE` ＋兩個純函式 / `useGraphValidation.ts` 的相容性與 `PROMPT_WIRING_INCOMPLETE`），改一邊必改另一邊。
 - **編輯器外觀／互動殼層異動時**（主題切換、縮放列、Node Designer 的開關入口或三欄內容），§J9 與 `e2e-test-checklist.md` 的對應項目須一併更新；新增可互動元素一律補 `data-test` 並登錄於 §6 的清單。
+- **能力節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`）的設定解析或加解密方式異動時**，§J10 的資源前置與 deep-verify 案例須一併檢視（三種能力併掛的路徑只在此覆蓋），並同步 `e2e-test-checklist.md`。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
 - 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
 
@@ -473,3 +522,84 @@ E2E 週期 202607272132 以 webwright 工作區契約（Node Playwright + chromi
    ⚠️ 該端點在 Git Bash 下 `curl -F file=@/c/...` 會失敗（HTTP 000），須用 Windows 路徑形式 `C:\...`。
 11. **`create-button` 不呼叫後端**：實測 HTTP 序列無 `workflow/create`，workflow 直到按「存檔」才落庫。
    故未存檔的測試流程不會產生殘留資料——但也代表「建立即有 id」的假設不成立，案例勿依賴之。
+
+---
+
+## 15. J10 首條切片實測發現（2026-07-31，複合能力掛載 · 週期 202607312223）
+
+首條 J10 切片以 webwright 驅動：`TRIGGER → LLM_ASSISTANT(OpenRouter deepseek-v3.2, JSON) → OUTPUT`，
+`PROMPT → in:prompt`，`MCP_SERVER(google_map)` / `TOOL(TavilySearch)` / `SKILL(pdf)` 三者併掛 `in:tool`。
+8 案例 7 ✅ 1 ❌（87.5%，P1 標準 ≥95% 未達標）。報告見
+`docs/test-confirmations/e2e-test-confirmation-202607312223.md`。
+
+1. **三種能力節點併掛可正常運作**：google_map MCP 的 7 個工具確實被模型呼叫，回傳真實臺東景點
+   （三仙台 / 鐵花村 / 伯朗大道 / 知本溫泉，皆含 `place_id`、經緯度、臺東縣門牌、評分）。
+   `llm_workflow_node_execution` 恰 4 筆（TRIGGER/PROMPT/LLM/OUTPUT），三個純能力節點不落紀錄，
+   與 §12 對單一 MCP 的觀察一致。**SKILL 節點型別自此有 E2E 覆蓋**。
+
+2. **孤兒 SKILL 檢查有效**：未接 `in:tool` 即啟用會被擋，訊息
+   `SKILL node "<nodeKey>" must be connected to an LLM assistant nodes tool input port (in:tool)`。
+   此路徑（`WorkflowEngine.findUnmountedSkillNodeKey`）先前無 E2E 覆蓋。
+
+3. **ISSUE-1（缺陷，關鍵；已於 2026-07-31 修復）：TOOL 節點填 `toolSettingId` 必定執行失敗**。
+   `ToolService.buildToolWithSetting(toolSettingId)` 把 **settingId** 傳進
+   `LLMToolUserSettingRepository.findSettingByUserIdAndToolId(userId, toolId)`——該查詢比對的是 `tool_id`
+   欄位，settingId 永不相等，故一律 `User tool setting not found`。能力掛載路徑同樣受影響
+   （`LLMService.kt`）。**修復**：新增 `findSettingByIdAndUserId(settingId, userId)`，
+   `buildToolWithSetting` 改用之並以該筆設定建構（不再退回 `buildTool(toolId)`，
+   避免同一工具有多筆設定時取錯）。修復後 TOOL 節點填 `toolSettingId` 可正常運作。
+
+4. **ISSUE-2（缺陷；已於 2026-07-31 修復）：BUILT_IN 且有 config class 的工具不會被掛給模型**。
+   TavilySearch 掛上後模型自述 `NO_TOOLS`，輸出 `events: []`。三段對照實驗（同一模型同一請求形狀）：
+   只掛 Tavily → `NO_TOOLS`；只掛 google_map MCP → 列出 7 個工具；改掛 `DateTool`（CUSTOMIZE、無
+   config class）→ 列出 `getCurrentTime`。
+   **真正根因是 `toolIds` 走 `ToolService.buildToolWithoutSetting`，該方法對 `configObjectPath`
+   非空的工具一律 `return null`**（只留一句 `工具 X 無法使用` 的 warn）——與 `ClassInstantiator`
+   的反射邏輯無關（曾誤判於此，補齊 `Tavily.kt` 8 個欄位仍不通，即因為根本沒走到實例化）。
+   **修復**：`LLMService` 的 `toolIds` 路徑改用 `buildTool`（會依 `(登入者, toolId)` 帶出使用者設定，
+   無設定時退回無參數建構），並移除 `buildToolWithoutSetting`；同時在實例化回 null 時補上 error 日誌，
+   避免再次靜默失敗。**GoogleSearch 同屬此型態，一併受惠。**
+
+   > 教訓：**「工具沒被呼叫」不要用模型自述當判準**。本次模型在工具其實可用時仍答過 `NO_TOOLS`，
+   > 也在工具不可用時宣稱「根據網路搜尋結果」。可靠作法是問一個**非搜尋不可能答對**的問題
+   > （本次用「2026 台東最美星空音樂會 8/22 壓軸是誰」，正解 孫淑媚），或直接看後端日誌。
+
+5. **ISSUE-3（設計限制，未修）：Agent 模式的 LLM 節點受 120 秒硬逾時**。
+   `WorkflowEngine.DEFAULT_NODE_TIMEOUT_MS = 120_000`，而 `timeoutMs` 只有
+   `HttpRequestNodeConfig` / `CodeNodeConfig` 可覆寫（`WorkflowEngine.kt:688-690`），
+   `LLM_ASSISTANT` 無從調整。每個工具呼叫都是一輪 LLM 往返，6 個景點（6 次 `searchPlaces`）即逾時，
+   降為 4 個景點後 48 秒完成。**設計 J10 類案例時務必控制工具呼叫輪數。**
+   ⚠️ ISSUE-2 修復後，「4 景點 ＋ 1 次 searchWeb ＋ SKILL 掛載」的完整配置在 API 層實測需 **253 秒**，
+   即使精簡 skill 內容仍逾時。**完整配置本身沒問題——把工作量降到「2 景點 ＋ 1 次搜尋」（3 次工具呼叫）後，
+   7 節點、三種能力全掛 in:tool 的配置 30 秒即 SUCCESS 並同時取得真實景點與真實活動（run_14）。**
+   真正的限制是「單一 LLM 節點能容納的工具往返輪數」——約 3 輪安全、5 輪即逾時。
+
+6. **ISSUE-5（未修）：掛載腳本型 skill 會讓模型放棄輸出契約**。
+   pdf skill 掛上後，模型改去輸出 `reportlab` Python 腳本（8,065 字）、自行把二日改成三日、
+   且不呼叫搜尋工具，即使 PROMPT 節點明文禁止產生程式碼亦然。
+   原因是 `LLMService.applyToolProviders` 會以 skill 指引**覆寫 `systemMessageProvider`**
+   （追加「先用 `activate_skill`」的引導），其優先權高於 PROMPT 節點的使用者訊息；
+   而平台的 SKILL 節點**不執行程式碼**，等於把「請寫 Python」的指示餵給一個永遠跑不了 Python 的環境。
+   把 skill 精簡成只剩 `skill.md`（93KB → 8.5KB）仍會複現。
+   **選用要掛載的 skill 時，應限於「描述輸出規範」而非「指示執行腳本」的類型。**
+
+7. **ISSUE-4（觀察）**：瀏覽器關閉使 SSE 中斷後，execution 會停在 RUNNING 直到節點逾時才收斂為 FAILED，
+   期間 UI 無從得知。
+
+8. **`searchPlaces` 有三個必填參數**（`query` / `language` / `maxResults`），缺一即回
+   `Missing required argument: <name>`。PROMPT 節點須明確要求模型帶齊，否則第一輪工具呼叫就失敗。
+
+9. **環境陷阱：MCP jar 要用 `build/*-runner.jar` 而非 `build/libs/*.jar`**。
+   `D:/MCP/google-map-1.0-SNAPSHOT.jar` 原為 24,935 bytes 的 thin jar（無 `Main-Class`），
+   `java -jar` 直接報「沒有主要資訊清單屬性」。Quarkus uber-jar 產物在 `build/` 根目錄，
+   `build/libs/` 下的是未經 quarkusBuild 的薄 jar。⚠️ `D:/MCP` 的 `date` / `filesystem` / `gmail`
+   三支 jar 目前**同樣是 thin jar**，應一併確認。
+
+10. **selector / 路由變更（影響既有 spec）**：
+   - TRIGGER 已改為型別化表單，用 `data-test="trigger-type"` 選 `MANUAL`；
+     §10 記載的 `mode-toggle` + `raw-input` raw 模式在 Inspector 已不存在。
+   - 路由為 `/editor/:id?`，**新建時 URL 無 id**（`create-button` 不呼叫後端，見 §14 第 11 點），
+     workflow id 須於存檔後再解析。
+   - 7 節點在 1280 寬視窗會被右側 Inspector 遮住，handle 取不到 boundingBox 而連線靜默漏接。
+     對策：視窗加寬至 1920，並在連線前按 `tidy-button` ＋ `zoom-fit`；**每連一條就斷言 edge 數**，
+     才能定位到是哪一條失敗。
