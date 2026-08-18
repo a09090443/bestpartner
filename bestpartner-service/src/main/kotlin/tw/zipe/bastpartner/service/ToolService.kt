@@ -11,7 +11,6 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
-import org.apache.poi.util.StringUtil
 import tw.zipe.bastpartner.config.security.SecurityValidator
 import tw.zipe.bastpartner.converter.SensitiveValueCodec
 import tw.zipe.bastpartner.dto.ToolDTO
@@ -192,29 +191,20 @@ class ToolService(
     }
 
     /**
-     * 建立工具-無需設定值的工具
-     */
-    fun buildToolWithoutSetting(toolId: String): Any? {
-        val tool = getTool(toolId)
-
-        if (StringUtil.isNotBlank(tool.configObjectPath)) {
-            logger.warn("工具 ${tool.name} 無法使用")
-            return null;
-        }
-
-        return instantiateTool(tool, emptyMap())
-    }
-
-    /**
      * 建立工具-需自定義設定值的工具
      */
     fun buildToolWithSetting(toolSettingId: String): Any? {
-        val tool = llmToolUserSettingRepository.findSettingByUserIdAndToolId(
-            securityValidator.validateLoggedInUser(),
-            toolSettingId
+        // ⚠️ 這裡拿到的是「設定 id」，必須以 id 查（並帶擁有者做權限檢核）。
+        // 舊版誤用 findSettingByUserIdAndToolId(userId, toolSettingId) 把設定 id 當 tool_id 比對，
+        // 條件永不成立，導致 TOOL 節點只要填 toolSettingId 就必定 TOOL_SETTING_NOT_FOUND。
+        val userSetting = llmToolUserSettingRepository.findSettingByIdAndUserId(
+            toolSettingId,
+            securityValidator.validateLoggedInUser()
         ) ?: throw ServiceException(AppMessage.TOOL_SETTING_NOT_FOUND)
 
-        return buildTool(tool.toolId);
+        // 以「指定的那一筆設定」建構；不可退回 buildTool(toolId)，
+        // 否則同一工具有多筆設定時會取到別筆（等同忽略使用者的選擇）。
+        return buildToolFromSetting(getTool(userSetting.toolId), userSetting)
     }
 
     /**
@@ -230,7 +220,17 @@ class ToolService(
             )
         }
 
-        return userSetting?.let {
+        return buildToolFromSetting(tool, userSetting)
+    }
+
+    /**
+     * 以指定的使用者設定實例化工具；無設定（或該工具不需設定）時以無參數建構。
+     *
+     * 供 [buildTool]（依 toolId 找設定）與 [buildToolWithSetting]（依 settingId 指定設定）共用，
+     * 確保兩條路徑的建構行為一致。
+     */
+    private fun buildToolFromSetting(tool: ToolDTO, userSetting: LLMToolUserSettingEntity?): Any? {
+        val instance = userSetting?.let {
             // 使用前解密敏感欄位（settingContent 落地為密文）
             val decrypted = decryptSettingContent(userSetting.settingContent, tool.configObjectPath)
             val settingJson = Json.parseToJsonElement(decrypted).jsonObject
@@ -240,7 +240,17 @@ class ToolService(
             val sortFields = reorderAndRenameArguments(settingJson, fields)
 
             instantiateTool(tool, sortFields)
-        } ?: return instantiateTool(tool, emptyMap())
+        } ?: instantiateTool(tool, emptyMap())
+
+        // 實例化失敗時工具會被靜默丟棄，模型看不到任何工具卻毫無線索（曾導致 E2E J10-06 誤判為模型不呼叫工具）。
+        // 這裡不拋例外（避免單一工具設定壞掉就讓整個對話失敗），但一定要留下可追查的紀錄。
+        if (instance == null) {
+            logger.error(
+                "工具 ${tool.name} 實例化失敗（classPath=${tool.classPath}, configObjectPath=${tool.configObjectPath}），" +
+                    "本次對話將不會掛載此工具；請檢查設定欄位是否與建構子相符"
+            )
+        }
+        return instance
     }
 
     /**

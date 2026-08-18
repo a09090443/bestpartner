@@ -240,8 +240,11 @@ class LLMService(
 
         val tools: MutableList<Any?> = mutableListOf()
 
+        // 用 buildTool 而非 buildToolWithoutSetting：後者對「有 config class 的工具」一律回 null，
+        // 使 TavilySearch / GoogleSearch 這類 BUILT_IN 工具只掛 toolId 時會被靜默丟棄，模型看不到任何工具。
+        // buildTool 會依 (登入者, toolId) 帶出使用者設定；工具本來就不需設定時退回無參數建構，行為相容。
         chatRequestDTO.toolIds?.forEach {
-            toolService.buildToolWithoutSetting(it)?.let { tool -> tools.add(tool) }
+            toolService.buildTool(it)?.let { tool -> tools.add(tool) }
         }
 
         chatRequestDTO.toolSettingIds?.forEach {
@@ -295,7 +298,11 @@ class LLMService(
      * 知識庫不存在時回 null，由呼叫端略過該來源。
      */
     private fun buildKnowledgeRetriever(mount: KnowledgeMount): ContentRetriever? {
-        val embedding = embeddingService.getKnowledge(mount.knowledgeId) ?: return null
+        // 呼叫端以 mapNotNull 蒐集，回 null 會被靜默丟棄：RAG 沒掛上但模型仍會作答（只是沒有檢索脈絡）
+        val embedding = embeddingService.getKnowledge(mount.knowledgeId) ?: run {
+            logger.warn("知識庫 [${mount.knowledgeId}] 不存在，本次不會掛載此 RAG 來源")
+            return null
+        }
         val filter: (Query) -> Filter = { _ ->
             MetadataFilterBuilder.metadataKey(KNOWLEDGE).isIn(listOf(mount.knowledgeId))
         }

@@ -168,8 +168,11 @@ class McpServerService(
     }
 
     private fun buildUserSpecificMcpClient(mcpSettingId: String, userId: String): DefaultMcpClient? {
-        return llmMcpUserSettingRepository.findByCondition(mcpSettingId, userId)?.firstNotNullOfOrNull { data ->
-            val mcpType = data.type ?: return@firstNotNullOfOrNull null
+        val client = llmMcpUserSettingRepository.findByCondition(mcpSettingId, userId)?.firstNotNullOfOrNull { data ->
+            val mcpType = data.type ?: run {
+                logger.warn("MCP 使用者設定 [$mcpSettingId] 缺少 type，略過")
+                return@firstNotNullOfOrNull null
+            }
             // settingContent 經 JPQL 已由 converter 解密為整包明文；env 值若為舊版逐值密文則一併還原（相容舊資料）
             val envKeys = data.commandSetting?.env?.keys.orEmpty()
             val transport = createTransport(
@@ -179,6 +182,15 @@ class McpServerService(
             )
             transport?.let { DefaultMcpClient.Builder().transport(it).build() }
         }
+        // 呼叫端以 mapNotNull 蒐集，回 null 會被靜默丟棄：MCP 工具沒掛上但毫無線索，
+        // 除錯時極易誤判為「模型不肯呼叫工具」（實際案例見 e2e 週期 202607312223 的 ISSUE-1／ISSUE-2）。
+        if (client == null) {
+            logger.warn(
+                "MCP 使用者設定 [$mcpSettingId] 對使用者 [$userId] 查無資料或無法建立 client，本次不會掛載此 MCP；" +
+                    "請確認 userSettingId 正確且屬於當前登入者"
+            )
+        }
+        return client
     }
 
     private fun buildDefaultMcpClient(mcpId: String): DefaultMcpClient? {
