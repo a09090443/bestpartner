@@ -88,3 +88,40 @@ hook 是否真的被 Claude Code 呼叫，用 `claude --debug` 觀察；
   （不影響 Claude Code 本身運作，但守門形同關閉）。
 - `Stop` hook 的「報告完成度」判定是**寬鬆訊號**（確認表存在 + 「測試結束時間」已填），
   刻意不做嚴格逐案例掃描，避免誤擋收工。真正的完整性仍由 skill 的流程與人工複核把關。
+
+### ⚠️ 最容易被忽略的失效模式：hook 根本沒被呼叫
+
+狀態檔以 **session_id** 命名，而 `PreToolUse` / `Stop` 在 `Read-State <當前 session_id>` 取到 `$null` 時
+會**直接 return、完全不干預**（設計上是為了「未進入 E2E 流程就別擋人」）。這兩件事合起來會產生一個
+**完全靜默**的失效模式：
+
+> 若 hook 沒被 Claude Code 呼叫（最常見原因：`.claude/settings.json` 的 hook 設定是在**本 session 開始之後**
+> 才加入或修改的——依 `.claude/CLAUDE.md`，改動後需**重開 session** 才套用），
+> 就不會有「本 session 的狀態檔」，於是所有 `PreToolUse` 檢查一律放行、`Stop` 也不擋。
+> **整個閘門空轉，而流程中看不出任何異狀。**
+
+E2E 週期 **202608192201** 實際踩到：全程 92 個案例跑完、改了產品程式碼，
+`PreToolUse` 從未擋過任何一次；事後才發現 `%LOCALAPPDATA%\Temp\claude\bestpartner-e2e\` 下
+只有一個屬於**前一個 session** 的狀態檔。而 CLI 直接執行的 `Mark` 因為會取「最近修改的狀態檔」，
+仍然乖乖更新了那個舊檔，讓紀錄看起來一切正常。
+
+**開測前先確認 hook 真的活著**（30 秒）：
+
+```powershell
+# 1. 記下目前的狀態檔清單
+Get-ChildItem "$env:LOCALAPPDATA\Temp\claude\bestpartner-e2e" | Select-Object Name, LastWriteTime
+```
+
+接著在 Claude Code 中輸入一句會觸發流程的話（例如「跑 ui test」），然後再看一次：
+**應該多出一個以「當前 session id」命名的新檔**（session id 可從 scratchpad 路徑或 `claude --debug` 取得）。
+若沒有多出來，就是 hook 沒被呼叫——**此時守門是關的**，請重開 session 後再確認一次。
+
+也可以直接驗擋人行為（狀態檔存在但未標記 `services-stopped` 時應回 exit 2）：
+
+```powershell
+'{"session_id":"<當前 session id>","tool_name":"Skill","tool_input":{"skill":"webwright"}}' |
+  pwsh -NoProfile -File .claude/hooks/e2e-flow-guard.ps1 -HookEvent PreToolUse; $LASTEXITCODE   # 應為 2
+```
+
+> 改善方向（尚未實作）：讓 `Read-State` 在「找不到當前 session 狀態檔、但同目錄存在其他狀態檔」時
+> 輸出一行可見警告，把這個失效模式從靜默變成可觀測。

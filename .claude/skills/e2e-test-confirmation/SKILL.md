@@ -52,8 +52,8 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 |------|:---:|:---:|------|
 | J1 | P0/P1/P2 | 9 | 認證流程 |
 | J2 | P0/P1 | 4 | Workflow 列表 |
-| J3 | P0/P1 | 7 | 畫布編輯 |
-| J4 | P1 | 8 | 驗證與啟用 |
+| J3 | P0/P1 | 9 | 畫布編輯 |
+| J4 | P1 | 12 | 驗證與啟用 |
 | J5 | P0/P1 | 12 | 執行 workflow（真實 LLM） |
 | J6 | P0/P1/P2 | 9 | Inspector 表單 |
 | J7 | P2 | 2 | 契約錯誤 |
@@ -61,7 +61,7 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 | J9 | P0/P1/P2 | 17 | 編輯器外觀與節點編輯頁 |
 | J10 | P1/P2 | 8 | 複合能力掛載（旅遊行程規劃） |
 
-- 選項至少提供「全部（83 案例）」「核心 P0（J1/J2/J3/J5）」「依變更範圍」三種常見組合，並允許自訂。
+- 選項至少提供「全部（92 案例）」「核心 P0（J1/J2/J3/J5）」「依變更範圍」三種常見組合，並允許自訂。
 - **依變更範圍**時，先看 `git diff --name-only HEAD` 推薦旅程（如 `inspector/`→J6、`canvas/`→J3+J9、`workflow/executor/`→J5、RAG 相關→J8、能力節點→J10），仍須讓使用者確認。
 - 選定後回寫狀態檔，供 hook 與收尾檢查使用：
   ```powershell

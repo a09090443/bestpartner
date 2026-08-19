@@ -82,7 +82,7 @@
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
 | P0 | 列表載入 | 顯示既有 workflow 摘要清單 |
-| P0 | 建立新 workflow（輸入 name → create） | 進入 `/editor/:id`，狀態 DRAFT、version 1 |
+| P0 | 建立新 workflow（命名 → 建圖 → **存檔**） | 落庫為 DRAFT、version 1。⚠️ **URL 不會帶 id**——`create-button` 不呼叫後端（§14-11），且存檔後路由也不改寫，workflow id 須於存檔後以 `workflow/list` 依名稱解析（§15-10）|
 | P1 | 從列表點項目進編輯器 | 載入該 workflow 完整定義 |
 | P1 | 刪除 workflow | 列表移除該項，後端連鎖刪 node/edge |
 
@@ -105,7 +105,7 @@
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
 | P1 | 缺 TRIGGER 節點時 switchStatus 啟用 | 400，顯示對應訊息 |
-| P1 | 圖有環時啟用 | 400，顯示對應訊息 |
+| P1 | 圖有環時**存檔** | 400「畫布存在有向環，請移除循環連線」。⚠️ 把關點在 `workflow/save`（存檔前即驗無環），**帶環的圖存不進 DB，因此「帶環後去啟用」經 UI 不可達**；勿寫成 switchStatus 的預期 |
 | P1 | 節點缺必填 config 啟用（如 LLM_ASSISTANT 缺 `llmId`） | 400，`workflow.node.config.required.missing`，UI 顯示 nodeKey 與缺漏欄位 |
 | P1 | 孤兒 SKILL 節點（未連任何 LLM `in:tool`）save → 啟用 | save 放行（DRAFT 容許未完成）；**switchStatus 回 400** `workflow.skill.node.not.mounted`（訊息含 nodeKey），開關維持關閉、狀態仍 DRAFT。execute 亦回 400（第二層防線） |
 | P1 | SKILL 已掛載到 LLM `in:tool` 後啟用（上一條的對照組） | 啟用成功，狀態轉 ACTIVE |
@@ -115,7 +115,7 @@
 | P1 | LLM 節點 `userPrompt` 留空且無 PROMPT 連入 `in:prompt` 時啟用 | **400** `workflow.llm.prompt.required`（訊息含 LLM 的 nodeKey），狀態仍 DRAFT |
 | P1 | LLM `userPrompt` 留空但已有 PROMPT 連入 `in:prompt`（上兩條的對照組） | 啟用成功，狀態轉 ACTIVE |
 | P1 | **非 PROMPT 節點**拉線到 LLM `in:prompt` 埠（如 TRIGGER） | `onConnect` 即擋下：toast「僅提示詞節點可連到 LLM 的提示埠」，**edge 不建立**（CONNECTIONS 計數不變） |
-| P1 | 已連 PROMPT 的 LLM 節點在 Inspector 檢視 | 「使用者提示」欄旁顯示 `data-test="prompt-overridden-badge"`（已由上游提示節點提供）與 `prompt-source-hint`；欄位仍可編輯（非 disabled） |
+| P1 | 已連 PROMPT 的 LLM 節點在 Inspector 檢視（**與 §J6 的同名案例為同一情境**，確認表模板以 J6-04 收錄，J4 不重複計數） | 「使用者提示」欄旁顯示 `data-test="prompt-overridden-badge"`（已由上游提示節點提供）與 `prompt-source-hint`；欄位仍可編輯（非 disabled） |
 | P1 | 合法圖 switchStatus 啟用 | 狀態轉 ACTIVE |
 
 > **能力來源節點型別（`in:tool` 白名單）的事實來源**：
@@ -613,3 +613,79 @@ E2E 週期 202607272132 以 webwright 工作區契約（Node Playwright + chromi
    - 7 節點在 1280 寬視窗會被右側 Inspector 遮住，handle 取不到 boundingBox 而連線靜默漏接。
      對策：視窗加寬至 1920，並在連線前按 `tidy-button` ＋ `zoom-fit`；**每連一條就斷言 edge 數**，
      才能定位到是哪一條失敗。
+
+---
+
+## 16. 首次全旅程（J1–J10）實測發現（2026-08-19～20，週期 202608192201）
+
+本週期首次一次跑完 **全部 10 條旅程、92 個案例**（此前皆為單旅程切片），並在 R1 發現兩個前端缺陷、
+修復後以 R2 重跑全範圍。R1 90/92（97.8%）→ **R2 92/92（100%）**。
+報告見 `docs/test-confirmations/e2e-test-confirmation-202608192201.md`（截圖 R1 237 張 ＋ R2 231 張）。
+
+### 16.1 產品缺陷（兩件，皆已修復並重驗）
+
+1. **登入端點自身的 401 觸發全域登出重導，把錯誤訊息沖掉**（J1-04）。
+   `api/http.ts` 的 response interceptor 對**任何** 401 呼叫 `handleUnauthorizedResponse()`，
+   預設 handler 執行 `window.location.href = '/login'`（整頁導航）。帳密錯誤時後端回的正是 401，
+   於是 `LoginView` 的 `ElMessage.error` 還沒渲染完頁面就被重載——實測 **3 次硬導航、`.el-message` 6 秒內從未出現、
+   email 欄位被清空**，使用者完全得不到失敗原因。
+   **修法**：interceptor 以 `isLoginRequest(url)` 排除登入端點；`api/auth.ts` 的 `login()` 自行 catch 並以
+   `extractApiMessage(err)` 改拋帶後端訊息的 Error（否則畫面顯示的是 axios 通用字串）。
+   > 教訓：`401` 同時承載「session 失效」與「這次登入帳密不對」兩種語意，**全域攔截器不能一視同仁**。
+
+2. **Node Designer 改了節點設定，Inspector 表單不同步**（J9-10）。
+   `inspector/forms/*.vue` 以 `const xxx = ref(props.config.xxx ?? '')` **只在建立當下讀一次 props**，
+   沒有 `watch`。Inspector 與 Node Designer 的 Parameters 面板共用 `typedForms.ts` 但各自 mount 實例，
+   A 實例 emit 更新了 `node.data.config`，B 實例的本地 ref 不會變。
+   實測對照很明確：**畫布節點副標即時同步、`dirty-badge` 正確、DB 也是新值，唯獨 Inspector 停在舊值**，
+   要重新選取節點或重整才刷新。
+   **修法**：新增 `composables/useConfigSync.ts`，8 支型別化表單接上。
+   > ⚠️ 實作陷阱（由單元測試抓到）：略過「自身 emit 的回流」必須先 `toRaw()` 再比對物件參考——
+   > 物件存進 reactive 容器後讀回來是 **Proxy**，直接比對永遠不相等，會把自己的回流誤判成外部變更，
+   > 導致使用者每打一個字就被重灌（中文組字期間尤其明顯）。
+
+### 16.2 測試腳本層面的反覆踩雷（寫新腳本前務必先看）
+
+R1／R2 合計有 **6 類**首輪誤判最後都證實是腳本問題，不是產品缺陷：
+
+| 症狀 | 真因 | 正確作法 |
+|------|------|---------|
+| 拉線靜默失敗、toast 也沒出現 | 節點卡右緣的 `out:main` handle 落在右側 Inspector / Overview 面板底下，取不到 boundingBox | 1920 視窗下節點 x 控制在 **約 1100 以內**；連線前先 `deselect` 收合 Inspector（§11-4／§13-7 的老問題，本輪又中一次） |
+| 讀不到 `stat-nodes` / `stat-connections` | 有節點被選取時右側面板切成 Inspector，Overview 不在 DOM | 先點畫布空白處 deselect 再讀 |
+| 節點執行狀態 class 抓不到 | `is-exec-*` 掛在**內層** `.workflow-node`（`WorkflowNode.vue:76`），不在外層 `.vue-flow__node` | 選擇器寫 `.vue-flow__node[data-id="x"] .workflow-node` |
+| toast 監看突然全空 | `page.goto` / `page.reload` 會摧毀注入的 MutationObserver | **每次導航後重新掛觀察器** |
+| Node Designer 開著時點不到工具列／存檔逾時 | Designer 是全屏遮罩 | 任何回畫布或工具列的操作前，先確認 `node-designer-modal` 已消失 |
+| 把 `workflow/get` 的回應整包當 `save` payload | 回應含 `status`／`updatedAt` 等 save 不接受的欄位，會先撞 JSON 解析錯而非預期的業務錯 | 自行組 `{id, version, name, description, canvasMeta, nodes[], edges[]}` |
+
+另外兩點：
+
+- **不要硬編 id / nodeKey 到後續腳本**。R1 有 4 支腳本硬編前一輪的 workflow id 與 nodeKey，
+  R2 重跑時全部失效、得逐一改寫。改為「依名稱解析 workflow id、依 `type` 與 edge 的 `sourceHandle`
+  解析 nodeKey」後，R2 可直接重跑（§6 的「ID 動態解析」原則同樣適用於**跨腳本**引用）。
+- **為了製造「未存變更」而拖進來的節點，記得在存檔前刪掉**。J9 為驗未存離開確認拖了一個空 CODE 節點，
+  之後的存檔把它一併寫進 DB，執行時撞 `missing required config fields: language, source`，
+  害 J9-13 判成失敗。
+
+### 16.3 環境現況
+
+- **`getKnowledgeStore` 只列得出有 `llm_doc` 紀錄的知識庫**。本機兩個 `e2e-scb-tnc-*` 只有
+  `202607272132` 那筆列得出來，因此 J8-B 的「2×KNOWLEDGE_RAG」兩個節點指向同一個知識庫。
+  連線契約、必填契約與「不落主遍歷」都驗得到，但**要驗「多知識庫合併注入的內容差異」需另建第二個含文件的知識庫**。
+- **`D:/MCP` 的 `date` / `filesystem` / `gmail` 三支 jar 仍是 thin jar**（無 `Main-Class`），
+  只有 `google-map` 是可用的 uber-jar。J5 的 Agent 模式改用 `TOOL(DateTool)` 驗證工具實際被呼叫
+  （回傳值與執行當下時間一致，比「問模型有沒有工具」可靠得多——§15-4 的教訓）。
+- **J5-03 的 client 斷線行為與 §15-7 的 ISSUE-4 不同**：**頁內導航**（`onBeforeUnmount` → `executionStore.stop()`）
+  會確實中止 SSE，execution 在 15 秒內收斂為 `CANCELLED`、下游 OUTPUT 記 `SKIPPED`；
+  ISSUE-4 描述的長時間 RUNNING 是**關閉整個瀏覽器**的情境，兩者勿混為一談。
+- **J10 的 ISSUE-5（腳本型 skill 劫持輸出）本輪未複現**：pdf skill 同樣掛 `in:tool`，但在
+  PROMPT 與系統提示同時明文要求「只輸出 JSON、不要輸出任何程式碼」、且工作量壓到 3 次工具呼叫的條件下，
+  模型完整遵守契約（59–60 秒完成）。**這不代表已修復**——提示一放鬆或工作量放大仍可能重現。
+
+### 16.4 案例數的權威來源
+
+本文件 §3 的旅程矩陣為**唯一權威**。截至本週期，各旅程案例數為
+J1 9／J2 4／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8，**合計 92**。
+`e2e-test-confirmation` skill 的 `e2e-test-checklist.md` 摘要表與 Step 1.5 範圍選單須與此一致
+（本週期修正前三處數字互不相同：摘要表寫 83、各列相加為 86、明細表實為 92）。
+> §J4 原有一條「已連 PROMPT 的 LLM 在 Inspector 檢視」與 §J6 的同名案例為同一情境，
+> 確認表模板以 **J6-04** 收錄，J4 不重複計數，故 J4 為 12 而非 13。
