@@ -33,7 +33,7 @@ src/
 │   ├── common/     # 跨區塊共用的無狀態小元件（NodeIcon.vue）
 │   ├── inspector/  # 節點屬性面板 + inspector/forms/（各 NodeType 對應的設定表單）+ typedForms.ts（表單分派表）
 │   └── nodeDesigner/ # 全屏節點編輯頁（NodeDesignerModal + Input / Params / Output / OutputPreview 四個面板）
-├── composables/    # useXxx.ts（Composition API 邏輯抽取）
+├── composables/    # useXxx.ts（Composition API 邏輯抽取）；useConfigSync.ts 供型別化表單跟隨 props.config
 ├── constants/      # nodeTypes.ts、handles.ts、nodeIcons.ts、nodeDocs.ts、canvas.ts
 ├── router/
 ├── stores/         # Pinia store，短檔名（auth.ts、workflow.ts、execution.ts）
@@ -68,6 +68,13 @@ src/
   defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
   ```
 - `inspector/forms/` 底下各節點設定表單共用同一 prop/emit 契約：`config: Record<string, unknown>` in、`update:config` out。例外是 `SettingSchemaForm.vue`（通用 schema-driven 表單，非節點設定表單本身），走標準 `modelValue`/`update:modelValue` v-model 慣例。
+- **各表單把 config 攤成本地 `ref` 編輯，因此必須接 `composables/useConfigSync.ts` 才會跟隨外部變更**：
+  Inspector 與 Node Designer 的 Parameters 面板共用同一份 `typedForms.ts` 分派表，但**各自 mount 一個實例**；
+  A 實例 emit `update:config` 更新了 `node.data.config` 後，B 實例的本地 `ref` 不會自己變。
+  寫法為 `const { markSelfEmit } = useConfigSync(() => props.config, cfg => { /* 灌回本地 ref */ })`，
+  並在自己的 `emitConfig()` 送出前呼叫 `markSelfEmit(next)`。
+  ⚠️ **自身 emit 的回流必須略過**（`useConfigSync` 內以 `toRaw()` 做物件參考比對），否則使用者每打一個字
+  都會被自己的值重灌——中文組字期間會吃字、游標會跳。新增型別化表單時一併接上，`SettingSchemaForm` 不在此列。
 - 只在單一元件內使用的型別直接 inline 定義在該 `.vue` 的 `<script setup>` 內，不額外抽檔；跨模組共用型別才放 `src/types/`。
 - `data-test` 屬性是 e2e 測試選擇器的硬性慣例（全 repo 約 70 處），新增可互動節點/元件時比照加上，e2e 選擇器變更需同步 `docs/e2e-test-plan.md`（見 [`documentation-update-policy.md`](documentation-update-policy.md)）。
 
@@ -76,6 +83,11 @@ src/
 - `src/api/http.ts` 是唯一的 axios 實例：
   - Request interceptor 從 `localStorage.getItem('token')` 附加 `Authorization: Bearer <token>`
   - Response interceptor 偵測 401/403（含後端 `ApiResponse.code === 401`）觸發登出導頁，可用 `setRedirectHandler` 注入測試替身
+  - ⚠️ **登入端點自身的 401 是例外**：以 `isLoginRequest(url)` 排除，不觸發全域登出重導。
+    帳密錯誤時後端回的就是 401，若一併走登出流程，預設 handler 的 `window.location.href` 會整頁重載，
+    把 `LoginView` 剛拋出的 `ElMessage.error` 沖掉，使用者只看到欄位被清空、看不到「密碼錯誤」
+    （E2E 週期 202608192201 的 J1-04 實測到 3 次硬導航）。對應地，`api/auth.ts` 的 `login()` 需自行
+    catch 並以 `extractApiMessage(err)` 改拋帶後端訊息的 Error，否則畫面會顯示 axios 的通用字串。
   - 匯出 `extractApiMessage(err)` 統一取得後端錯誤訊息
 - 每支 API 函式對回應做 `unwrap<T>(res)` 取出 `ApiResponse<T>.data`（型別定義於 `src/types/api.ts`）
 - 部分查詢類 API 有 module-scope Promise 快取去重（如 `getNodeRequiredFields()`），登出時須呼叫對應的 `invalidateXxxCache()` 清除

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
+import { useConfigSync } from '../../../composables/useConfigSync'
 import type { Option } from '../../../types/options'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
@@ -15,6 +16,19 @@ const query = ref<string>((props.config.query as string) ?? '')
 const topK = ref<number | ''>((props.config.topK as number) ?? 4)
 const minScore = ref<number | ''>((props.config.minScore as number) ?? '')
 const outputKey = ref<string>((props.config.outputKey as string) ?? '')
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    knowledgeId.value = (cfg.knowledgeId as string) ?? ''
+    embeddingModelId.value = (cfg.embeddingModelId as string) ?? ''
+    query.value = (cfg.query as string) ?? ''
+    topK.value = (cfg.topK as number) ?? 4
+    minScore.value = (cfg.minScore as number) ?? ''
+    outputKey.value = (cfg.outputKey as string) ?? ''
+  },
+)
 
 onMounted(async () => {
   const loaders = useNodeOptions()
@@ -48,6 +62,7 @@ function emitConfig() {
   else delete next.minScore
   if (outputKey.value) next.outputKey = outputKey.value
   else delete next.outputKey
+  markSelfEmit(next)
   emit('update:config', next)
 }
 </script>

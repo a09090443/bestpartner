@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
+import { useConfigSync } from '../../../composables/useConfigSync'
 import type { Option } from '../../../types/options'
 import { parseJsonObjectField } from '../../../utils/json'
 
@@ -34,6 +35,21 @@ const DEPRECATED_KEYS = [
   'knowledgeId',
   'files',
 ]
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    llmId.value = (cfg.llmId as string) ?? ''
+    systemPrompt.value = (cfg.systemPrompt as string) ?? ''
+    userPrompt.value = (cfg.userPrompt as string) ?? ''
+    enableMemory.value = (cfg.enableMemory as boolean) ?? false
+    memoryId.value = (cfg.memoryId as string) ?? ''
+    responseFormat.value = (cfg.responseFormat as string) ?? 'TEXT'
+    outputSchemaText.value = cfg.outputSchema ? JSON.stringify(cfg.outputSchema) : ''
+    outputKey.value = (cfg.outputKey as string) ?? ''
+  },
+)
 
 onMounted(async () => {
   const loaders = useNodeOptions()
@@ -69,6 +85,7 @@ function emitConfig() {
   // 清除已移除欄位的殘留鍵，避免後端嚴格 JSON（ignoreUnknownKeys=false）解析失敗
   for (const key of DEPRECATED_KEYS) delete next[key]
 
+  markSelfEmit(next)
   emit('update:config', next)
 }
 </script>

@@ -33,7 +33,7 @@ bestpartner-ui/src/
 │   ├── common/     # 跨區塊共用小元件（NodeIcon：節點型別的 inline SVG 圖示）
 │   ├── inspector/  # 屬性面板 + inspector/forms/（各節點型別的設定表單）
 │   └── nodeDesigner/ # 全屏節點編輯頁（輸入 / 參數・設定・說明 / 輸出 三欄）
-├── composables/    # useXxx.ts：畫布↔DTO 轉換、驗證、下拉選項快取、自動排版、主題切換
+├── composables/    # useXxx.ts：畫布↔DTO 轉換、驗證、下拉選項快取、自動排版、主題切換、節點設定同步
 ├── constants/      # 節點型別顯示 meta、handle 編碼工具、節點圖示與說明、畫布尺寸常數
 ├── router/         # 路由與登入守衛
 ├── stores/         # Pinia store（auth、workflow、execution）
@@ -57,9 +57,9 @@ npm run test     # Vitest 單元測試
 ## 核心設計慣例
 
 - **全面 Composition API**：所有元件使用 `<script setup lang="ts">`，`defineProps`/`defineEmits` 採純型別泛型宣告，不做 runtime 驗證。
-- **API 層集中管理**：`src/api/http.ts` 是唯一的 axios 實例，request 攔截器附加 JWT（`localStorage` 讀取），response 攔截器偵測 401/403 並導向登入頁；各 API 函式回傳前先 `unwrap<T>()` 取出 `ApiResponse<T>.data`。
+- **API 層集中管理**：`src/api/http.ts` 是唯一的 axios 實例，request 攔截器附加 JWT（`localStorage` 讀取），response 攔截器偵測 401/403 並導向登入頁；各 API 函式回傳前先 `unwrap<T>()` 取出 `ApiResponse<T>.data`。**登入端點自身的 401 為例外**——帳密錯誤時後端回的就是 401，若一併觸發登出重導會整頁重載、把登入頁剛顯示的錯誤訊息沖掉，因此攔截器以 `isLoginRequest(url)` 排除，改由 `api/auth.ts` 取出後端訊息（如「密碼錯誤」）往上拋給畫面顯示。
 - **狀態管理**：Pinia store 一律 setup 風格（`defineStore('xxx', () => {...})`），以 `ref`/`computed`/一般 function 分別對應 state／getter／action。
-- **型別化節點設定表單**：Workflow 編輯器的 Inspector 依節點型別分派結構化表單，取代裸 JSON 編輯，必填欄位驗證與後端 `NodeConfig` 契約同步（見 [視覺化 Workflow](../features/workflow.md#型別化節點設定表單)）。
+- **型別化節點設定表單**：Workflow 編輯器的 Inspector 依節點型別分派結構化表單，取代裸 JSON 編輯，必填欄位驗證與後端 `NodeConfig` 契約同步（見 [視覺化 Workflow](../features/workflow.md#型別化節點設定表單)）。Inspector 與全屏節點編輯頁共用同一份分派表但各自建立實例，因此表單一律以 `composables/useConfigSync.ts` 跟隨節點設定的外部變更——在其中一處改設定，另一處會即時反映。
 - **雙主題**：編輯器提供淺色（預設）／深色兩套主題，工具列可切換、偏好存於 `localStorage`。主題 token 集中在 `src/styles/workflow-theme.css`，作用域限定 `.wf-editor`——淺色為 base、深色以 `[data-wf-theme='dark']` 覆寫，故登入頁與列表頁不受影響。Element Plus 深色沿用官方 `theme-chalk/dark/css-vars.css`（`html.dark`），以涵蓋 teleport 到 `body` 的訊息元件。
 - **無 i18n 套件**：目前使用者提示訊息以中文字串直接寫在元件／store 中，尚未導入類似後端 `AppMessage` 的訊息管理機制。
 

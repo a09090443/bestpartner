@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useConfigSync } from '../../../composables/useConfigSync'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
 
 const prompt = ref<string>((props.config.prompt as string) ?? '')
 const outputKey = ref<string>((props.config.outputKey as string) ?? '')
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    prompt.value = (cfg.prompt as string) ?? ''
+    outputKey.value = (cfg.outputKey as string) ?? ''
+  },
+)
 
 /** 以不可變方式合併回 config，保留未知鍵值；空值鍵一律移除，維持 config 精簡 */
 function emitConfig() {
@@ -19,6 +29,7 @@ function emitConfig() {
   setOrDelete('prompt', prompt.value, !!prompt.value)
   setOrDelete('outputKey', outputKey.value, !!outputKey.value)
 
+  markSelfEmit(next)
   emit('update:config', next)
 }
 </script>

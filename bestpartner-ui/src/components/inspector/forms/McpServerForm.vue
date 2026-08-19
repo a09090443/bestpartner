@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
+import { useConfigSync } from '../../../composables/useConfigSync'
 import type { Option } from '../../../types/options'
 import { parseJsonObjectField } from '../../../utils/json'
 
@@ -19,6 +20,18 @@ const outputKey = ref<string>((props.config.outputKey as string) ?? '')
 // 呼叫參數（JsonObject）：以美化縮排的 JSON 文字編輯，方便閱讀多行參數
 const argumentsText = ref<string>(
   props.config.arguments ? JSON.stringify(props.config.arguments, null, 2) : '',
+)
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    mcpId.value = (cfg.mcpId as string) ?? ''
+    userSettingId.value = ((cfg.userSettingId as string) ?? (cfg.mcpSettingId as string)) ?? ''
+    toolName.value = (cfg.toolName as string) ?? ''
+    outputKey.value = (cfg.outputKey as string) ?? ''
+    argumentsText.value = cfg.arguments ? JSON.stringify(cfg.arguments, null, 2) : ''
+  },
 )
 
 onMounted(async () => {
@@ -41,6 +54,7 @@ function emitConfig() {
   if (outputKey.value) next.outputKey = outputKey.value
   else delete next.outputKey
   applyArguments(next)
+  markSelfEmit(next)
   emit('update:config', next)
 }
 

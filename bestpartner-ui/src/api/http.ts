@@ -27,6 +27,19 @@ export function handleUnauthorizedResponse(): void {
 }
 
 /**
+ * 登入端點自己回的 401 代表「這組帳密不對」，不是「既有 session 過期」。
+ * 兩者若共用同一條全域登出重導，會把 LoginView 剛拋出的錯誤訊息一起沖掉——
+ * `_redirectHandler` 預設是 `window.location.href`（整頁導航），
+ * `ElMessage.error('密碼錯誤')` 還沒渲染完頁面就重載了，使用者只看到欄位被清空。
+ * （E2E 週期 202608192201 的 J1-04 即為此症狀：實測 3 次硬導航、訊息從未出現。）
+ */
+export function isLoginRequest(url: string | undefined): boolean {
+  if (!url) return false
+  // 只比對路徑尾段，baseURL（VITE_API_BASE）有無皆適用
+  return /(^|\/)login\/?$/.test(url.split('?')[0])
+}
+
+/**
  * 自任意錯誤取出後端 ApiResponse 的 message。
  * 優先取 axios error 的 `response.data.message`（後端業務訊息），
  * 找不到才退回 error 本身的 `message`（多為 axios 通用的 HTTP 狀態字串）。
@@ -71,10 +84,11 @@ http.interceptors.request.use(
 )
 
 // Response interceptor：偵測 401/403 HTTP 狀態或後端 code 401 → 登出並重導
+// ⚠️ 登入端點自身的 401 例外（帳密錯誤，非 session 失效），交由呼叫端顯示錯誤訊息
 http.interceptors.response.use(
   (response: AxiosResponse) => {
     // 後端 ApiResponse code 401（業務層 token 失效）
-    if (response.data?.code === 401) {
+    if (response.data?.code === 401 && !isLoginRequest(response.config?.url)) {
       handleUnauthorizedResponse()
     }
     return response
@@ -83,7 +97,8 @@ http.interceptors.response.use(
     // HTTP 層 401 / 403
     if (
       axios.isAxiosError(error) &&
-      (error.response?.status === 401 || error.response?.status === 403)
+      (error.response?.status === 401 || error.response?.status === 403) &&
+      !isLoginRequest(error.config?.url)
     ) {
       handleUnauthorizedResponse()
     }

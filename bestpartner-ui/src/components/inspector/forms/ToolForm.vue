@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { getTool, saveToolSetting, updateToolSetting } from '../../../api/tool'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
+import { useConfigSync } from '../../../composables/useConfigSync'
 import type { Option } from '../../../types/options'
 import type { ToolSettingSchema } from '../../../types/toolSchema'
 import { parseJsonObjectField } from '../../../utils/json'
@@ -46,6 +47,16 @@ const missingRequired = computed(() =>
     // 空陣列分支僅為防禦外部注入；UI 上 array 空輸入 emit undefined，走 undefined 路徑
     return v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
   }),
+)
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    toolId.value = (cfg.toolId as string) ?? ''
+    toolSettingId.value = (cfg.toolSettingId as string) ?? ''
+    argumentsText.value = cfg.arguments ? JSON.stringify(cfg.arguments, null, 2) : ''
+  },
 )
 
 onMounted(async () => {
@@ -133,6 +144,7 @@ function emitConfig() {
   if (toolSettingId.value) next.toolSettingId = toolSettingId.value
   else delete next.toolSettingId
   applyArguments(next)
+  markSelfEmit(next)
   emit('update:config', next)
 }
 

@@ -99,5 +99,12 @@ JwtFilter 支援自動 Token 刷新。若設定 `jwt.refresh.switch=true`，接�
 
 | HTTP 狀態碼 | 說明 |
 |------------|------|
-| `401 Unauthorized` | Token 無效或已過期 |
+| `401 Unauthorized` | Token 無效或已過期；**登入端點 `POST /login/` 帳密錯誤時亦回此碼**，body 帶原因（如 `{"code":401,"message":"密碼錯誤"}`） |
 | `403 Forbidden` | 無操作權限 |
+
+:::note 前端如何區分這兩種 401
+`401` 同時代表「既有登入態失效」與「這次登入的帳密不對」，兩者處置不同：前者要清 token 並導回登入頁，
+後者只需在登入頁顯示原因。前端因此在 axios response 攔截器排除登入端點自身的 401，
+不對它觸發登出重導——否則整頁重載會把剛顯示的錯誤訊息一起沖掉。
+詳見 [前端架構](../architecture/frontend.md#核心設計慣例)。
+:::

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useConfigSync } from '../../../composables/useConfigSync'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>()
@@ -20,11 +21,20 @@ const TRIGGER_TYPES: { value: string; label: string; disabled?: boolean }[] = [
 
 const triggerType = ref<string>((props.config.triggerType as string) ?? '')
 
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    triggerType.value = (cfg.triggerType as string) ?? ''
+  },
+)
+
 /** 以不可變方式合併回 config，保留未知鍵值（如既有的 inputSchema） */
 function emitConfig() {
   const next: Record<string, unknown> = { ...props.config }
   if (triggerType.value) next.triggerType = triggerType.value
   else delete next.triggerType
+  markSelfEmit(next)
   emit('update:config', next)
 }
 </script>

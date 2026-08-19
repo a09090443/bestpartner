@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useNodeOptions } from '../../../composables/useNodeOptions'
+import { useConfigSync } from '../../../composables/useConfigSync'
 import type { Option } from '../../../types/options'
 
 const props = defineProps<{ config: Record<string, unknown> }>()
@@ -8,6 +9,14 @@ const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>
 
 const options = ref<Option[]>([])
 const skillId = ref<string>((props.config.skillId as string) ?? '')
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    skillId.value = (cfg.skillId as string) ?? ''
+  },
+)
 
 onMounted(async () => {
   try {
@@ -20,6 +29,7 @@ onMounted(async () => {
 /** 以不可變方式合併回 config，保留未知鍵值 */
 function emitConfig() {
   const next: Record<string, unknown> = { ...props.config, skillId: skillId.value }
+  markSelfEmit(next)
   emit('update:config', next)
 }
 </script>

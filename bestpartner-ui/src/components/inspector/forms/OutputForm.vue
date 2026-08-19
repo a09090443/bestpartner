@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ExpressionEditor from '../../common/ExpressionEditor.vue'
+import { useConfigSync } from '../../../composables/useConfigSync'
 import type { UpstreamRef } from '../../../constants/nodeOutputKeys'
 import { refFieldPath } from '../../../utils/expression'
 
@@ -21,13 +22,30 @@ const emit = defineEmits<{ 'update:config': [config: Record<string, unknown>] }>
 
 const template = ref<string>((props.config.template as string) ?? '')
 // mappings 以每行 key=value 編輯
+// mappings 以每行 key=value 編輯（mappingsToText 為函式宣告，hoisting 使其可在此使用）
 const mappingsText = ref<string>(
-  Object.entries((props.config.mappings as Record<string, string>) ?? {})
-    .map(([k, v]) => `${k}=${v}`)
-    .join('\n'),
+  mappingsToText(props.config.mappings as Record<string, string> | undefined),
 )
 
 const templateEl = ref<InstanceType<typeof ExpressionEditor> | null>(null)
+
+/** mappings 物件 → 每行 `key=value` 的編輯文字（初始化與外部同步共用） */
+function mappingsToText(mappings: Record<string, string> | undefined): string {
+  return Object.entries(mappings ?? {})
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n')
+}
+
+// 外部（Node Designer / Inspector 的另一個實例）改動同一節點 config 時同步本地 ref。
+// 自身 emit 造成的回流已由 useConfigSync 以物件參考比對略過，
+// 故 contenteditable 的 template 不會在使用者打字（含中文組字）期間被重灌。
+const { markSelfEmit } = useConfigSync(
+  () => props.config,
+  (cfg) => {
+    template.value = (cfg.template as string) ?? ''
+    mappingsText.value = mappingsToText(cfg.mappings as Record<string, string> | undefined)
+  },
+)
 
 function parseMappings(text: string): Record<string, string> {
   const result: Record<string, string> = {}
@@ -52,6 +70,7 @@ function emitConfig() {
   const mappings = parseMappings(mappingsText.value)
   if (Object.keys(mappings).length > 0) next.mappings = mappings
   else delete next.mappings
+  markSelfEmit(next)
   emit('update:config', next)
 }
 

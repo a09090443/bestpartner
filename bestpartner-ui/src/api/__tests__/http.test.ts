@@ -6,6 +6,7 @@ import {
   setRedirectHandler,
   handleUnauthorizedResponse,
   extractApiMessage,
+  isLoginRequest,
 } from '../http'
 
 describe('attachAuthHeader', () => {
@@ -83,5 +84,29 @@ describe('handleUnauthorizedResponse', () => {
     handleUnauthorizedResponse()
     expect(oldHandler).not.toHaveBeenCalled()
     expect(newHandler).toHaveBeenCalledOnce()
+  })
+})
+
+describe('isLoginRequest（登入端點自身的 401 不得走全域登出重導）', () => {
+  // 背景：E2E 週期 202608192201 的 J1-04——帳密錯誤時後端回 HTTP 401，
+  // 攔截器若一律呼叫 handleUnauthorizedResponse()，預設 redirect handler 會做
+  // window.location.href 整頁導航，把 LoginView 剛拋出的 ElMessage 一起沖掉，
+  // 使用者完全看不到「密碼錯誤」。
+  it.each(['/login/', '/login', 'http://localhost:80/login/', '/api/login/', '/login/?x=1'])(
+    '應把 %s 視為登入請求',
+    (url) => {
+      expect(isLoginRequest(url)).toBe(true)
+    },
+  )
+
+  it.each(['/llm/workflow/list', '/login/check', '/llm/setting/get', '/relogin-history'])(
+    '不應把 %s 視為登入請求',
+    (url) => {
+      expect(isLoginRequest(url)).toBe(false)
+    },
+  )
+
+  it('url 為 undefined 時應回 false（不影響既有行為）', () => {
+    expect(isLoginRequest(undefined)).toBe(false)
   })
 })
