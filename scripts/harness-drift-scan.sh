@@ -156,18 +156,17 @@ if [[ -d "$sqlDir" ]]; then
 fi
 [[ $secret_hit -eq 0 ]] && add_finding '金鑰外洩' 'OK' 'SQL 無真實金鑰' '—'
 
-# ---- 規則 7：AGENTS.md 與 .claude/CLAUDE.md 內容必須一致 ----
-# 兩檔位於不同目錄深度，連結前綴必然不同（根目錄用 .claude/rules/、.claude/ 內用 rules/）；
-# 正規化：從兩份內容剝除字面 '.claude/' 後逐位元組比對。無基線——不一致任何時候都應攔下。
+# ---- 規則 7：.claude/CLAUDE.md 須以 @import 展開根目錄 AGENTS.md（單一事實來源）----
+# AGENTS.md 是唯一的導覽地圖；CLAUDE.md 只保留一條 @../AGENTS.md import。
+# 檢查 CLAUDE.md 是否含該 import 行，防止有人又塞回完整副本或清空薄殼。無基線——脫鉤任何時候都應攔下。
 agentsMd="$root/AGENTS.md"
 claudeMd="$root/.claude/CLAUDE.md"
+importLine='@../AGENTS.md'
 if [[ -f "$agentsMd" && -f "$claudeMd" ]]; then
-  norm_a="$(tr -d '\r' < "$agentsMd" | sed 's|\.claude/||g')"
-  norm_c="$(tr -d '\r' < "$claudeMd" | sed 's|\.claude/||g')"
-  if [[ "$norm_a" == "$norm_c" ]]; then
-    add_finding '導覽一致性' 'OK' 'AGENTS.md ≡ .claude/CLAUDE.md（正規化後）' '—'
+  if grep -qF "$importLine" "$claudeMd"; then
+    add_finding '導覽一致性' 'OK' '.claude/CLAUDE.md 以 @import 展開 AGENTS.md' '—'
   else
-    add_finding '導覽一致性' 'NEW' 'AGENTS.md 與 .claude/CLAUDE.md 內容分歧' '兩份導覽須逐字一致（僅連結前綴例外），請同步後再推送'
+    add_finding '導覽一致性' 'NEW' '.claude/CLAUDE.md 缺少 @import' '.claude/CLAUDE.md 應含「@../AGENTS.md」import，指向根目錄 AGENTS.md'
   fi
 else
   add_finding '導覽一致性' 'NEW' '缺少 AGENTS.md 或 .claude/CLAUDE.md' '兩份導覽文件皆須存在'

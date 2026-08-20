@@ -3,7 +3,7 @@
 > 本檔是給 AI agent 的**導覽地圖**，不是百科。細節一律連回 `.claude/rules/` 與 `docs-site/`，此處只負責「往哪查、別踩什麼雷」。
 > 規範以 `.claude/rules/` 為單一事實來源（source of truth）；本檔若與其衝突，以 rules 為準。
 >
-> **⚠️ 本檔與另一份導覽文件（`AGENTS.md` ⇄ `.claude/CLAUDE.md`）內容必須逐字一致**，僅連結前綴因所在目錄不同（根目錄用 `.claude/rules/`、`.claude/` 內用 `rules/`）。兩者供不同 AI CLI 讀取，改動時**兩份都要改**；漂移掃描會正規化前綴後逐位元組比對，不一致即擋下 CI。
+> **本檔為 AI agent 的單一導覽入口**：`.claude/CLAUDE.md` 以 `@../AGENTS.md` import 展開本檔（不再維護重複副本）；改動導覽內容只改本檔即可，漂移掃描會確認該 import 未脫鉤。
 
 ## 這是什麼專案
 

@@ -115,13 +115,13 @@ pwsh ./scripts/harness-drift-scan.ps1    # Windows
 | 4 | Entity 命名 | `@Entity` 類別須以 `Entity` 結尾（嵌入式 `*Id` 排除） |
 | 5 | CDI 標註 | `service` / `repository` 套件須標 `@ApplicationScoped` |
 | 6 | 金鑰外洩 | `docs/sql/` 含真實 API 金鑰 |
-| 7 | 導覽一致性 | `AGENTS.md` ≡ `.claude/CLAUDE.md`（正規化後逐位元組比對） |
+| 7 | 導覽一致性 | `AGENTS.md` 為單一事實來源；`.claude/CLAUDE.md` 以 `@../AGENTS.md` import 展開 |
 | 8 | NodeType 契約 | 後端 `NodeType.kt` ≡ 前端 `types/workflow.ts` |
 | 9 | 測試命名 | 前端新測試須用 `.test.ts` |
 
 **基線機制**：腳本內 `$Baseline` 雜湊表登錄「既存且刻意容忍的漂移」（如 `jsqlparser` 硬編碼版本、
 `LLMResource.kt` 的寫死訊息、3 個既存 `.spec.ts`），標為 `BASELINE` 而不失敗；
-新增的漂移標為 `NEW` 並 exit 1。**規則 6 / 7 / 8 無基線**——金鑰外洩、導覽文件分歧、
+新增的漂移標為 `NEW` 並 exit 1。**規則 6 / 7 / 8 無基線**——金鑰外洩、導覽 import 脫鉤、
 前後端節點型別失聯在任何時候都不該存在。
 
 > 確認某項新漂移可接受時，正確做法是**登錄進 `$Baseline`**，而不是拿掉規則。
