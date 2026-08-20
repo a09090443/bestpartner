@@ -79,6 +79,8 @@
 □ J5 可用：具有效 api_key 的 LLM setting（填入 E2E_LLM_ID），否則 J5 真實案例標 ⏭️
 □ J8 可用：Milvus 容器運行中，且 `getDataFromEmbeddingStore` 對目標知識庫**實際命中**（回空即不可用）
    ⚠️ 勿只看 `getKnowledgeStore` 列得出知識庫——metadata 在 Postgres、向量在 Milvus，兩者會不同步
+□ J11/J12 可用：`E2E_HTTP_TEST_URL` 可通（預設本機 `/systemSetting/list`，服務已啟動即可）
+□ J14 已知風險：J14-04／J14-05 具破壞性，須排在該旅程最後，跑完以 `/view/chat` 確認服務存活
 □ J10 可用：google_map MCP jar 可啟動（`java -jar` 不報 manifest 錯）、google_map userSetting 與
    TavilySearch toolSetting 皆存在且金鑰有效、pdf skill 已上傳，且四者與 LLM setting **同屬登入者**
    ⚠️ D:/MCP 的 jar 須為 `build/*-runner.jar`（uber-jar），誤放 `build/libs/*.jar`（thin jar）會無 Main-Class
@@ -108,7 +110,11 @@
 | J8-B 知識庫 RAG（外掛） | P1 | 5 | | | | |
 | J9 編輯器外觀與節點編輯頁 | P0/P1/P2 | 17 | | | | |
 | J10 複合能力掛載（旅遊行程規劃） | P1/P2 | 8 | | | | |
-| **合計** | | **92** | | | | |
+| J11 純資料管線（無 LLM，確定性） | P0/P1/P2 | 8 | | | | |
+| J12 迴圈批次處理（LOOP） | P1/P2 | 7 | | | | |
+| J13 條件分流資料管線（CONDITION） | P1/P2 | 5 | | | | |
+| J14 CODE 節點沙箱（含安全性） | P1/P2 | 6 | | | | |
+| **合計** | | **118** | | | | |
 
 ### 通過標準
 
@@ -304,6 +310,79 @@
 | J10-06 | P1 | deep-verify：活動查證 | 含 TavilySearch 取得的活動／營業資訊與可追溯來源 URL | | |
 | J10-07 | P2 | DB 落庫檢查 | `llm_workflow_execution` 一筆 SUCCESS；`llm_workflow_node_execution` 恰 4 筆（純能力節點不落紀錄） | | |
 | J10-08 | P1 | 由 OUTPUT 產出 PDF 行程表 | PDF 含 Day1/Day2 行程、每景點 Google Maps 連結、活動資訊與來源 | | |
+
+---
+
+### J11 純資料管線（P0，無 LLM，確定性斷言）
+
+> 圖形：`TRIGGER → HTTP_REQUEST → DATA_TRANSFORM → OUTPUT`（4 節點 3 edge）。
+> ⚠️ **唯一一條完全不含 LLM 的執行旅程**，輸出確定：逐欄比對 `finalOutput`，**不放寬逾時、不做模糊比對**。
+> ⚠️ `HTTP_REQUEST` / `DATA_TRANSFORM` **無型別化表單**，設定一律走 `JsonConfigEditor`（表格模式或 JSON 模式）。
+> ⚠️ 資料來源用 `E2E_HTTP_TEST_URL`（預設本機 `/systemSetting/list`），**不依賴外網**。
+
+| 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
+|------|:---:|------|------|:---:|------------|
+| J11-01 | P0 | 拖出 4 節點並連線、Inspector（JSON 編輯器）設定後存檔 | 存檔成功、version 1 | | |
+| J11-02 | P0 | execute | SSE `started`→4 節點 `node.*`→`completed`(SUCCESS)；`node_execution` 恰 4 筆皆 SUCCESS | | |
+| J11-03 | P0 | **確定性輸出斷言（核心）** | `finalOutput` 與該端點實際回應逐欄相符；重跑兩次輸出完全一致 | | |
+| J11-04 | P1 | `HTTP_REQUEST.response` 的型別 | 為**原始字串**非解析後 JSON；mappings 無法下鑽欄位（需 CODE 節點 `JSON.parse`） | | |
+| J11-05 | P1 | `secretHeaders` 加密落地與遮罩 | `workflow/get` 回 `__SECRET_KEPT__`；DB 為密文；明文不出現在回應／日誌／錯誤訊息 | | |
+| J11-06 | P1 | `__SECRET_KEPT__` 沿用 | 再存一次後 DB 密文不變；再次 execute 仍成功 | | |
+| J11-07 | P1 | 非 2xx（url 指向必然 404 的路徑） | 節點 `node.failed`、整體 FAILED、下游 SKIPPED；⚠️ 訊息為寫死英文 `Unexpected code 404`（非 i18n，如實記錄） | | |
+| J11-08 | P2 | `timeoutMs` 設極小值 | 節點 FAILED（call timeout）；服務不受影響，後續案例可繼續 | | |
+
+---
+
+### J12 迴圈批次處理（P1，LOOP 首條端到端覆蓋）
+
+> 圖形：`TRIGGER → CODE(產生陣列) → LOOP`，`out:loop` 接子圖 `DATA_TRANSFORM`、`out:done` 接 `OUTPUT`（5 節點 4 edge）。
+> ⚠️ **陣列必須由 `CODE` 供應，不能用 TRIGGER 的 `inputPayload`**：UI 從不送 `inputPayload`
+> （`api/workflowExecution.ts:43`），TRIGGER 輸出恆為 `{}`，該寫法經 UI 不可達（202608202139 實測修訂）。
+> ⚠️ `loopBodyEntryNodeKey` 為**必填且須手填 nodeKey 字串**（無 UI 選擇器），nodeKey 自 `.vue-flow__node[data-id]` 讀取。
+> ⚠️ 斷言 LOOP 的彙集結果**必須讀 LOOP 自身的 `node_execution.output`**，不可透過 OUTPUT 節點（會被序列化成字串）。
+
+| 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
+|------|:---:|------|------|:---:|------------|
+| J12-01 | P1 | 建圖並存檔（5 節點 4 edge，填 `inputArrayPath` 與 `loopBodyEntryNodeKey`） | 存檔成功、version 1 | | |
+| J12-02 | P1 | execute（N=3） | 整體 SUCCESS；子圖節點 SSE 事件數 = **2N**（每迭代各發 started/completed） | | |
+| J12-03 | P1 | **`node_execution` 落庫筆數（核心）** | 子圖節點 **N 筆**（帶 `loop_index`）非 1 筆；N=3 時全圖 **7 筆**（TRIGGER1＋CODE1＋LOOP1＋子圖3＋OUTPUT1） | | |
+| J12-04 | P1 | 彙集鍵與元素型別 | LOOP **自身** output 為 `{ items: [...] }`；元素為每迭代**子圖最後節點的完整輸出 map** | | |
+| J12-05 | P1 | `out:loop` 與 `out:done` 活化語義 | `out:loop` 不參與活化；完成後只活化 `out:done`；OUTPUT 恰 1 筆、子圖節點恰 N 筆 | | |
+| J12-06 | P2 | 超過迭代上限（`maxIterations=2`、輸入 5 筆） | ⚠️ **截斷而非報錯**：只跑前 2 筆、`items` 長度 2、整體仍 SUCCESS、僅 logger.warn（與 AC-D6 不符，如實記錄） | | |
+| J12-07 | P2 | `inputArrayPath` 指向非陣列（以 `CODE` 回傳字串製造） | LOOP FAILED、下游 SKIPPED，訊息 `Loop input path <原字串> did not resolve to an array`；`{{path}}` 與裸 path 兩種寫法皆須驗 | | |
+
+---
+
+### J13 條件分流資料管線（P1）
+
+> 圖形：`TRIGGER → CONDITION`，true/false 兩側**各接兩節** `DATA_TRANSFORM` 再匯入 `OUTPUT`。
+> ⚠️ 分支刻意加長一節，用以區分「只標直接下游」與「標整條下游」。與 J5 的分支案例分工：J5 分流**提示詞**、本旅程分流**資料流**。
+
+| 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
+|------|:---:|------|------|:---:|------------|
+| J13-01 | P1 | 建圖並存檔（填 `conditions` 與 `logic`） | 存檔成功；`conditions` 為唯一無條件必填 | | |
+| J13-02 | P1 | 命中 true 的 payload execute | A1、A2 皆 SUCCESS；`finalOutput` 對應 A 分支（確定性比對） | | |
+| J13-03 | P1 | 改 payload 使判定 false 後 execute | B1、B2 皆 SUCCESS；`finalOutput` 對應 B 分支 | | |
+| J13-04 | P1 | **SKIPPED 傳播深度（核心）** | 未活化分支**整條下游皆 SKIPPED**——B1 **與 B2 都要是**，不可只標直接相連那顆 | | |
+| J13-05 | P2 | `operator` 填不支援的運算子 | 節點 FAILED，`workflow.condition.operator.not.supported`；⚠️ 非 AC-D5 所寫的 `WORKFLOW_CONDITION_EVAL_FAILED` | | |
+
+---
+
+### J14 CODE 節點沙箱（P1 功能 / P2 邊界，含安全性驗證）
+
+> 圖形：`TRIGGER → CODE → OUTPUT`（3 節點）。
+> 契約：全域 `input` = 上游所有輸出；**最後一個表達式**為回傳值；預設輸出鍵 `result`；預設逾時 10,000ms；輸出上限 256KB。
+> ⚠️ **J14-04 / J14-05 具破壞性風險，排在本旅程最後執行**；跑完以 `/view/chat` 確認服務仍存活。
+> ⚠️ 若服務已死，該事實即為 ❌ 並立即走 Step 5.7 失敗分流報告，**不得自行修復後重跑掩蓋**。
+
+| 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
+|------|:---:|------|------|:---:|------------|
+| J14-01 | P1 | 正常 JS 轉換（讀 `input`、最後表達式為物件） | 節點 SUCCESS，輸出落 `result`；`finalOutput` 確定性比對 | | |
+| J14-02 | P1 | 自訂 `outputKey` | 下游 `{{<codeKey>.<outputKey>}}` 取值成功；預設鍵 `result` 不再出現 | | |
+| J14-03 | P2 | `language` 填 `python` | 節點 FAILED，`workflow.code.language.not.supported`；不執行任何腳本 | | |
+| J14-04 | P2 | **逾時**：無窮迴圈＋`timeoutMs=2000` | FAILED `workflow.code.timeout`；**後續案例仍可正常執行**（執行緒與 context 已回收） | | |
+| J14-05 | P2 | **沙箱越界**：`Java.type('java.io.File')` 等 | 被擋下，FAILED `workflow.code.script.error`；檔案系統無任何副作用 | | |
+| J14-06 | P2 | **輸出上限**：產生 >256KB 字串 | FAILED `workflow.code.output.too.large`；非靜默截斷 | | |
 
 ---
 

@@ -56,6 +56,7 @@
 | `E2E_LLM_ID` | J5 真實執行所用的 llmId | 指向具有效 api_key 的 CHAT 設定 |
 | `E2E_EMBEDDING_ID` | J8 用的 embeddingModelId | 指向具有效 api_key 的 EMBEDDING 設定；缺則 J8 skip |
 | `E2E_KNOWLEDGE_ID` / `E2E_EMBEDDING_STORE_ID` | J8 知識庫與向量庫 | 由前置 API 準備產出（或由前置步驟現建現用） |
+| `E2E_HTTP_TEST_URL` | J11 的 `HTTP_REQUEST` 目標 | 預設 `http://localhost/systemSetting/list`（本機服務自身的公開端點，**刻意不依賴外網**以免網路抖動造成偽紅燈） |
 
 ---
 
@@ -323,6 +324,168 @@ TRIGGER(MANUAL) ──► LLM_ASSISTANT ──► OUTPUT
 > **斷言策略**：J10-04 只驗 SSE 事件序列與節點狀態（比照 J5，不比對輸出文字）；
 > J10-05／06 為 deep-verify，依賴有效的 Google Places 與 Tavily 金鑰，金鑰缺席時標 ⏭️。
 
+### J11 純資料管線（P0，**無 LLM，確定性斷言**）
+
+> 對照 n8n 模板：房屋資訊爬蟲、Apify 撈 YouTube。缺口分析見
+> [`docs/plans/2026-08-20-automation-capability-gap-analysis.md`](plans/2026-08-20-automation-capability-gap-analysis.md) §5。
+>
+> **本旅程的定位（與 J5 / J8 / J10 的關鍵差異）**：這是**唯一一條完全不含 LLM** 的執行旅程。
+> J5 / J8 / J10 皆依賴真實模型，導致斷言只能驗 plumbing、逾時須放寬、金鑰缺席就 skip。
+> 本旅程輸出**完全確定**，可逐欄比對 `finalOutput`，適合作為整個 E2E 體系的回歸基準
+> ——執行引擎壞掉時，這條會比任何 LLM 旅程更早、更明確地紅燈。
+
+圖形（4 節點 3 edge）：
+
+```
+TRIGGER(MANUAL) ──► HTTP_REQUEST(GET) ──► DATA_TRANSFORM ──► OUTPUT
+```
+
+**資料來源刻意選用本機服務自身的公開端點**（`GET /systemSetting/list`，`@PermitAll`），
+不依賴外網：避免網路抖動造成偽紅燈，也讓 CI 階段（§8）不需額外對外連線權限。
+
+| 案例 | 優先 | 案例 | 預期 |
+|:---:|:---:|------|------|
+| J11-01 | P0 | 拖出 4 節點並連線、以 Inspector 設定後存檔 | 存檔成功、version 1。⚠️ `HTTP_REQUEST` / `DATA_TRANSFORM` **無型別化表單**，Inspector 退回 `JsonConfigEditor`（見下方註），須以表格模式或 JSON 模式填 config |
+| J11-02 | P0 | execute | SSE `execution.started` → 4 節點依序 `node.started`/`node.completed` → `execution.completed`（SUCCESS）；`llm_workflow_node_execution` 恰 4 筆皆 SUCCESS |
+| J11-03 | P0 | **確定性輸出斷言（本旅程核心）**：比對 `finalOutput` | 與 `GET /systemSetting/list` 的實際回應**逐欄相符**；同一份資料重跑兩次輸出完全一致（**不使用模糊比對，不放寬逾時**） |
+| J11-04 | P1 | `HTTP_REQUEST.response` 的型別 | 輸出為**回應 body 的原始字串**（`HttpRequestExecutor` 直接回 `response.body?.string()`），**不是**已解析的 JSON 物件；故 `DATA_TRANSFORM` 的 mappings **無法**以 `{{http.response.data}}` 下鑽欄位，只能整串引用。欄位抽取需另接 `CODE` 節點 `JSON.parse`（見 §J12-07 與 J14） |
+| J11-05 | P1 | `secretHeaders` 加密落地與遮罩 | Inspector 填入 secretHeader 後 save → `workflow/get` 回 `__SECRET_KEPT__`；DB `llm_workflow_node.config` 內為密文（`WorkflowSecretConverter`），**明文不出現在回應、日誌或錯誤訊息** |
+| J11-06 | P1 | `__SECRET_KEPT__` 沿用 | 不改該欄位再存一次 → DB 密文不變（非重新加密、非寫入字面值 `__SECRET_KEPT__`）；再次 execute 仍成功（代表沿用的是真實明文） |
+| J11-07 | P1 | 非 2xx 回應（url 指向必然 404 的路徑） | 節點 `node.failed`、整體 FAILED，下游 `DATA_TRANSFORM` / `OUTPUT` 標 SKIPPED。⚠️ 錯誤訊息為 `HttpRequestExecutor` 寫死的英文 `Unexpected code 404`（`IOException`），**非 i18n 業務訊息**——見下方「已知偏離」 |
+| J11-08 | P2 | `timeoutMs` 設極小值（如 1ms） | 節點 FAILED，錯誤指向 call timeout；服務本身不受影響，後續案例可繼續執行 |
+
+> ⚠️ **這五種節點在 Inspector 沒有型別化表單**：`inspector/typedForms.ts` 的 `TYPED_FORMS`
+> 只涵蓋 TRIGGER / LLM_ASSISTANT / PROMPT / TOOL / MCP_SERVER / SKILL / KNOWLEDGE_RAG / OUTPUT 八種；
+> **`HTTP_REQUEST` / `DATA_TRANSFORM` / `CONDITION` / `LOOP` / `CODE` 一律退回 `JsonConfigEditor`**。
+> J11–J14 的所有節點設定都得走 JSON 編輯器（機制本身由 §J6 覆蓋），撰寫腳本時**別找不存在的
+> `data-test="http-url"` 這類選擇器**。此現況同時是產品缺口，已登錄於缺口分析 §3。
+
+> **已知偏離（實作 vs `docs/workflow-engine/requirements.md`）**：AC-D7 規定 HTTP 失敗回
+> `WORKFLOW_HTTP_REQUEST_FAILED`，但 `AppMessage` 中**無此鍵**，實際拋的是帶英文字串的
+> `IOException`。同理 `HttpRequestExecutor` **只支援 GET / POST**，其他 method 拋
+> `IllegalArgumentException("Unsupported HTTP method: …")`（同為寫死英文）。
+> 兩者皆違反 [`i18n-messages.md`](../.claude/rules/i18n-messages.md) 的「業務訊息禁止寫死字串」，
+> 本旅程**如實斷言現況**並在報告標註；修正與否另案決定，勿在測試中預設它已是 i18n 訊息。
+
+---
+
+### J12 迴圈批次處理（P1，`LOOP` 首條端到端覆蓋）
+
+> 對照 n8n 模板：Gmail 電子發票（22 節點，Loop+Aggregate 為核心）、While True 迴圈範例。
+>
+> **為何值得單獨一條旅程**：`LoopExecutor` 是全專案唯一「薄殼 ＋ 引擎特判」的 executor
+> ——迭代編排寫在 `WorkflowEngine.executeLoopNode()`，**主遍歷不經 `execute` 分派 LOOP**，
+> executor 只提供 `resolveItems()` 與常數。這條分歧路徑目前**零端到端證據**。
+
+圖形（子圖入口由 `loopBodyEntryNodeKey` 指定，非由連線推導）：
+
+```
+TRIGGER(MANUAL) ──► CODE(產生陣列) ──► LOOP ─out:loop→ [DATA_TRANSFORM(逐筆處理 {{item.*}})]
+                                            └─out:done→ OUTPUT
+```
+
+**⚠️ 陣列為何由 `CODE` 供應，而非 TRIGGER 的 `inputPayload`**（202608202139 實測修訂）：
+原設計寫「輸入陣列由 TRIGGER 的 `inputPayload` 提供」，但**前端從不送 `inputPayload`**
+——`api/workflowExecution.ts:43` 的註解自承「`inputPayload` 之後也應該放這裡」，
+故從編輯器按執行鈕時 `TriggerExecutor` 收到的 input 恆為 null，TRIGGER 輸出永遠是 `{}`，
+`{{<triggerKey>.rows}}` 無從解析。**該圖形經 UI 不可達**，只能走 API 直呼。
+改由 `CODE` 節點產生陣列後全程可由 UI 完成，且更貼近 n8n 模板的實際寫法（Code node 備料）。
+
+> 這同時是一個**產品缺口**：`constants/nodeDocs.ts` 對 TRIGGER 的說明教使用者用
+> `{{觸發節點key.欄位}}` 取值，但 UI 沒有任何地方能填入那些欄位。
+> 已登錄於 202608202139 確認表的問題追蹤區 #3。
+
+**若改由 `HTTP_REQUEST` 供應陣列會失敗**：其輸出是**字串**而非 List（見 J11-04），
+`resolveItems` 會拋 `workflow.loop.input.not.array`——此組合即為 J12-07 的測法
+（以 `CODE` 回傳字串模擬，效果等價且不需額外節點）。
+
+| 案例 | 優先 | 案例 | 預期 |
+|:---:|:---:|------|------|
+| J12-01 | P1 | 建圖並存檔（5 節點 4 edge）：`CODE` 產生陣列、LOOP 的 `inputArrayPath` 指向 `{{<codeKey>.<outputKey>}}`、`loopBodyEntryNodeKey` 填子圖入口 nodeKey | 存檔成功、version 1。⚠️ `loopBodyEntryNodeKey` 是**必填**（`LoopNodeConfig.missingRequiredFields`）且**須手填 nodeKey 字串**（無 UI 選擇器），nodeKey 由 `.vue-flow__node[data-id]` 讀取 |
+| J12-02 | P1 | execute（N=3 筆） | 整體 SUCCESS；子圖節點**每迭代各發一次** `node.started`/`node.completed` SSE 事件（`executeLoopBodyNode` 事件照發）→ 子圖節點的 SSE 事件數 = **2N**（N=3 時為 6） |
+| J12-03 | P1 | **`node_execution` 落庫筆數（本旅程核心斷言）** | 子圖節點為 **N 筆**（每迭代一筆、帶 `loop_index` 0..N-1、`seq_no` 遞增），**非 1 筆**；LOOP 節點本身另有 1 筆。**N=3 時全圖 7 筆**：TRIGGER 1 ＋ **CODE 1** ＋ LOOP 1 ＋ DATA_TRANSFORM 3 ＋ OUTPUT 1（202608202139 實測值；先前寫 6 筆係漏計備料用的 CODE 節點） |
+| J12-04 | P1 | 彙集鍵與元素型別 | LOOP **自身**輸出（`node_execution.output`）為 `{ <collectOutputKey 或 "items">: [...] }`；陣列元素是**每迭代子圖拓撲序最後一個節點的完整輸出 map**（非該節點某個欄位）。<br>⚠️ **斷言必須看 LOOP 自身的 `node_execution.output`，不可透過 OUTPUT 節點看**——`OutputNodeConfig.mappings` 型別為 `Map<String,String>`，會把陣列序列化成字串（202608202139 實測，首次斷言即因此誤判） |
+| J12-05 | P1 | `out:loop` 與 `out:done` 的活化語義 | `out:loop` **僅界定子圖入口、不參與活化**（子圖節點不在主遍歷執行）；迭代完成後**只活化** `out:done`。斷言：OUTPUT 恰 1 筆、子圖節點恰 N 筆（＝迭代數，未被主遍歷重複執行一次） |
+| J12-06 | P2 | 超過迭代上限（`maxIterations` 設 2，輸入 5 筆） | ⚠️ **截斷而非報錯**：引擎 `logger.warn("…僅執行前 N 項")` 後只跑前 2 筆，LOOP 的 `items` 長度為 2，整體仍 **SUCCESS**。這與 `requirements.md` AC-D6 規定的 `WORKFLOW_LOOP_LIMIT_EXCEEDED` **不符**（`AppMessage` 無此鍵）——如實斷言現況並在報告標註（202608202139 已實測確認） |
+| J12-07 | P2 | `inputArrayPath` 指向非陣列（以 `CODE` 回傳字串製造） | LOOP 節點 FAILED、下游 SKIPPED，訊息 `Loop input path <原始字串> did not resolve to an array`（`workflow.loop.input.not.array`，含原始 path 字串）；`{{path}}` 包裹與裸 path **兩種寫法都要驗**，且兩者訊息只差在是否帶 `{{}}`（202608202139 實測皆正確解析） |
+
+> **巢狀 LOOP 不支援**：任一 LOOP 子圖內含另一 LOOP → `workflow.loop.nested.not.supported`，
+> 於 `validateNodes`（啟用前／執行前）即擋下、不進入迭代。本旅程不含此案例
+> （需要 6 節點以上的畫布成本不成比例），但改動迴圈編排時須記得它存在。
+>
+> **迭代中失敗的行為**：子圖任一節點失敗 → 例外上拋 → **LOOP 節點整顆標 FAILED**、整體 FAILED，
+> 已完成的迭代紀錄保留（NFR-4 的逐節點 flush）。無「跳過該筆繼續下一筆」的語義
+> ——這正是缺口分析 GAP-6（節點層錯誤處理）在迴圈情境下的具體表現。
+
+---
+
+### J13 條件分流資料管線（P1）
+
+> 對照 n8n 模板：LINE 關鍵字自動回覆。
+>
+> **與 §J5「分支擇一」案例的分工**：J5 測 CONDITION 分流**提示詞**（`in:prompt` 埠，下游是 PROMPT＋LLM）；
+> 本旅程測分流**資料流**（`in:main` 埠，全程無 LLM），且刻意把分支**加長一節**以驗 SKIPPED 的傳播深度。
+
+圖形（分支各兩節，用以區分「只標直接下游」與「標整條下游」）：
+
+```
+TRIGGER(payload 帶 category)
+   └─► CONDITION ─out:true → DATA_TRANSFORM(A1) → DATA_TRANSFORM(A2) ─┐
+                 └out:false→ DATA_TRANSFORM(B1) → DATA_TRANSFORM(B2) ─┴─► OUTPUT
+```
+
+| 案例 | 優先 | 案例 | 預期 |
+|:---:|:---:|------|------|
+| J13-01 | P1 | 建圖並存檔：CONDITION 填 `conditions`（`left`/`operator`/`right`）與 `logic` | 存檔成功；`conditions` 為**唯一無條件必填**欄位（`ConditionNodeConfig`） |
+| J13-02 | P1 | 以命中 true 的 payload execute | `out:true` 側 A1、A2 皆 SUCCESS；`finalOutput` 對應 A 分支（確定性比對） |
+| J13-03 | P1 | 改 payload 使判定為 false 後再 execute | `out:false` 側 B1、B2 皆 SUCCESS；`finalOutput` 對應 B 分支 |
+| J13-04 | P1 | **SKIPPED 的傳播深度（本旅程核心斷言）** | 未活化分支的**整條下游皆為 SKIPPED**——B1 **與 B2 都要是** `SKIPPED`，不可只有直接相連的 B1 被標而 B2 缺紀錄或殘留其他狀態 |
+| J13-05 | P2 | `operator` 填不支援的運算子 | 節點 FAILED，`workflow.condition.operator.not.supported`（訊息含該 operator 字樣）。⚠️ 非 `requirements.md` AC-D5 所寫的 `WORKFLOW_CONDITION_EVAL_FAILED`（無此鍵） |
+
+> **多條件聚合**：`logic` 為 `or` 時任一成立即 true，其餘值（含未填）一律走 `all`（且）。
+> 自訂 `trueHandle` / `falseHandle` 可覆寫預設的 `out:true` / `out:false`，本旅程使用預設值。
+>
+> ⚠️ **`CONDITION` 只有二分支**，無 N 路 Switch。LINE 模板的「三選一」在本平台只能串接多個
+> CONDITION——已登錄為缺口分析 GAP-4，本旅程不測該替代寫法。
+
+---
+
+### J14 CODE 節點沙箱（P1 功能 / P2 邊界，含**安全性驗證**）
+
+> GraalJS 沙箱是 [`tech-stack-and-versions.md`](../.claude/rules/tech-stack-and-versions.md) 著墨最深的一塊
+> （`allowAllAccess(false)`、禁 host class / IO、逾時強制中斷、輸出上限、truffle-api 剝除 workaround），
+> **卻沒有任何端到端覆蓋**。本旅程的後三條**同時是安全性驗證**，不只是功能驗證。
+
+圖形（3 節點）：
+
+```
+TRIGGER(MANUAL, inputPayload) ──► CODE ──► OUTPUT
+```
+
+`CodeExecutor` 的執行契約（撰寫案例前必讀）：
+
+| 項目 | 值 |
+|------|-----|
+| 全域變數 | `input` = 上游**所有**輸出（`context.allOutputs()` 經 JSON 序列化後於 JS 內 `JSON.parse` 還原，避免 host object 穿透） |
+| 回傳值 | **腳本最後一個表達式**（非 `return`） |
+| 預設輸出鍵 | `result`（`outputKey` 可覆寫） |
+| 預設逾時 | 10,000 ms（`timeoutMs` 可覆寫），逾時以 `context.close(true)` 強制中斷 |
+| 輸出上限 | 序列化後 256 KB |
+
+| 案例 | 優先 | 案例 | 預期 |
+|:---:|:---:|------|------|
+| J14-01 | P1 | 正常 JS 轉換（讀 `input`、最後表達式為物件） | 節點 SUCCESS，輸出落於 `result`；`finalOutput` 確定性比對 |
+| J14-02 | P1 | 自訂 `outputKey` | 下游以 `{{<codeKey>.<outputKey>}}` 取值成功；預設鍵 `result` 不再出現 |
+| J14-03 | P2 | `language` 填 `python` | 節點 FAILED，`workflow.code.language.not.supported`（訊息含該值）；**不執行任何腳本** |
+| J14-04 | P2 | **逾時**：無窮迴圈 ＋ `timeoutMs=2000` | 節點 FAILED，`workflow.code.timeout`（訊息含逾時毫秒數）；**且後續案例仍可正常執行**——驗證強制中斷確實回收了執行緒與 context，未拖垮服務 |
+| J14-05 | P2 | **沙箱越界**：腳本嘗試存取 Java host class 或檔案系統（如 `Java.type('java.io.File')`） | 被沙箱擋下，節點 FAILED，`workflow.code.script.error`；**檔案系統無任何副作用** |
+| J14-06 | P2 | **輸出上限**：產生 >256 KB 的字串 | 節點 FAILED，`workflow.code.output.too.large`（訊息含 256）；非靜默截斷 |
+
+> ⚠️ **J14-04 與 J14-05 具破壞性風險**，務必安排在該旅程**最後**執行，且執行後以
+> `/view/chat` 健康檢查確認服務仍存活再收尾；若服務已死，該事實本身即為 ❌ 並須立即報告
+> （屬產品缺陷，走 §Step 5.7 失敗分流，不得自行修復後重跑掩蓋）。
+
+---
 ## 4. 測試資料策略
 
 - **命名**：測試建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，便於識別與掃描殘留。
@@ -378,6 +541,7 @@ bestpartner-ui/
 - **多觸發點執行新增的 `data-test`**：`node-run-from-here`（TRIGGER 節點卡的「從此處執行」鈕）、`trigger-picker`（多觸發點選擇面板）、`trigger-option-<nodeKey>`（各觸發點選項）、`trigger-picker-cancel`。
 - **登入**：email 欄位為 `type=email`（原生驗證擋非 email），須用真實 email（admin 為 `admin@bestpartner.com.tw`）而非裸 `admin`。
 - **ID 動態解析（重要）**：運行 dev DB 的 `llmId`/`toolId` 與 `docs/sql` 種子檔會漂移（實測 OpenRouter CHAT 於本機為 `1ee80ffa…`、種子檔為 `583b9222…`）。**禁止硬編 ID**；於 `global-setup` 以 API 依 alias/platform/name 解析當前 DB 真實 ID，寫入 `.artifacts/seed.json` 供 spec 讀取（`E2E_LLM_ID` 可覆寫，缺則 J5 skip）。
+- **五種節點沒有型別化表單（J11–J14 必讀）**：`inspector/typedForms.ts` 的 `TYPED_FORMS` 只涵蓋八種型別，**`HTTP_REQUEST` / `DATA_TRANSFORM` / `CONDITION` / `LOOP` / `CODE` 一律退回 `JsonConfigEditor`**。設定這些節點只能走 JSON 編輯器的表格模式或 JSON 模式，**不存在 `data-test="http-url"` 這類欄位選擇器**，撰寫腳本前先確認，別對著不存在的選擇器除錯。
 - **隔離性**：各 spec 自建自清資料；storageState 唯讀復用，不被測試改寫。
 
 ---
@@ -394,6 +558,10 @@ bestpartner-ui/
 | TOOL settingSchema、LLM SETTING 取值 | J6（間接，經 Inspector 下拉 / 動態表單） |
 | VECTOR save / uploadFiles / getDataFromEmbeddingStore、WORKFLOW execute（KNOWLEDGE_RAG 節點） | J8 |
 | SKILL upload / list / get、TOOL saveSetting、MCP SERVER saveSetting / getSetting | J10（間接，經 Step 4.5 資源前置與能力節點掛載） |
+| WORKFLOW execute（`HTTP_REQUEST` / `DATA_TRANSFORM` 節點）、`secretHeaders` 加密與遮罩契約 | J11 |
+| WORKFLOW execute（`LOOP` 迭代編排與 `node_execution` 落庫筆數） | J12 |
+| WORKFLOW execute（`CONDITION` 資料流分支與 SKIPPED 傳播） | J13 |
+| WORKFLOW execute（`CODE` 沙箱：逾時 / 越界 / 輸出上限） | J14 |
 
 > API 測試計畫仍是端點行為的權威來源；E2E 只驗「使用者路徑上這些契約確實被正確串接」。
 
@@ -429,6 +597,8 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
   須同步 skill 的 Step 5.7 判準表與 `e2e-test-checklist.md` 的「問題分流與修正紀錄」欄位。
 - **停服務範圍異動時**（port 清單或行程樣式），須同步 `.claude/hooks/e2e-flow-guard.ps1` 的 `$script:Ports`、
   skill 的 Step 4 / 6.5 指令與模板的前置檢查清單——三者不一致會導致 hook 擋下正常流程或漏擋。
+- **資料類節點（`HTTP_REQUEST` / `DATA_TRANSFORM` / `CONDITION` / `LOOP` / `CODE`）的 executor 行為異動時**，§J11–§J14 的對應案例須一併更新，並同步 `e2e-test-checklist.md`。特別是這幾項**已被案例釘住的實作細節**：`HttpRequestExecutor` 的預設輸出鍵 `response` 與「回傳原始字串而非解析後 JSON」、`LoopExecutor` 的 `DEFAULT_ITEM_ALIAS` / `DEFAULT_COLLECT_KEY` / `DEFAULT_MAX_ITERATIONS` 與**超限截斷**語義、`ConditionExecutor` 的 `DEFAULT_TRUE_HANDLE` / `DEFAULT_FALSE_HANDLE`、`CodeExecutor` 的 `input` 全域 / `DEFAULT_OUTPUT_KEY` / `DEFAULT_TIMEOUT_MS` / `MAX_OUTPUT_KB`。
+- **`typedForms.ts` 的 `TYPED_FORMS` 新增型別時**，§6 的「五種節點沒有型別化表單」清單與 §J11 的同名警語須縮減；該型別在 J11–J14 的操作方式會從 JSON 編輯器改為專屬表單，對應案例的選擇器須一併改寫。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
 - 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
 
@@ -684,8 +854,80 @@ R1／R2 合計有 **6 類**首輪誤判最後都證實是腳本問題，不是�
 ### 16.4 案例數的權威來源
 
 本文件 §3 的旅程矩陣為**唯一權威**。截至本週期，各旅程案例數為
-J1 9／J2 4／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8，**合計 92**。
+J1 9／J2 4／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8／**J11 8／J12 7／J13 5／J14 6**，**合計 118**。
 `e2e-test-confirmation` skill 的 `e2e-test-checklist.md` 摘要表與 Step 1.5 範圍選單須與此一致
-（本週期修正前三處數字互不相同：摘要表寫 83、各列相加為 86、明細表實為 92）。
+（202608192201 週期修正前三處數字互不相同：摘要表寫 83、各列相加為 86、明細表實為 92）。
+
+> J11–J14 於 2026-08-20 新增（依 `docs/plans/2026-08-20-automation-capability-gap-analysis.md` §5），
+> 補上 `HTTP_REQUEST` / `DATA_TRANSFORM` / `LOOP` / `CONDITION`（資料流）/ `CODE` 五種節點的執行覆蓋——
+> 在此之前這五種節點在本計畫中**只出現在拉線反例與「製造未存變更的道具」，從未真的執行過**。
+> 四條旅程已於 **2026-08-20 週期 202608202139 首次實測，26/26 全數通過**（實測發現見 §17）。
+> 先行標註的三處偏離（J11-07、J12-06、J13-05）皆已坐實；另因實測修訂了 §J12 的圖形與 J12-03 的筆數。
+
 > §J4 原有一條「已連 PROMPT 的 LLM 在 Inspector 檢視」與 §J6 的同名案例為同一情境，
 > 確認表模板以 **J6-04** 收錄，J4 不重複計數，故 J4 為 12 而非 13。
+
+---
+
+## 17. J11–J14 首次實測發現（2026-08-20，週期 202608202139）
+
+四條資料類節點旅程首跑，**26/26 全數通過（R1 單輪，console error = 0，無產品缺陷）**。
+報告：`docs/test-confirmations/e2e-test-confirmation-202608202139.md`。
+以下為改動計畫或影響後續腳本的實測結論。
+
+### 17.1 計畫被實測推翻的兩處（已於本次修訂）
+
+| 項目 | 原計畫 | 實測 | 處置 |
+|------|-------|------|------|
+| §J12 圖形 | 陣列由 TRIGGER 的 `inputPayload` 供應 | **UI 從不送 `inputPayload`**（`api/workflowExecution.ts:43` 註解自承），TRIGGER 輸出恆為 `{}`，該圖形**經 UI 不可達** | §J12 圖形改為 `TRIGGER → CODE → LOOP`，由 CODE 備料 |
+| §J12-03 筆數 | N=3 時全圖 **6 筆** | 全圖 **7 筆**（漏計備料用的 CODE 節點） | 已更正為 7 筆並標明組成 |
+
+> 前者同時是**產品缺口**：`constants/nodeDocs.ts` 教使用者以 `{{觸發節點key.欄位}}` 取值，
+> 但 UI 沒有任何地方能填那些欄位。已登錄確認表問題追蹤區 #3。
+
+### 17.2 三處預判的實作／規格偏離，皆已實測坐實
+
+| 案例 | 規格怎麼寫 | 實際 |
+|------|-----------|------|
+| J11-07 | AC-D7：回 `WORKFLOW_HTTP_REQUEST_FAILED` | `Unexpected code 404`（寫死英文 `IOException`，`AppMessage` 無該鍵） |
+| J12-06 | AC-D6：回 `WORKFLOW_LOOP_LIMIT_EXCEEDED` | **靜默截斷**、整體仍 SUCCESS，僅 `logger.warn` |
+| J13-05 | AC-D5：回 `WORKFLOW_CONDITION_EVAL_FAILED` | `workflow.condition.operator.not.supported`（AC-D5 的鍵不存在） |
+
+> 另新增一處同類：**節點逾時訊息亦為寫死英文** `Node <key> execution timed out after N ms`，
+> 且攔截點在**引擎層**而非 `CodeExecutor` 自身的 `workflow.code.timeout`——兩層逾時語義待釐清。
+
+### 17.3 撰寫腳本前必讀（本次踩到六個，全屬測試腳本層）
+
+- **`selectors.setTestIdAttribute('data-test')` 是獨立腳本的必要設定**：專案用 `data-test`，
+  Playwright 預設找 `data-testid`。`e2e/playwright.config.ts` 有設，**自寫的 standalone 腳本沒有**。
+- **TRIGGER 有型別化表單**（`TriggerForm`），`triggerType` 由 `defaultConfig` 帶入 `MANUAL`，
+  **不要**對它找 `mode-toggle`／`raw-input`（舊 J5 spec 的寫法已過時）。
+- **JSON 編輯器的模式是元件層記憶的**：已在 JSON 模式時再按 `mode-toggle` 會**切回表格模式**。
+  正確寫法是「`raw-input` 已可見就不按」的幂等判斷。
+- **編輯器 URL 不帶 workflow id**（§J2-02）：`page.reload()` 會得到空白畫布，
+  接著存檔會**新建一張 `未命名流程`**（本次即誤建一筆，已依 id 清除）。
+  要重新載入既有流程，必須回列表點該列的**「編輯」鈕**（名稱欄是純文字、不是連結）。
+- **節點數多時最右側節點會被 Inspector 面板遮住**（Playwright 報 `.inspector-panel` 攔截 pointer events）：
+  8 節點的 §J13 需先按 `zoom-fit` 正規化視野，或把節點座標往左收。
+- **斷言結構化資料不可透過 OUTPUT 節點**：`OutputNodeConfig.mappings` 是 `Map<String,String>`，
+  會把陣列／物件序列化成字串。要驗上游節點的輸出契約，**直接讀該節點的 `node_execution.output`**。
+
+### 17.4 引用不存在的變數會讓節點整顆失敗（影響圖形寫法）
+
+`ExecutionContext.resolvePath` 解不到路徑時回 `Variable not found: <path>`，**該節點 FAILED、其下游 SKIPPED**。
+兩個實際後果：
+
+1. **對字串下鑽會失敗**（J11-04）：`HTTP_REQUEST` 的輸出是原始字串，
+   `{{httpKey.response.data}}` 不是回 null 而是讓節點死掉。要抽欄位須先過 `CODE` 的 `JSON.parse`。
+2. **分支匯流無法同時引用兩側**（J13）：OUTPUT 若同時寫 `{{A2.x}}{{B2.x}}`，
+   被 SKIPPED 那側解不到 → OUTPUT FAILED。撰寫匯流節點時只能引用必定會執行的來源。
+
+### 17.5 CODE 沙箱實測結論（J14 的實質收穫）
+
+| 驗證項 | 結果 |
+|--------|------|
+| host class 存取 `Java.type('java.io.File')` | `ReferenceError: Java is not defined` —— `allowAllAccess(false)` 讓符號**根本不存在**，非拋權限例外 |
+| 無窮迴圈 ＋ `timeoutMs=2000` | 節點 FAILED；逾時後 `/view/chat` 回 200，**同一張流程改回正常腳本仍能執行** → 執行緒與 context 確實回收 |
+| 輸出 300KB | `Code script output exceeds the 256KB limit`，**非靜默截斷** |
+| `language: python` | `Code node language not supported: python`，**不執行任何腳本** |
+| 全域 `input` 與回傳值 | `input` 可讀到上游全部輸出；**最後一個表達式**即回傳值（非 `return`）；預設輸出鍵 `result`，`outputKey` 可覆寫且覆寫後預設鍵不再出現 |

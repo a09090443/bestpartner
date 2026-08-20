@@ -60,9 +60,15 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 | J8-A / J8-B | P1 | 5 / 5 | 知識庫 RAG（pipeline / 外掛） |
 | J9 | P0/P1/P2 | 17 | 編輯器外觀與節點編輯頁 |
 | J10 | P1/P2 | 8 | 複合能力掛載（旅遊行程規劃） |
+| J11 | P0/P1/P2 | 8 | 純資料管線（**無 LLM，確定性斷言**） |
+| J12 | P1/P2 | 7 | 迴圈批次處理（LOOP） |
+| J13 | P1/P2 | 5 | 條件分流資料管線（CONDITION） |
+| J14 | P1/P2 | 6 | CODE 節點沙箱（含安全性驗證） |
 
-- 選項至少提供「全部（92 案例）」「核心 P0（J1/J2/J3/J5）」「依變更範圍」三種常見組合，並允許自訂。
-- **依變更範圍**時，先看 `git diff --name-only HEAD` 推薦旅程（如 `inspector/`→J6、`canvas/`→J3+J9、`workflow/executor/`→J5、RAG 相關→J8、能力節點→J10），仍須讓使用者確認。
+- 選項至少提供「全部（118 案例）」「核心 P0（J1/J2/J3/J5）」「不需 LLM 金鑰（J1/J2/J3/J4/J6/J7/J9/J11/J12/J13/J14）」「依變更範圍」四種常見組合，並允許自訂。
+- **依變更範圍**時，先看 `git diff --name-only HEAD` 推薦旅程（如 `inspector/`→J6、`canvas/`→J3+J9、`workflow/executor/`→J5、RAG 相關→J8、能力節點→J10、`HttpRequestExecutor`/`DataTransformExecutor`→J11、`LoopExecutor`→J12、`ConditionExecutor`→J13、`CodeExecutor`→J14），仍須讓使用者確認。
+- **J11–J14 不需任何 LLM／embedding 金鑰**（全程無模型呼叫），是金鑰不可用時仍能驗證執行引擎的唯一選擇；
+  其中 **J11 為確定性回歸基準**，引擎壞掉時會比任何 LLM 旅程更早紅燈，建議任何範圍組合都納入。
 - 選定後回寫狀態檔，供 hook 與收尾檢查使用：
   ```powershell
   pwsh -NoProfile -File .claude/hooks/e2e-flow-guard.ps1 -HookEvent Mark -Field journeys -Value "J1,J5"
