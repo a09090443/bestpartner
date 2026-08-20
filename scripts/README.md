@@ -1,8 +1,9 @@
 # scripts/
 
-BestPartner 專案的可執行腳本集中於此目錄。**每支腳本有兩份實作**：
+BestPartner 專案的可執行腳本集中於此目錄。**每支腳本有兩份實作**
+（唯一例外是已停用的 `run_api_tests.ps1`，見下）：
 
-| 平台 | 用 | 需要 |
+| 平台 | 用哪份 | 需要 |
 |------|-----|------|
 | Linux / macOS | `.sh`（原生 bash） | 無額外安裝 |
 | Windows | `.ps1`（PowerShell） | 無額外安裝 |
@@ -62,7 +63,7 @@ pwsh ./scripts/docker-package.ps1
 |------|------|----------|
 | [`harness-drift-scan.sh`](harness-drift-scan.sh) / [`.ps1`](harness-drift-scan.ps1) | 慣例漂移掃描，發現新漂移時 exit 1 | ✅ 必跑（兩份都跑） |
 | [`docker-package.sh`](docker-package.sh) / [`.ps1`](docker-package.ps1) | 建置 / 驗證 / 匯出 Docker image | ✗ 本機執行 |
-| [`run_api_tests.ps1`](run_api_tests.ps1) | 早期 API 冒煙測試草稿（**已不建議使用**，見下） | ✗ |
+| [`run_api_tests.ps1`](run_api_tests.ps1) | 早期 API 冒煙測試草稿（**已不建議使用**、僅 `.ps1` 單份，見下） | ✗ |
 
 ### 行尾（CRLF）與執行位元
 
@@ -84,14 +85,6 @@ git update-index --chmod=+x scripts/foo.sh
 
 > ⚠️ CI 的 ArchUnit 步驟自帶 `chmod +x ./gradlew`，所以 gradlew 權限掉了**不會在 CI 紅燈**，
 > 只會打到本機 Linux/macOS 使用者。Gradle 重新產生 wrapper 後尤其要留意。
-
-## 腳本一覽
-
-| 腳本 | 用途 | 是否進 CI |
-|------|------|----------|
-| [`harness-drift-scan.ps1`](harness-drift-scan.ps1) | 慣例漂移掃描，發現新漂移時 exit 1 | ✅ 必跑 |
-| [`docker-package.ps1`](docker-package.ps1) | 建置 / 驗證 / 匯出 Docker image | ✗ 本機執行 |
-| [`run_api_tests.ps1`](run_api_tests.ps1) | 早期 API 冒煙測試草稿（**已不建議使用**，見下） | ✗ |
 
 ---
 
