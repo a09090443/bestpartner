@@ -602,6 +602,14 @@ async function handleLogout() {
   router.push('/login')
 }
 
+/**
+ * 返回流程列表。未存變更的確認一律交給 onBeforeRouteLeave 統一處理，
+ * 此處不重複跳窗（避免與登出流程一樣出現兩層確認）。
+ */
+function handleBack() {
+  router.push('/')
+}
+
 // 整理版面：以 dagre 重排節點位置，更新畫布並置中檢視
 function handleTidyUp() {
   const obj = toObject()
@@ -698,8 +706,40 @@ async function handleSave() {
     <!-- 頂部工具列 -->
     <div class="toolbar">
       <div class="toolbar-left">
+        <button
+          type="button"
+          class="icon-btn"
+          data-test="back-button"
+          aria-label="返回流程列表"
+          title="返回流程列表"
+          @click="handleBack"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
         <div class="logo-box" aria-hidden="true">⚡</div>
-        <span class="breadcrumb">Personal <span class="breadcrumb-sep">/</span></span>
+        <span class="breadcrumb-box">
+          <button
+            type="button"
+            class="breadcrumb breadcrumb-link"
+            data-test="breadcrumb-list"
+            @click="handleBack"
+          >
+            Personal
+          </button>
+          <span class="breadcrumb-sep" aria-hidden="true">/</span>
+        </span>
         <input
           class="wf-name-input"
           data-test="toolbar-name-input"
@@ -972,10 +1012,30 @@ async function handleSave() {
   border-radius: 8px;
 }
 
+.breadcrumb-box {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .breadcrumb {
   font-size: 12.5px;
   color: var(--wf-text-2);
   white-space: nowrap;
+}
+
+.breadcrumb-link {
+  padding: 0;
+  font-family: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.breadcrumb-link:hover {
+  color: var(--wf-text);
+  text-decoration: underline;
 }
 
 .breadcrumb-sep {

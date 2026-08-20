@@ -85,6 +85,8 @@
 | P0 | 列表載入 | 顯示既有 workflow 摘要清單 |
 | P0 | 建立新 workflow（命名 → 建圖 → **存檔**） | 落庫為 DRAFT、version 1。⚠️ **URL 不會帶 id**——`create-button` 不呼叫後端（§14-11），且存檔後路由也不改寫，workflow id 須於存檔後以 `workflow/list` 依名稱解析（§15-10）|
 | P1 | 從列表點項目進編輯器 | 載入該 workflow 完整定義 |
+| P1 | 編輯器點返回鈕（`data-test="back-button"`，無未存變更） | 導回列表 `/`，列表重新載入 |
+| P1 | 編輯器有未存變更時點返回（或麵包屑 `data-test="breadcrumb-list"`） | 先跳「尚未存檔」確認（由 `onBeforeRouteLeave` 統一處理，非返回鈕自行跳窗）；選「離開」導回 `/`、選「留下」停在編輯器 |
 | P1 | 刪除 workflow | 列表移除該項，後端連鎖刪 node/edge |
 
 ### J3 畫布編輯（P0）
@@ -538,6 +540,7 @@ bestpartner-ui/
 - **Node Designer 是全屏遮罩**：開啟後畫布完全不可點。任何「開 Designer → 回畫布繼續操作」的流程，**必須先確認 `node-designer-modal` 已消失**再進行下一步，否則點擊會落在遮罩上。
 - **主題狀態會跨 spec 殘留**：偏好存於 `localStorage.wf-theme`，且深色會在 `<html>` 掛 `dark` class。斷言外觀相關項目前先明確設定或清除該鍵，不要依賴上一支 spec 的殘留狀態。
 - **本次改版新增的 `data-test`**：`theme-toggle`、`zoom-bar` / `zoom-in` / `zoom-out` / `zoom-fit` / `zoom-value`、`node-open-designer`、`node-done-badge`、`open-node-designer-button`、`node-designer-modal` / `-close` / `-name-input` / `-tab-parameters|settings|docs` / `-parameters` / `-settings` / `-docs` / `-input-panel` / `-input-empty` / `-input-json` / `-capability-list` / `-output-panel` / `-output-empty` / `-output-json` / `-output-status` / `-output-error` / `-output-preview` / `-copy-key` / `-duplicate` / `-delete`。
+- **返回列表導覽新增的 `data-test`**：`back-button`（工具列返回鈕）、`breadcrumb-list`（可點的「Personal」麵包屑）。兩者皆 `router.push('/')`，未存確認交由 `onBeforeRouteLeave`。
 - **多觸發點執行新增的 `data-test`**：`node-run-from-here`（TRIGGER 節點卡的「從此處執行」鈕）、`trigger-picker`（多觸發點選擇面板）、`trigger-option-<nodeKey>`（各觸發點選項）、`trigger-picker-cancel`。
 - **登入**：email 欄位為 `type=email`（原生驗證擋非 email），須用真實 email（admin 為 `admin@bestpartner.com.tw`）而非裸 `admin`。
 - **ID 動態解析（重要）**：運行 dev DB 的 `llmId`/`toolId` 與 `docs/sql` 種子檔會漂移（實測 OpenRouter CHAT 於本機為 `1ee80ffa…`、種子檔為 `583b9222…`）。**禁止硬編 ID**；於 `global-setup` 以 API 依 alias/platform/name 解析當前 DB 真實 ID，寫入 `.artifacts/seed.json` 供 spec 讀取（`E2E_LLM_ID` 可覆寫，缺則 J5 skip）。
@@ -854,7 +857,7 @@ R1／R2 合計有 **6 類**首輪誤判最後都證實是腳本問題，不是�
 ### 16.4 案例數的權威來源
 
 本文件 §3 的旅程矩陣為**唯一權威**。截至本週期，各旅程案例數為
-J1 9／J2 4／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8／**J11 8／J12 7／J13 5／J14 6**，**合計 118**。
+J1 9／J2 6／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8／**J11 8／J12 7／J13 5／J14 6**，**合計 120**。
 `e2e-test-confirmation` skill 的 `e2e-test-checklist.md` 摘要表與 Step 1.5 範圍選單須與此一致
 （202608192201 週期修正前三處數字互不相同：摘要表寫 83、各列相加為 86、明細表實為 92）。
 

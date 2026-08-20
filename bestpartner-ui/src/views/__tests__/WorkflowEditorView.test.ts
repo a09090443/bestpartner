@@ -21,6 +21,7 @@ const {
   warningMock,
   executeWorkflowMock,
   abortMock,
+  pushMock,
 } = vi.hoisted(() => ({
   setNodesMock: vi.fn(),
   setEdgesMock: vi.fn(),
@@ -40,6 +41,7 @@ const {
   warningMock: vi.fn(),
   executeWorkflowMock: vi.fn(),
   abortMock: vi.fn(),
+  pushMock: vi.fn(),
 }))
 
 // ---- mock api/workflow（保留真實 store 以取得 WorkflowVersionConflictError） ----
@@ -84,7 +86,7 @@ vi.mock('@vue-flow/core', () => ({
 // ---- mock vue-router ----
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: routeParams }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: pushMock }),
   onBeforeRouteLeave: vi.fn(),
 }))
 
@@ -257,6 +259,23 @@ describe('WorkflowEditorView', () => {
 
     wrapper.unmount()
     expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  it('工具列的返回鈕與麵包屑都導回流程列表（未存確認交給離頁守衛）', async () => {
+    vi.mocked(workflowApi.get).mockResolvedValueOnce(loaded)
+
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="back-button"]').trigger('click')
+    expect(pushMock).toHaveBeenCalledWith('/')
+
+    pushMock.mockClear()
+    await wrapper.find('[data-test="breadcrumb-list"]').trigger('click')
+    expect(pushMock).toHaveBeenCalledWith('/')
+
+    // 未存確認由 onBeforeRouteLeave 統一處理，返回本身不得自行跳窗
+    expect(confirmMock).not.toHaveBeenCalled()
   })
 
   it('自訂 zoom bar 的按鈕接上 Vue Flow 的縮放 API 並顯示目前縮放百分比', async () => {
