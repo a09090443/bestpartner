@@ -36,6 +36,8 @@ bestpartner-service/src/main/resources/
 
 ## 原始碼架構（bestpartner-service）
 
+> ⚠️ **查閱原始碼前，先確認 `docs-site/` 與 `.claude/rules/` 文件是否已說明；文件查無才看程式碼。**
+
 基底路徑：`bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/`
 
 ### 各 Package 說明與放置規則
