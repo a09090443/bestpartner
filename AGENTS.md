@@ -84,6 +84,7 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 | [api-documentation.md](.claude/rules/api-documentation.md) | Swagger UI 路徑、OpenAPI spec、Bearer 認證整合 |
 | [api-endpoints.md](.claude/rules/api-endpoints.md) | 各模組 API endpoint 清單與功能說明 |
 | [api-testing.md](.claude/rules/api-testing.md) | Postman Collection、API 測試計畫、P0/P1/P2 定義 |
+| [test-data-retention.md](.claude/rules/test-data-retention.md) | 測試收尾必問資料處置（清理／保留供手動測試）、保留時的改名與記錄規則 |
 | [development-notes.md](.claude/rules/development-notes.md) | MCP Server 範例、日誌路徑、開關控制 |
 | [i18n-messages.md](.claude/rules/i18n-messages.md) | i18n 訊息管理、AppMessage enum、MessageUtil 使用方式 |
 | [documentation-update-policy.md](.claude/rules/documentation-update-policy.md) | 資訊查閱順序（文件優先）、套件／API／欄位變更時必須更新的文件清單 |
@@ -97,7 +98,8 @@ JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.cl
 |------|-----------------|
 | 改動 API / entity / 資料表 / 設定鍵 / UI / workflow 節點型別 / 執行事件後，宣告完成前 | `documentation-sync`（含測試文件同步檢視：e2e-test-plan / api-test-plan，見 policy「測試文件同步」）→ [`documentation-update-policy.md`](.claude/rules/documentation-update-policy.md) |
 | 執行任何 API 測試前 | `test-confirmation` → [`api-testing.md`](.claude/rules/api-testing.md) |
-| 執行 UI / E2E 測試前（說「跑 E2E」「UI 測試」時由 hook 自動觸發） | `e2e-test-confirmation`（開測前先停服務 → 複選旅程範圍 → 逐步截圖 → 失敗分流後**先報告等核准再修** → 修正後重跑選定範圍全部旅程 → 收尾關服務）→ [`.claude/hooks/README.md`](.claude/hooks/README.md) |
+| 任何測試（API / E2E）跑完、清理測試資料前 | 以 `AskUserQuestion` 問清理或保留（保留供使用者手動測試），依 [`test-data-retention.md`](.claude/rules/test-data-retention.md) 處理；**服務一律關閉** |
+| 執行 UI / E2E 測試前（說「跑 E2E」「UI 測試」時由 hook 自動觸發） | `e2e-test-confirmation`（開測前先停服務 → 複選旅程範圍 → 逐步截圖 → 失敗分流後**先報告等核准再修** → 修正後重跑選定範圍全部旅程 → 收尾問資料處置後關服務）→ [`.claude/hooks/README.md`](.claude/hooks/README.md) |
 | 寫 git commit 訊息 | `git-commit-message`（`<類型>(<範圍>): <主旨>`，繁中主旨） |
 | 建立 / 匯出 Docker image | `docker-build`（固定 prod profile 建置 → 啟動驗證 → 自動匯出 tar；tar 內含 JWT 私鑰，勿隨意流通） |
 | 加密 / 解密設定值（`${enc::}`）、輪替 `CONFIG_ENCRYPTION_KEY` | `config-secret`（勿與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` 混用） |

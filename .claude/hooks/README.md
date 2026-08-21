@@ -28,7 +28,7 @@
 | `UserPromptSubmit` | 三個條件同時成立才觸發：① 主題詞（`ui test`／`e2e`／`端到端`／`前端測試`…）② **執行動詞**（`跑`／`執行`／`重測`／`run`…）③ 未命中排除詞（`測試計畫`／`看報告`／`單元測試`／`api 測試`／`hook`／`commit`／`刪掉`／`.mjs`／`解釋`…）。成立時建立 session 狀態檔並注入 8 步強制流程。**只注入文字，不阻擋任何事**。 |
 | `PreToolUse` | 僅在狀態檔存在時作用。要啟動瀏覽器測試（`webwright` / `playwright` / `chromium`）而 phase 仍是 `triggered`（未確認停過服務）→ **exit 2 擋下**，stderr 附上該執行的指令。 |
 | `PostToolUse` | 指令含 `Stop-Process` / `taskkill` 且實測 port 80/5173/4173 皆無 listener → phase 推進為 `services-stopped`。 |
-| `Stop` | 流程進行中要收工時檢查「確認表存在且『測試結束時間』已填」「port 皆無 listener」，未過則 `decision: block` 要求補完。最多擋 2 次（`stopBlockCount`），並在 `stop_hook_active` 為 true 時直接放行，避免迴圈。 |
+| `Stop` | 流程進行中要收工時檢查「確認表存在且『測試結束時間』已填」「確認表『測試資料處置』已填（＝已問過使用者要清理還是保留）」「port 皆無 listener」，未過則 `decision: block` 要求補完。最多擋 2 次（`stopBlockCount`），並在 `stop_hook_active` 為 true 時直接放行，避免迴圈。 |
 | `SessionEnd` | 刪除狀態檔；仍有 listener 時於 stderr 提醒。 |
 
 ### 狀態檔
@@ -86,8 +86,11 @@ hook 是否真的被 Claude Code 呼叫，用 `claude --debug` 觀察；
 
 - 只在 Windows + PowerShell 7（`pwsh`）環境生效；Linux/macOS 上 hook 會找不到 `pwsh` 而失敗
   （不影響 Claude Code 本身運作，但守門形同關閉）。
-- `Stop` hook 的「報告完成度」判定是**寬鬆訊號**（確認表存在 + 「測試結束時間」已填），
+- `Stop` hook 的「報告完成度」判定是**寬鬆訊號**（確認表存在 + 「測試結束時間」與「測試資料處置」已填），
   刻意不做嚴格逐案例掃描，避免誤擋收工。真正的完整性仍由 skill 的流程與人工複核把關。
+- 「測試資料處置」的檢查只看**欄位是否非空**，擋不掉「沒問使用者就自己填一個決議」——
+  該關卡的實質約束在 `test-data-retention.md` 與兩個 skill 的步驟；hook 只負責讓「忘了問」不會靜默溜過。
+  對應欄位名稱若在模板中改動，本 hook 的 `Invoke-Stop` 正規式須一併改。
 
 ### ⚠️ 最容易被忽略的失效模式：hook 根本沒被呼叫
 

@@ -10,7 +10,7 @@
                           （另負責捕捉使用者對修正方案的核准／否決，與 [e2e-off] 逃生門）
       PreToolUse       → 未確實停過服務就要開瀏覽器 / 未經核准就要改產品程式碼 → exit 2 擋下
       PostToolUse      → 觀察「實際發生的事」推進 phase（port 真的空了、有在問使用者）
-      Stop             → 報告未完成 / 服務未關閉就要收工 → block 要求補完（有次數上限）
+      Stop             → 報告未完成（含「測試資料處置」未填）/ 服務未關閉就要收工 → block 要求補完（有次數上限）
       SessionEnd       → 清除狀態檔並提醒殘留服務
       Mark             → 供 skill 回寫狀態（phase / journeys / reportPath / runTag / round）
       Status           → 除錯用，印出目前狀態
@@ -237,8 +237,11 @@ function Get-FlowInstruction {
    ⚠️ 在使用者核准前修改 bestpartner-service / bestpartner-ui 的程式碼會被 hook 擋下（exit 2）。
 6. 使用者回覆同意後，hook 會把 phase 轉為 fixing，此時才可改碼；改完**重跑選定範圍的完整流程**
    （不是只重測失敗案例），`Mark -Field round -Value 2`，結果寫入「第二輪重測結果」章節。
-7. 收尾：清理本輪測試資料（只刪本輪記錄的 id）→ 補完確認表（含測試結束時間）。
-8. 最後關閉所有服務，確認 port 80/5173/4173 皆無 listener。報告一律寫回同一份確認表，不另產報告檔。
+7. 收尾**先問資料處置**：用 AskUserQuestion 問使用者本次測試資料要清理還是保留（保留供其手動測試），
+   附上本輪建立的資料清單；選清理才刪（只刪本輪記錄的 id），選保留則不刪並改名避開 `e2e-` 前綴兜底掃描。
+   決議與保留清單寫回確認表的「測試資料處置」欄位（未填 Stop hook 會擋下收工）。
+8. 最後關閉所有服務，確認 port 80/5173/4173 皆無 listener——**保留資料不等於保留服務**，
+   服務一律關閉並在回報中附重啟指令。報告一律寫回同一份確認表，不另產報告檔。
 
 若本次其實不是要實跑 UI 測試（例如只是要看報告、改測試文件或討論 hook 本身），請忽略本段並照原本的請求處理；
 使用者若輸入 [e2e-off] 則整個守門流程解除。
@@ -432,6 +435,10 @@ function Invoke-Stop {
         $content = Get-Content -LiteralPath $reportPath -Raw -Encoding utf8
         if ($content -match '\|\s*測試結束時間\s*\|\s*\|') {
             $pending += "確認表「測試結束時間」尚未填寫：$reportPath"
+        }
+        # 收尾必問「測試資料要清理還是保留」，決議須寫回確認表（見 .claude/rules/test-data-retention.md）
+        if ($content -match '\|[^|\r\n]*測試資料處置[^|\r\n]*\|\s*\|') {
+            $pending += '確認表「測試資料處置」尚未填寫——請先用 AskUserQuestion 問使用者要清理還是保留本次測試資料（保留供其手動測試），再把決議與保留清單寫回確認表'
         }
     }
 

@@ -491,7 +491,11 @@ TRIGGER(MANUAL, inputPayload) ──► CODE ──► OUTPUT
 ## 4. 測試資料策略
 
 - **命名**：測試建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，便於識別與掃描殘留。
-- **清理**：
+- **清理前必問（強制）**：收尾清理之前，必須以 `AskUserQuestion` 詢問使用者本次資料要清理還是**保留**
+  （保留供其後續手動測試）。選保留者不清理，且**必須改名成不含 `e2e-` 前綴**（建議 `keep-<runTag>-<原名>`），
+  否則日後任一輪的前綴兜底掃描會把它清掉。保留與否都不影響「收尾一律關閉服務」。
+  完整規則 → [`.claude/rules/test-data-retention.md`](../.claude/rules/test-data-retention.md)。
+- **清理**（使用者選擇清理時）：
   - 每條測試 `afterEach` 呼叫 `POST /llm/workflow/delete` 移除該條所建 workflow（連鎖刪 node/edge/execution）。
   - `globalTeardown` 再以前綴掃描 `workflow/list` 兜底刪除任何殘留 `e2e-*`。
   - **不建立任何備份檔 / 目錄**；E2E 產生的資料視為髒資料直接刪除，遵守「備份只能寫 `docs/sql/bestpartner-init-data.sql`」的專案鐵則。
@@ -603,7 +607,9 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 - **資料類節點（`HTTP_REQUEST` / `DATA_TRANSFORM` / `CONDITION` / `LOOP` / `CODE`）的 executor 行為異動時**，§J11–§J14 的對應案例須一併更新，並同步 `e2e-test-checklist.md`。特別是這幾項**已被案例釘住的實作細節**：`HttpRequestExecutor` 的預設輸出鍵 `response` 與「回傳原始字串而非解析後 JSON」、`LoopExecutor` 的 `DEFAULT_ITEM_ALIAS` / `DEFAULT_COLLECT_KEY` / `DEFAULT_MAX_ITERATIONS` 與**超限截斷**語義、`ConditionExecutor` 的 `DEFAULT_TRUE_HANDLE` / `DEFAULT_FALSE_HANDLE`、`CodeExecutor` 的 `input` 全域 / `DEFAULT_OUTPUT_KEY` / `DEFAULT_TIMEOUT_MS` / `MAX_OUTPUT_KB`。
 - **`typedForms.ts` 的 `TYPED_FORMS` 新增型別時**，§6 的「五種節點沒有型別化表單」清單與 §J11 的同名警語須縮減；該型別在 J11–J14 的操作方式會從 JSON 編輯器改為專屬表單，對應案例的選擇器須一併改寫。
 - E2E 旅程若涉及 API 契約變更，須同步 `docs/api-test-plan.md` 與 `.claude/rules/api-endpoints.md`。
-- 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則。
+- 測試資料清理策略異動時，須確認仍不違反「備份只能寫 `bestpartner-init-data.sql`」鐵則，
+  並同步 [`.claude/rules/test-data-retention.md`](../.claude/rules/test-data-retention.md)（收尾必問資料處置）、
+  `e2e-test-confirmation` skill 的 Step 6／6.1／6.2 與 `e2e-test-checklist.md` 的「測試資料處置規則」。
 
 ---
 

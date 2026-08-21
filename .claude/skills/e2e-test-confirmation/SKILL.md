@@ -216,7 +216,19 @@ pwsh -NoProfile -File .claude/hooks/e2e-flow-guard.ps1 -HookEvent Mark -Field ru
 5. 結果寫入確認表的「第二輪重測結果」章節，含與第一輪的差異對照；**R1 ✅ → R2 ❌ 的新回歸必須回到 Step 5.7 重新分流**。
 6. 第二輪仍有 ❌ → 重複 5.7～5.9，**最多三輪**；第三輪仍失敗一律轉為已知問題並收尾，不無限修測。
 
-### Step 6：測試資料清理（強制）
+### Step 6：測試資料處置詢問（強制停點，清理前必做）
+
+**所有旅程（含重測輪次）執行完畢、清理之前，必須用 `AskUserQuestion` 詢問使用者本次資料要清理還是保留**
+（保留是為了讓使用者接著自行手動測試）。不得逕自清理，也不得逕自保留。多輪重測**只在最後一輪問一次**。
+
+1. 整理**本次建立的資料清單**：workflow 名稱與 id（來自各案例執行時記錄的 id）、相關 execution id、上傳的 skill / 知識庫等。
+2. 以 `AskUserQuestion` 提問，至少提供：全部清理（預設建議）／全部保留（供後續手動測試）／部分保留（列清單讓使用者挑）。
+3. 依決議執行 Step 6.1（清理）或 Step 6.2（保留）。
+4. 決議與保留清單寫入確認表的「測試資料處置」欄位，並於 Step 7 收尾回報明示。
+
+> ⚠️ 未詢問即清理或即保留，視同 E2E 流程違規。完整規則見 [`test-data-retention.md`](../../rules/test-data-retention.md)。
+
+### Step 6.1：測試資料清理（使用者選擇清理時）
 
 E2E 建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名。**建立時把 id 記錄下來，收尾只刪這些 id**；需要兜底掃描時必須帶本次的 `runTag`。
 
@@ -228,12 +240,18 @@ E2E 建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名。**建立
 > 同理，執行紀錄（`llm_workflow_execution` / `..._node_execution`）不隨 workflow 連鎖刪除，
 > 要清也只能以本次產生的 execution id 為範圍，不可依日期或「孤兒」條件整批刪。
 
-> 若使用者要求**保留**測試流程供其手動驗證，以其指示為準：不做清理、流程名稱避開 `e2e-` 前綴
-> （免得日後任何一輪的兜底掃描把它清掉），並於回報中明確標示保留了哪些資料。
+### Step 6.2：測試資料保留（使用者選擇保留時）
+
+1. **不做清理**：保留清單內的 workflow 與其 execution 紀錄一律不刪，兜底掃描要排除它們。
+2. **改名避開兜底掃描（強制）**：把保留的 workflow 從 `e2e-<caseId>-<runTag>` 改成**不含 `e2e-` 前綴**的名稱
+   （建議 `keep-<runTag>-<原名>`，以 `POST /llm/workflow/update` 改 name）——否則日後任何一輪的兜底掃描會把它清掉。
+3. **部分保留**時，未被選中保留的資料照 Step 6.1 清理。
+4. 保留資料的後續清理責任歸使用者；不得在後續測試輪次的前置或兜底清理中自動刪除它。
+5. 在確認表「測試資料處置」欄位記錄：決議、保留清單（名稱／id）、改名後的名稱、保留理由。
 
 ### Step 6.5：測試後關閉服務（強制）
 
-**所有旅程執行完畢後，無論成敗一定關閉服務**（後端 + 前端）：
+**所有旅程執行完畢後，無論成敗、無論資料保留與否，一定關閉服務**（後端 + 前端）：
 
 ```powershell
 Get-NetTCPConnection -LocalPort 80,5173,4173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
@@ -241,6 +259,12 @@ Get-NetTCPConnection -LocalPort 80,5173,4173 -State Listen -ErrorAction Silently
 
 > ⚠️ 測試完成後不得遺留後端 / 前端服務在背景執行。
 > 關閉後 Stop hook 會檢查 port 是否真的淨空；仍有 listener 會擋下收工。
+>
+> ⚠️ **保留資料 ≠ 保留服務**：使用者選擇保留資料時服務照關，回報中附上重啟指令供其手動測試：
+> ```bash
+> cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
+> cd bestpartner-ui && npm run preview
+> ```
 
 ### Step 7：收尾回報
 
@@ -250,7 +274,7 @@ Get-NetTCPConnection -LocalPort 80,5173,4173 -State Listen -ErrorAction Silently
 - **本次選定範圍**與未選旅程
 - 各輪 Pass 率（R1 / R2…）與最終結論
 - 問題分流與修正摘要（前端 / 後端 / 測試腳本 / 環境各幾件、改了哪些檔案）
-- ❌ 項目已入「問題追蹤區」、測試資料已清理、**服務已關閉**
+- ❌ 項目已入「問題追蹤區」、**測試資料處置決議**（清理／保留：保留了哪些、改成什麼名稱、如何自行清理）、**服務已關閉**（附重啟指令）
 - webwright `final_runs/run_<id>/` 操作記錄與截圖位置
 
 ---
@@ -274,7 +298,10 @@ Get-NetTCPConnection -LocalPort 80,5173,4173 -State Listen -ErrorAction Silently
 | 證據欄只填純文字路徑 | 用 Markdown 圖片語法 `![](...)` 嵌入圖片連結，讓報告可預覽 |
 | 先標狀態再補證據 | 先記錄逐步圖片連結 / trace / 事件序列，才標狀態 |
 | 全部旅程測完才更新摘要 | 每條旅程完成立即更新（Step 5.5） |
-| 測試殘留 `e2e-*` workflow 未清 | 以前綴掃描兜底刪除（Step 6） |
+| 測試殘留 `e2e-*` workflow 未清 | 以前綴掃描兜底刪除（Step 6.1） |
+| 測完直接清資料，沒問使用者 | Step 6 先用 `AskUserQuestion` 問清理或保留，等回覆再動手 |
+| 保留的 workflow 沿用 `e2e-<runTag>` 名稱 | Step 6.2 改成不含 `e2e-` 前綴（如 `keep-<runTag>-…`），否則下一輪兜底掃描會清掉 |
+| 使用者要保留資料就順手把服務留著 | 服務一律關閉（Step 6.5），回報附重啟指令 |
 | 未確認範圍就把 J1–J10 全跑 | Step 1.5 用 AskUserQuestion 複選，並回寫 `Mark -Field journeys` |
 | ❌ 只記進問題追蹤區就結案 | Step 5.7 立即分流（前端／後端／測試腳本／環境）＋ 查根因 |
 | 自行判斷後直接改程式碼 | Step 5.8 先提案等使用者核准；未核准改產品程式碼會被 hook exit 2 擋下 |
