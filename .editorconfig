@@ -1,0 +1,26 @@
+# EditorConfig — 縮排與空白的單一事實來源
+#
+# ⚠️ 刻意不設 end_of_line：行尾由 .gitattributes ＋ 各開發者的 core.autocrlf 決定
+# （.sh / gradlew / .ps1 釘 lf，.bat / .cmd 釘 crlf，其餘交給 git 正規化）。
+# 此處若再設 end_of_line 會與之打架，且工作區現況本就混合
+# （*.kt 實測 198 CRLF / 67 LF），硬套會產生大規模無謂 diff。
+
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# 後端 Kotlin：IntelliJ 的 Kotlin 預設縮排為 4，實測 repo 現況亦為 4
+[*.{kt,kts}]
+indent_size = 4
+
+# 前端與設定檔：實測 repo 現況為 2
+[*.{vue,ts,js,mjs,cjs,json,jsonc,css,html,yml,yaml}]
+indent_size = 2
+
+# Markdown 行尾兩個空格是「換行」語法，不可清除
+[*.md]
+trim_trailing_whitespace = false
