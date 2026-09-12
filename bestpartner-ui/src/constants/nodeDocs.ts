@@ -37,6 +37,7 @@ export const NODE_DOCS: Record<NodeType, NodeDoc> = {
       '兩者皆無時無法啟用 workflow（會回報 workflow.llm.prompt.required）。',
       '「工具」埠是能力掛載埠、不是資料流：連進來的節點不會依序執行，而是變成 LLM 可呼叫的工具集。',
       '若唯一的提示詞來源落在未活化的條件分支且未填 userPrompt，該次執行會失敗——這是預期行為。',
+      '模型因長度上限或內容過濾提前結束時，本節點會失敗（workflow.llm.response.incomplete），不會把被截斷的回覆當成成功。',
     ],
   },
   PROMPT: {

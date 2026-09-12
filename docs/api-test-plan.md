@@ -130,6 +130,7 @@
 | P1 | execute 帶不存在的 id | 400，`workflow.not.found` |
 | P1 | execute 未帶 token（未認證） | 401 |
 | P2 | execute 中途 client 斷線 | 執行標記 `CANCELLED`，未執行的下游節點標記 `SKIPPED` |
+| P2 | **LLM 回覆完整性**：execute 一張含 `LLM_ASSISTANT` 的流程，觀察後端日誌的 `finishReason` | 每次推論都有一則 INFO 記錄 `finishReason` 與 `tokenUsage`；`finishReason` 為 `LENGTH` / `CONTENT_FILTER` 時該節點 FAILED、訊息 `workflow.llm.response.incomplete`、下游 `SKIPPED`；`STOP` / `TOOL_EXECUTION` / `null` 一律 SUCCESS（不可因 null 而失敗）。⚠️ 截斷需上游配合才會重現，無法穩定觸發時以「`STOP`／`null` 不受影響」為最低斷言 |
 
 ### 多觸發點各自獨立執行（`triggerNodeKey`）
 

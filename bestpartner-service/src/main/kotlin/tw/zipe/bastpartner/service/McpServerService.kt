@@ -196,6 +196,18 @@ class McpServerService(
     private fun buildDefaultMcpClient(mcpId: String): DefaultMcpClient? {
         val data = llmMcpServerRepository.findById(mcpId)
             ?: throw ServiceException(AppMessage.MCP_SERVER_SETTING_NOT_FOUND, mcpId)
+        // 無使用者設定時佔位符不會被替換，工具會拿著未展開的字面值去呼叫上游。實測上游多半回
+        // 業務錯誤而非協定錯誤（MCP 層 isError=false），節點與整體執行照樣 SUCCESS，使用者只看到
+        // 「執行成功但沒有資料」。至少留下一則 WARN，見 e2e 週期 202608252128 問題追蹤 2。
+        if (data.type == McpType.STDIO) {
+            val requiredKeys = data.commandSetting?.env?.keys.orEmpty() + data.commandSetting?.argsDesc?.keys.orEmpty()
+            if (requiredKeys.isNotEmpty()) {
+                logger.warn(
+                    "MCP [$mcpId] 宣告了需使用者填值的設定 [${requiredKeys.joinToString(", ")}]，但本次未指定 " +
+                        "userSettingId，將以未替換的佔位符啟動；該 MCP 的工具很可能回傳錯誤內容且不會中斷流程"
+                )
+            }
+        }
         val transport = createTransport(
             type = data.type,
             commandSetting = data.commandSetting,

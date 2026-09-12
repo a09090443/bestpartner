@@ -112,6 +112,7 @@ enum class AppMessage(val key: String) {
     WORKFLOW_LLM_PROMPT_REQUIRED("workflow.llm.prompt.required"),
     WORKFLOW_TRIGGER_NODE_NOT_FOUND("workflow.trigger.node.not.found"),
     WORKFLOW_TRIGGER_NODE_INVALID("workflow.trigger.node.invalid"),
+    WORKFLOW_LLM_RESPONSE_INCOMPLETE("workflow.llm.response.incomplete"),
 
     // SUCCESS
     SUCCESS_VECTOR_STORE_SAVED("success.vector.store.saved"),

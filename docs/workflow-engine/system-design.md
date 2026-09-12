@@ -8,6 +8,7 @@
 > 2026-07-25 修訂：**`KNOWLEDGE_RAG` 可作為 LLM 外掛（自動注入型 RAG）**——加入 `CAPABILITY_SOURCE_TYPES`，連 `in:tool` 時由 langchain4j `RetrievalAugmentor` 於推論前自動檢索注入（可同時掛多個知識庫，`DefaultQueryRouter` 合併），連 `out:main` 維持 §2.5 顯式檢索（並存，依出邊型別二選一）；§2.5 必填契約簡化為僅 `knowledgeId`（`query`/`embeddingModelId` 降為選填）；新增 `dto/KnowledgeMount`、`ChatRequestDTO.knowledgeMounts`。
 > 2026-07-30 修訂：**多觸發點各自獨立執行**——同一畫布可有多個 TRIGGER、各接一條下游流程並匯流到同一顆節點；`execute` 新增選填 `triggerNodeKey` 指定入口，未選定的 TRIGGER 與其獨佔下游落 SKIPPED（沿用 CONDITION 分支的活化規則，刻意不做可達性剪枝）。新增 §2.1.1；§1 ERD 與 §1.2 DDL 新增 `llm_workflow_execution.trigger_node_key varchar(64)`；§3 流程圖加入未選定 TRIGGER 分支；§5 契約補參數；§9 新增 i18n `workflow.trigger.node.not.found`、`workflow.trigger.node.invalid`。
 > 2026-07-28 修訂：**新增 `PROMPT` 提示詞節點（第 13 種）**——把 LLM 的提問內容抽成獨立節點，經 LLM 新增的**提示輸入埠 `in:prompt`** 餵入；該邊為一般資料流邊（參與活化與拓撲排序），故 CONDITION 分支可擇一驅動同一顆 LLM。§2 開頭新增「提示節點」段、新增 §2.2.1 PROMPT；§2.2 LLM 提問來源改為「PROMPT 節點優先、`userPrompt` 後備」；§9 新增 i18n `workflow.prompt.node.not.connected`、`workflow.llm.prompt.required`。
+> 2026-09-12 修訂：**LLM 回覆完整性把關**——`LlmAssistantExecutor` 改為保留 `Response<AiMessage>`，記錄 `finishReason` 與 `tokenUsage`，並在 `LENGTH` / `CONTENT_FILTER` 時讓節點 FAILED（原本一律 SUCCESS，截斷的回覆被靜默交付）；`STOP` / `TOOL_EXECUTION` / `null` 維持放行。§2.2 補行為說明；§9 新增 i18n `workflow.llm.response.incomplete`。
 
 ---
 
@@ -402,6 +403,8 @@ CREATE INDEX "idx_workflow_nodeexec_exec" ON "llm_workflow_node_execution" ("exe
 > ⚠️ 相容性：`NodeConfigRegistry` 為嚴格 JSON（`ignoreUnknownKeys=false`），舊有含 `toolIds` / `mcpIds` / `skillIds` / `knowledgeId` / `files` 的 LLM 節點 config 會於 parse 拋例外。開發期以重建 / 更新種子資料處理（不寫遷移腳本）；前端表單存檔時亦會主動剝除這些殘留鍵。
 
 > ⚠️ 已知限制（v1）：LLM 節點一律走同步 `ChatModel`，不支援 `StreamingChatModel` / SSE token 串流；`llmId` 必須指向 `modelType=CHAT` 的 LLM 設定。
+>
+> **回覆完整性把關（2026-09-12）**：executor 保留 `Response<AiMessage>`，先以 INFO 記錄 `finishReason` 與 `tokenUsage`（截斷問題的唯一線索），再判斷結束原因：`LENGTH` / `CONTENT_FILTER` 代表模型在說完之前就被切斷，回覆必然不完整，故 `throw ServiceException(WORKFLOW_LLM_RESPONSE_INCOMPLETE)` 讓節點 FAILED、下游 SKIPPED、`error_message` 帶 i18n 訊息。`STOP` / `TOOL_EXECUTION` / **`null`** 一律放行——多數 provider 正常結束時回 null，對 null 也失敗會讓既有流程全面紅燈。此前 executor 只取 `.content().text()`，截斷的回覆會被當成 SUCCESS 交付，使用者無從察覺（見 e2e 週期 202608252128 問題追蹤 #1）。
 
 ### 2.3 TOOL（內建工具節點）
 
@@ -845,6 +848,7 @@ data class NodeExecutionDTO(
 | `workflow.llm.prompt.required` | WORKFLOW_LLM_PROMPT_REQUIRED | LLM 節點既無 `userPrompt` 也無 PROMPT 連入 |
 | `workflow.trigger.node.not.found` | WORKFLOW_TRIGGER_NODE_NOT_FOUND | execute 指定的 `triggerNodeKey` 在圖上找不到（見 §2.1.1） |
 | `workflow.trigger.node.invalid` | WORKFLOW_TRIGGER_NODE_INVALID | execute 指定的 nodeKey 存在但型別不是 TRIGGER |
+| `workflow.llm.response.incomplete` | WORKFLOW_LLM_RESPONSE_INCOMPLETE | LLM 以 `LENGTH` / `CONTENT_FILTER` 提前結束，回覆不完整（見 §2.2） |
 
 ---
 

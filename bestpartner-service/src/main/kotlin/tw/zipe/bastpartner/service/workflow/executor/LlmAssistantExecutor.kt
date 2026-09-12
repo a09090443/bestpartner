@@ -1,6 +1,7 @@
 package tw.zipe.bastpartner.service.workflow.executor
 
 import dev.langchain4j.mcp.client.McpClient
+import dev.langchain4j.model.output.FinishReason
 import jakarta.enterprise.context.ApplicationScoped
 import tw.zipe.bastpartner.config.PersistentChatMemoryStore
 import tw.zipe.bastpartner.dto.ChatRequestDTO
@@ -13,8 +14,10 @@ import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.SkillNodeConfig
 import tw.zipe.bastpartner.dto.workflow.config.ToolNodeConfig
 import tw.zipe.bastpartner.entity.WorkflowNodeEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
 import tw.zipe.bastpartner.enumerate.ModelType
 import tw.zipe.bastpartner.enumerate.NodeType
+import tw.zipe.bastpartner.exception.ServiceException
 import tw.zipe.bastpartner.service.LLMService
 import tw.zipe.bastpartner.service.McpServerService
 import tw.zipe.bastpartner.service.workflow.ExecutionContext
@@ -107,8 +110,20 @@ class LlmAssistantExecutor(
         try {
             // Skill 與 MCP 的工具集統一組裝（避免 AiServices.toolProvider 單插槽互相覆蓋）
             llmService.applyToolProviders(aiService, dto, mcpClients)
-            val reply = aiService.build().chat(dto.memory.id, message).content().text()
-            return mapOf((cfg.outputKey ?: "reply") to reply)
+            val response = aiService.build().chat(dto.memory.id, message)
+            val finishReason = response.finishReason()
+            // 推論的結束原因與 token 用量：回覆被截斷時唯一的線索，一律留下
+            logger.info(
+                "LLM 節點 [${node.nodeKey}] 推論結束：finishReason=$finishReason, tokenUsage=${response.tokenUsage()}"
+            )
+            // 模型非正常結束（長度上限／內容過濾）時回覆必然不完整，不可當成 SUCCESS 交付，
+            // 否則使用者拿到殘缺答案卻無從察覺（見 e2e 週期 202608252128 問題追蹤 1）。
+            // STOP / TOOL_EXECUTION / null 一律放行——多數 provider 正常情況回 null，
+            // 對 null 也失敗會讓所有既有流程紅燈。
+            if (finishReason == FinishReason.LENGTH || finishReason == FinishReason.CONTENT_FILTER) {
+                throw ServiceException(AppMessage.WORKFLOW_LLM_RESPONSE_INCOMPLETE, finishReason.name)
+            }
+            return mapOf((cfg.outputKey ?: "reply") to response.content().text())
         } finally {
             mcpClients.forEach { c -> runCatching { c.close() }.onFailure { logger.warn("MCP client 關閉失敗", it) } }
         }

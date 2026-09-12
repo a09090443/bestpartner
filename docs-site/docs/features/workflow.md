@@ -141,6 +141,7 @@ Workflow 執行引擎提供**手動觸發**的執行能力（`POST /llm/workflow
 - **結果面板（ExecutionResultDrawer）**：執行結束後開啟結果抽屜，逐節點檢視輸入輸出與錯誤訊息，以及整體執行狀態。
 - **OUTPUT 節點**：以 `OUTPUT` 節點定義流程的最終輸出——`template`（`{{nodeKey.path}}` 插值，結果放 `result` 鍵）或 `mappings`（key=value 對映）擇一。
 - **失敗與取消語意**：單一節點失敗時其下游節點標記 `SKIPPED`、整體 `FAILED`；client 中途斷線則標記 `CANCELLED`。執行紀錄落地 `llm_workflow_execution` / `llm_workflow_node_execution` 資料表。
+- **LLM 回覆不完整即失敗**：`LLM_ASSISTANT` 節點會檢查模型的結束原因（`finishReason`），因**長度上限**或**內容過濾**而提前結束時，該節點標記 `FAILED` 並於錯誤訊息說明回覆遭截斷，而非把殘缺的答案當成成功交付；正常結束不受影響。每次推論的結束原因與 token 用量皆記錄於後端日誌，便於事後追查。
 - **變數插值**：全引擎統一 `{{nodeKey.path}}` 語法引用上游輸出；引用不存在的節點該節點執行失敗。`TRIGGER` 節點輸出即為 input payload 本身（`{{triggerKey.欄位}}`，不再多包一層 `.input`）。
 
 **支援執行的節點**：除 `SKILL`（能力節點，掛載到 LLM `in:tool` 埠、不獨立執行）外，其餘 11 種皆可執行——`TRIGGER`（MANUAL）、`LLM_ASSISTANT`、`TOOL`、`MCP_SERVER`、`KNOWLEDGE_RAG`、`CONDITION`、`LOOP`、`CODE`、`HTTP_REQUEST`、`DATA_TRANSFORM`、`OUTPUT`。
