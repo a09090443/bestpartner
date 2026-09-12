@@ -2,7 +2,7 @@
 
 | 測試 ID | 測試場景 | 優先級 | 方法 | 端點 | 狀態 | 備註 |
 |---------|---------|--------|------|------|------|------|
-| USER-001 | 註冊（正常新帳號） | P0 | POST | `/llm/user/register` | | 測試後呼叫 DELETE 清理 |
+| USER-001 | 註冊（正常新帳號） | P0 | POST | `/llm/user/register` | | 測試後呼叫 DELETE 清理；⚠️ **須檢查回應的 `password` 為 null**（2026-09-12 修復，勿讓回顯明文密碼復發） |
 | USER-002 | 註冊（重複 email） | P1 | POST | `/llm/user/register` | | |
 | USER-003 | 註冊（缺 username） | P1 | POST | `/llm/user/register` | | |
 | USER-004 | 註冊（缺 password） | P1 | POST | `/llm/user/register` | | |

@@ -992,10 +992,12 @@ curl -s -X POST "$BASE/llm/skill/delete" -H "Authorization: Bearer $ADMIN_TOKEN"
 ## 問題追蹤區（本次週期發現）
 
 > 本次 **0 個 ❌**。以下為執行過程中發現、值得追蹤的產品／流程議題，皆非測試失敗項。
+>
+> **#1 已於本週期修復並重測通過**（使用者核准後執行）；其餘留待後續版本。
 
 | # | 類別 | 嚴重度 | 現象 | 佐證 | 建議處置 |
 |---|------|:-----:|------|------|---------|
-| #1 | 安全（資訊外洩） | **P1** | **`/llm/user/register` 回應原樣回傳明文密碼** | USER-001：`"data":{…,"username":"apitest_202609122031","password":"testpass",…}`。對照 `/llm/user/get` 的 `password` 正確為 `null` | 註冊回應應比照 get 將 `password` 設為 null。密碼會進入前端記憶體、瀏覽器 devtools、以及任何記錄回應的日誌／APM |
+| #1 | 安全（資訊外洩） | **P1** | ~~**`/llm/user/register` 回應原樣回傳明文密碼**~~ → **本週期已修復** | 發現時 USER-001 回 `"password":"testpass"`；對照 `/llm/user/get` 為 `null`。**修正**：`LLMUserResource.register` 於回傳前將 `userDTO.password` 設為 null。**修正後實測**：回應 `"password":null`，且該帳號仍可正常登入（功能未破壞），驗證帳號已刪除 | ✅ 已修復（同週期驗證） |
 | #2 | 環境／資料設定 | P2 | **ADMIN CHAT 兩個 P0 端點無法驗證** | ADCHAT-001/004 回 400 `LLM model not found`。根因：`default_llm_platform` = `OPENAI`，但 admin 名下無 OPENAI 的 **CHAT** 設定，故 `chatModelMap` 為空 | 二擇一：① 把 `default_llm_platform` 改為 `OPENROUTER`（admin 有有效的 `583b9222`）② 為 admin 建立 OPENAI CHAT 設定。**本次未自行變更**（屬使用者共享環境，需裁示）。另建議 `LLMStore` 在 map 為空時記一則 WARN，現況啟動無任何訊號 |
 | #3 | 資料完整性 | P2 | **`/llm/setting/platform/add` 允許新增重複平台** | LLMSET-012：`GROK` 已存在仍成功新增，`llm_platform` 出現兩筆 `GROK`（已刪除還原） | 加上 `name` 唯一性約束，或 service 層擋重複。重複平台會讓前端下拉出現同名選項、使用者無法分辨 |
 | #4 | 一致性（遮罩） | P2 | **`/llm/tool/saveSetting` 回應回顯明文 apiKey** | TOOL-011 回應含 `"settingContent":"{\"apiKey\":\"tvly-APITEST-…\"…}"`；對照 `/llm/setting/save` 的 apiKey 已遮罩為 `__SECRET_KEPT__` | 統一為遮罩。DB 落地本身**正確加密**（`{"apiKey":"v2$…"}`），純屬回應層不一致 |

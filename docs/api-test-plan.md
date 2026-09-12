@@ -33,7 +33,7 @@
 
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
-| P0 | register 新用戶 | 成功建立，可登入 |
+| P0 | register 新用戶 | 成功建立，可登入；**回應的 `password` 須為 null**（不得回顯請求送來的明文密碼） |
 | P1 | get / update 當前用戶資訊 | 資料正確回寫 |
 | P2 | switchStatus / delete 權限檢核（非 admin 拒絕） | 403 |
 
