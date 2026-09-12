@@ -1,5 +1,7 @@
 ---
 sidebar_position: 4
+description: BestPartner 知識庫 API，提供 RAG 相關管理功能，包含向量儲存、文件嵌入與相似度搜尋，端點前綴 /llm/vector。
+keywords: [知識庫 API, RAG, 向量, Embedding, 相似度搜尋]
 ---
 
 # 知識庫 API

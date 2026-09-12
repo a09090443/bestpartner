@@ -1,0 +1,783 @@
+package tw.zipe.bastpartner.service.workflow
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.quarkus.security.identity.CurrentIdentityAssociation
+import io.quarkus.security.identity.SecurityIdentity
+import jakarta.enterprise.context.ApplicationScoped
+import jakarta.enterprise.context.control.ActivateRequestContext
+import jakarta.enterprise.inject.Instance
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
+import org.eclipse.microprofile.context.ManagedExecutor
+import tw.zipe.bastpartner.dto.workflow.config.CodeNodeConfig
+import tw.zipe.bastpartner.dto.workflow.config.HttpRequestNodeConfig
+import tw.zipe.bastpartner.dto.workflow.config.LoopNodeConfig
+import tw.zipe.bastpartner.dto.workflow.config.NodeConfig
+import tw.zipe.bastpartner.dto.workflow.config.NodeConfigRegistry
+import tw.zipe.bastpartner.dto.workflow.config.PromptNodeConfig
+import tw.zipe.bastpartner.entity.WorkflowEdgeEntity
+import tw.zipe.bastpartner.entity.WorkflowExecutionEntity
+import tw.zipe.bastpartner.entity.WorkflowNodeEntity
+import tw.zipe.bastpartner.entity.WorkflowNodeExecutionEntity
+import tw.zipe.bastpartner.enumerate.AppMessage
+import tw.zipe.bastpartner.enumerate.ExecutionStatus
+import tw.zipe.bastpartner.converter.WorkflowSecretConverter
+import tw.zipe.bastpartner.enumerate.NodeExecutionStatus
+import tw.zipe.bastpartner.enumerate.NodeType
+import tw.zipe.bastpartner.enumerate.TriggerType
+import tw.zipe.bastpartner.exception.ServiceException
+import tw.zipe.bastpartner.repository.WorkflowEdgeRepository
+import tw.zipe.bastpartner.repository.WorkflowExecutionRepository
+import tw.zipe.bastpartner.repository.WorkflowNodeExecutionRepository
+import tw.zipe.bastpartner.repository.WorkflowNodeRepository
+import tw.zipe.bastpartner.repository.WorkflowRepository
+import tw.zipe.bastpartner.service.workflow.executor.LlmAssistantExecutor
+import tw.zipe.bastpartner.service.workflow.executor.LoopExecutor
+import tw.zipe.bastpartner.service.workflow.executor.PromptExecutor
+import tw.zipe.bastpartner.service.workflow.executor.TriggerExecutor
+import tw.zipe.bastpartner.util.MessageUtil
+import tw.zipe.bastpartner.util.logger
+
+/**
+ * Workflow 執行引擎（Phase 2：邊活化遍歷，支援 CONDITION 分支）。
+ * 事件經 [ExecutionEventSink] 即時發出，紀錄同步落庫；寫庫失敗不中斷執行。
+ *
+ * @author Gary
+ * @created 2026/7/10
+ */
+@ApplicationScoped
+class WorkflowEngine(
+    private val workflowRepository: WorkflowRepository,
+    private val workflowNodeRepository: WorkflowNodeRepository,
+    private val workflowEdgeRepository: WorkflowEdgeRepository,
+    private val executionRepository: WorkflowExecutionRepository,
+    private val nodeExecutionRepository: WorkflowNodeExecutionRepository,
+    private val executors: Instance<NodeExecutor>,
+    private val currentIdentityAssociation: CurrentIdentityAssociation,
+    private val managedExecutor: ManagedExecutor,
+    private val workflowSecretConverter: WorkflowSecretConverter
+) {
+    companion object {
+        /** 節點逾時預設值（spec §2.2）：config 未指定 timeoutMs 時套用 */
+        const val DEFAULT_NODE_TIMEOUT_MS = 120_000L
+
+        /**
+         * LLM 節點的專用工具輸入埠 handle（Agent 模式能力掛載）。
+         * TOOL / MCP_SERVER / SKILL 節點以此為 targetHandle 連到 LLM 節點，代表「掛載為可呼叫能力」，
+         * 而非一般資料流連線。此類邊不參與活化判斷，來源節點若為純能力節點則排除主遍歷。
+         */
+        const val TOOL_INPUT_HANDLE = "in:tool"
+
+        /**
+         * LLM 節點的專用提示輸入埠 handle。PROMPT 節點以此為 targetHandle 連到 LLM 節點，
+         * 提供本次推論的提問內容。
+         *
+         * ⚠️ 與 [TOOL_INPUT_HANDLE] 語義相反：**這是一般資料流邊**，照常參與活化判斷與拓撲排序，
+         * 來源 PROMPT 節點也照常執行、落執行紀錄。正因如此，CONDITION 分支才能只活化其中一個
+         * 提示節點，讓同一顆 LLM 依分支取得不同提問。
+         */
+        const val PROMPT_INPUT_HANDLE = "in:prompt"
+
+        /**
+         * 可作為 LLM 能力掛載來源的節點型別。
+         * KNOWLEDGE_RAG 連到 in:tool 時作為「自動注入型 RAG」（RetrievalAugmentor）掛載，
+         * 連一般 main 邊時仍作 pipeline 檢索節點——引擎依「純能力節點＝所有出邊皆 in:tool」判定二選一。
+         */
+        private val CAPABILITY_SOURCE_TYPES = setOf(NodeType.TOOL, NodeType.MCP_SERVER, NodeType.SKILL, NodeType.KNOWLEDGE_RAG)
+
+        /**
+         * 孤兒 SKILL 檢查：SKILL 無獨立 executor（純能力提供者），必須連到某 LLM 助手節點的
+         * 工具埠（[TOOL_INPUT_HANDLE]）才會被 LLM executor 延遲讀取；否則會成孤兒節點，
+         * 於主遍歷分派時拋 NOT_SUPPORTED，故須提前以明確訊息擋下。
+         *
+         * **純函式**，供 [validateNodes]（執行前）與 `WorkflowService.switchStatus`（啟用前）
+         * 共用，避免兩處分叉——同 [WorkflowService] 對必填欄位共用 `validateNodeRequired` 的作法。
+         *
+         * @return 第一個未掛載的 SKILL 節點 nodeKey；全部合格時為 null
+         */
+        fun findUnmountedSkillNodeKey(
+            nodes: List<WorkflowNodeEntity>,
+            edges: List<WorkflowEdgeEntity>
+        ): String? {
+            if (nodes.none { it.type == NodeType.SKILL }) return null
+            val typeByKey = nodes.associate { it.nodeKey to it.type }
+            val mountedSkillKeys = edges.filter {
+                it.targetHandle == TOOL_INPUT_HANDLE && typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT
+            }.map { it.sourceNodeKey }.toSet()
+            return nodes.firstOrNull { it.type == NodeType.SKILL && it.nodeKey !in mountedSkillKeys }?.nodeKey
+        }
+
+        /**
+         * 孤兒 PROMPT 檢查：PROMPT 節點的用途就是餵給 LLM，未連到任何 LLM 助手節點的提示埠
+         * （[PROMPT_INPUT_HANDLE]）代表設定未完成——它仍會執行並產出字串，但沒有人取用，
+         * 屬於使用者多半非預期的半成品，故於啟用前擋下。
+         *
+         * **純函式**，與 [findUnmountedSkillNodeKey] 同形，供 [validateNodes]（執行前）與
+         * `WorkflowService.switchStatus`（啟用前）共用。
+         *
+         * @return 第一個未連到 LLM 提示埠的 PROMPT 節點 nodeKey；全部合格時為 null
+         */
+        fun findUnconnectedPromptNodeKey(
+            nodes: List<WorkflowNodeEntity>,
+            edges: List<WorkflowEdgeEntity>
+        ): String? {
+            if (nodes.none { it.type == NodeType.PROMPT }) return null
+            val typeByKey = nodes.associate { it.nodeKey to it.type }
+            val connectedPromptKeys = edges.filter {
+                it.targetHandle == PROMPT_INPUT_HANDLE && typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT
+            }.map { it.sourceNodeKey }.toSet()
+            return nodes.firstOrNull { it.type == NodeType.PROMPT && it.nodeKey !in connectedPromptKeys }?.nodeKey
+        }
+
+        /**
+         * 無提問來源的 LLM 檢查：LLM 節點的提問內容有兩種來源——config 的 userPrompt，
+         * 或連到其提示埠的 PROMPT 節點（後者優先）。兩者皆無時執行必定失敗，故於啟用前擋下。
+         *
+         * 這是**圖層級**的條件必填，無法以 `LlmAssistantNodeConfig.missingRequiredFields()` 表達
+         * （後者只看得到單一節點的 config），因此比照 [findUnmountedSkillNodeKey] 做成純函式。
+         * 刻意讀 raw config map 而非反序列化，以維持「entity in / nodeKey out、不依賴 DI」的形狀。
+         *
+         * @return 第一個既無 userPrompt 也無 PROMPT 來源的 LLM 節點 nodeKey；全部合格時為 null
+         */
+        fun findPromptlessLlmNodeKey(
+            nodes: List<WorkflowNodeEntity>,
+            edges: List<WorkflowEdgeEntity>
+        ): String? {
+            if (nodes.none { it.type == NodeType.LLM_ASSISTANT }) return null
+            val typeByKey = nodes.associate { it.nodeKey to it.type }
+            val llmKeysWithPromptEdge = edges.filter {
+                it.targetHandle == PROMPT_INPUT_HANDLE && typeByKey[it.sourceNodeKey] == NodeType.PROMPT
+            }.map { it.targetNodeKey }.toSet()
+            return nodes.firstOrNull { node ->
+                node.type == NodeType.LLM_ASSISTANT &&
+                    (node.config?.get("userPrompt") as? String).isNullOrBlank() &&
+                    node.nodeKey !in llmKeysWithPromptEdge
+            }?.nodeKey
+        }
+    }
+
+    private val logger = logger()
+    private val objectMapper = ObjectMapper()
+    private val json = Json { ignoreUnknownKeys = true }
+    private val executorMap: Map<NodeType, NodeExecutor> by lazy { executors.associateBy { it.type } }
+
+    /**
+     * 執行整條 workflow。同步阻塞直到完成；事件經 sink 即時發出。
+     * 呼叫端多在背景執行緒（如 CompletableFuture.runAsync）呼叫，故以 [ActivateRequestContext]
+     * 自行啟用 CDI request context，避免 Panache 查詢拋 ContextNotActiveException。
+     *
+     * 新啟用的 request context 中 [SecurityIdentity] 預設為 anonymous，下游依賴登入身分的
+     * 服務（如 LLM 節點）會因此誤判未登入。因此呼叫端須將 request scope 內取得的呼叫者
+     * identity 一併傳入，本方法啟用 request context 後第一件事即以 [currentIdentityAssociation]
+     * 還原該身分，確保背景執行緒內的服務能正確取得目前使用者。
+     *
+     * @param identity 呼叫端（request scope）取得的呼叫者身分，用於還原背景 request context 的登入狀態
+     * @param triggerNodeKey 指定由哪個 TRIGGER 節點發起：僅該觸發點會被活化，其餘 TRIGGER 與其
+     *   獨佔下游落 SKIPPED（見主遍歷的活化閘門）。null / 空白＝維持「所有 TRIGGER 皆執行」的既有行為。
+     * @param cancelled 每節點執行前檢查；true 則中止並標 CANCELLED
+     * @return 落庫後的 execution id
+     */
+    @ActivateRequestContext
+    fun execute(
+        workflowId: String,
+        userId: String,
+        input: Map<String, Any?>?,
+        identity: SecurityIdentity,
+        sink: ExecutionEventSink,
+        triggerNodeKey: String? = null,
+        cancelled: () -> Boolean
+    ): String {
+        currentIdentityAssociation.setIdentity(identity)
+        // 空字串視同「未指定」：呼叫端送 "" 不該被當成「找不到該觸發節點」而擋下
+        val selectedTriggerKey = triggerNodeKey?.takeIf { it.isNotBlank() }
+        val workflow = workflowRepository.findOptionalById(workflowId)
+            ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
+        val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
+        val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
+
+        validateNodes(nodes, edges, selectedTriggerKey)
+
+        val order = topologicalOrder(nodes, edges)
+        // LOOP 子圖：loopNodeKey → 子圖節點鍵集合；子圖節點不在主遍歷執行，由 LOOP 迭代驅動
+        val loopSubgraphs = computeLoopSubgraphs(nodes, edges)
+        val loopBodyKeys = loopSubgraphs.values.flatten().toSet()
+        // Agent 模式能力掛載：解析連到 LLM 工具埠的 TOOL/MCP/SKILL 節點
+        // capabilityKeys 為「純能力節點」（所有出邊皆 in:tool），排除主遍歷、不落執行紀錄
+        val (capabilityKeys, capabilityMounts) = resolveCapabilityMounts(nodes, edges)
+        // 提示來源：連到各 LLM 節點提示埠（in:prompt）的 PROMPT 節點，依拓撲序排序
+        val promptSources = resolvePromptSources(nodes, edges, order)
+        val startedAt = LocalDateTime.now()
+
+        val execution = WorkflowExecutionEntity().apply {
+            this.workflowId = workflowId
+            workflowVersion = workflow.version
+            triggerType = TriggerType.MANUAL
+            triggeredBy = userId
+            this.triggerNodeKey = selectedTriggerKey
+            status = ExecutionStatus.RUNNING
+            inputPayload = input
+            this.startedAt = startedAt
+        }
+        persist { executionRepository.saveOrUpdate(execution) }
+        val executionId = execution.id ?: java.util.UUID.randomUUID().toString()
+
+        sink.emit(ExecutionEvent("execution.started", executionId, ts = now()))
+
+        try {
+            val context = ExecutionContext(executionId, userId)
+            context.putOutput(TriggerExecutor.INPUT_KEY, input ?: emptyMap())
+            context.setCapabilities(capabilityMounts)
+            context.setPromptSources(promptSources)
+
+            var failedNode: WorkflowNodeEntity? = null
+            var failureMessage: String? = null
+            var wasCancelled = false
+            val executedKeys = mutableSetOf<String>()
+            val skippedKeys = mutableSetOf<String>()
+
+            // 活化遍歷（Phase 2）：仍依拓撲序處理，但每節點先判斷是否 active——
+            // indegree 0 恆 active；其餘至少一條入邊被活化才 active。
+            // 邊被活化 = 來源節點執行成功，且（來源非 CONDITION，或 sourceHandle 等於判定分支）。
+            // 能力掛載邊（targetHandle = in:tool）不參與活化：它代表 LLM 掛載工具而非資料流，
+            // 排除後只靠工具埠連入的 LLM 節點才不會因這些邊永不活化而被誤判 SKIPPED。
+            val flowEdges = edges.filter { it.targetHandle != TOOL_INPUT_HANDLE }
+            val incomingEdges = flowEdges.groupBy { it.targetNodeKey }
+            val outgoingEdges = flowEdges.groupBy { it.sourceNodeKey }
+            val activatedEdges = mutableSetOf<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>()
+            // seqNo 改為遞增計數器（Phase 2）：LOOP 每迭代的子圖節點紀錄各占一個序號
+            val seq = AtomicInteger(0)
+
+            for (node in order) {
+                if (cancelled()) { wasCancelled = true; break }
+                // LOOP 子圖節點由 LOOP 迭代驅動，主遍歷不執行也不落紀錄
+                if (node.nodeKey in loopBodyKeys) continue
+                // 純能力節點（掛載到 LLM 工具埠）由 LLM executor 延遲讀取，主遍歷不執行也不落紀錄
+                if (node.nodeKey in capabilityKeys) continue
+                val seqNo = seq.incrementAndGet()
+                val incoming = incomingEdges[node.nodeKey].orEmpty()
+                // 觸發點選擇：未被選定的 TRIGGER 視為非 active。其獨佔下游因「有入邊但無一被活化」
+                // 自動連鎖 SKIPPED——與 CONDITION 只活化判定分支是同一套規則，無需額外機制。
+                //
+                // ⚠️ 刻意「只擋 TRIGGER」而非「剪掉選定 TRIGGER 的不可達集合」：後者會誤殺 indegree 0
+                // 的**非** TRIGGER 節點（無上游的 PROMPT、常數型 HTTP_REQUEST / DATA_TRANSFORM / CODE），
+                // 這些節點今日靠下方 incoming.isEmpty() 恆 active 且與觸發點選擇無關，剪掉會讓
+                // 多觸發點共用的 LLM 取不到提問。
+                val deselectedTrigger = selectedTriggerKey != null &&
+                    node.type == NodeType.TRIGGER && node.nodeKey != selectedTriggerKey
+                if (deselectedTrigger || (incoming.isNotEmpty() && incoming.none { it in activatedEdges })) {
+                    // 非 active：落 SKIPPED 紀錄（含 seqNo），不執行、不活化出邊、不發事件
+                    skippedKeys.add(node.nodeKey)
+                    persist {
+                        nodeExecutionRepository.saveOrUpdate(WorkflowNodeExecutionEntity().apply {
+                            this.executionId = executionId
+                            this.workflowId = workflowId
+                            nodeKey = node.nodeKey
+                            nodeType = node.type
+                            this.seqNo = seqNo
+                            status = NodeExecutionStatus.SKIPPED
+                        })
+                    }
+                    continue
+                }
+                sink.emit(ExecutionEvent("node.started", executionId, node.nodeKey, seqNo, ts = now()))
+                val nodeStart = System.currentTimeMillis()
+                val record = WorkflowNodeExecutionEntity().apply {
+                    this.executionId = executionId
+                    this.workflowId = workflowId
+                    nodeKey = node.nodeKey
+                    nodeType = node.type
+                    this.seqNo = seqNo
+                    status = NodeExecutionStatus.RUNNING
+                    this.input = mapOf(
+                        "config" to maskedConfig(node),
+                        "contextKeys" to context.allOutputs().keys.toList()
+                    )
+                    this.startedAt = LocalDateTime.now()
+                }
+                try {
+                    val parsed = parseNodeConfig(node)
+                    val output = if (node.type == NodeType.LOOP) {
+                        // LOOP 由引擎自行編排子圖迭代（需執行其他節點，不經 executor 分派）
+                        val bodyOrder = order.filter { it.nodeKey in loopSubgraphs[node.nodeKey].orEmpty() }
+                        executeLoopNode(node, parsed as LoopNodeConfig, bodyOrder, context, executionId, workflowId, sink, seq)
+                    } else {
+                        val executor = executorMap[node.type]
+                            ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
+                        executeWithTimeout(executor, node, parsed, context)
+                    }
+                    context.putOutput(node.nodeKey, output)
+                    executedKeys.add(node.nodeKey)
+
+                    // 活化出邊：CONDITION 僅活化判定分支、LOOP 完成後僅活化 out:done，其餘節點全數活化
+                    val branch = when (node.type) {
+                        NodeType.CONDITION ->
+                            output[tw.zipe.bastpartner.service.workflow.executor.ConditionExecutor.OUTPUT_BRANCH] as? String
+                        NodeType.LOOP -> LoopExecutor.DONE_HANDLE
+                        else -> null
+                    }
+                    outgoingEdges[node.nodeKey].orEmpty().forEach { e ->
+                        if (branch == null || e.sourceHandle == branch) activatedEdges.add(e)
+                    }
+
+                    val duration = System.currentTimeMillis() - nodeStart
+                    record.apply {
+                        status = NodeExecutionStatus.SUCCESS
+                        this.output = output
+                        finishedAt = LocalDateTime.now()
+                        durationMs = duration
+                    }
+                    persist { nodeExecutionRepository.saveOrUpdate(record) }
+                    sink.emit(ExecutionEvent("node.completed", executionId, node.nodeKey, seqNo, "SUCCESS", output, durationMs = duration, ts = now()))
+                } catch (e: Exception) {
+                    val message = failureMessage(e)
+                    logger.error("節點 ${node.nodeKey} 執行失敗", e)
+                    record.apply {
+                        status = NodeExecutionStatus.FAILED
+                        errorMessage = message
+                        finishedAt = LocalDateTime.now()
+                        durationMs = System.currentTimeMillis() - nodeStart
+                    }
+                    persist { nodeExecutionRepository.saveOrUpdate(record) }
+                    sink.emit(ExecutionEvent("node.failed", executionId, node.nodeKey, seqNo, "FAILED", error = message, ts = now()))
+                    failedNode = node
+                    failureMessage = message
+                    break
+                }
+            }
+
+            // 未執行節點標 SKIPPED（失敗或取消時）；排除主迴圈已落過 SKIPPED 紀錄者與
+            // LOOP 子圖節點（由 LOOP 迭代驅動，已執行過的迭代各有紀錄），避免重複記錄
+            if (failedNode != null || wasCancelled) {
+                order.filter {
+                    it.nodeKey !in executedKeys && it.nodeKey !in skippedKeys &&
+                        it.nodeKey !in loopBodyKeys && it.nodeKey !in capabilityKeys &&
+                        it.nodeKey != failedNode?.nodeKey
+                }.forEach { skipped ->
+                    persist {
+                        nodeExecutionRepository.saveOrUpdate(WorkflowNodeExecutionEntity().apply {
+                            this.executionId = executionId
+                            this.workflowId = workflowId
+                            nodeKey = skipped.nodeKey
+                            nodeType = skipped.type
+                            seqNo = seq.incrementAndGet()
+                            status = NodeExecutionStatus.SKIPPED
+                        })
+                    }
+                }
+            }
+
+            val finalStatus = when {
+                wasCancelled -> ExecutionStatus.CANCELLED
+                failedNode != null -> ExecutionStatus.FAILED
+                else -> ExecutionStatus.SUCCESS
+            }
+            val finalOutput = if (finalStatus == ExecutionStatus.SUCCESS) collectFinalOutput(order, context, executedKeys) else null
+
+            execution.apply {
+                status = finalStatus
+                outputResult = finalOutput
+                errorNodeKey = failedNode?.nodeKey
+                errorMessage = failureMessage
+                finishedAt = LocalDateTime.now()
+                durationMs = java.time.Duration.between(startedAt, LocalDateTime.now()).toMillis()
+            }
+            persist { executionRepository.update(execution) }
+            sink.emit(
+                ExecutionEvent(
+                    "execution.completed", executionId, status = finalStatus.name,
+                    output = finalOutput, error = failureMessage,
+                    durationMs = execution.durationMs, ts = now()
+                )
+            )
+            return executionId
+        } finally {
+            // 執行結束（成功/失敗/取消皆然）清除以 executionId 註冊的 LLM memory（追記第 6 項）
+            LlmAssistantExecutor.clearMemory(executionId)
+        }
+    }
+
+    /**
+     * 執行前驗證（載入 workflow 存在性、無 TRIGGER 節點檢查、逐節點 config 型別 + 必填），
+     * 供 resource 於 request scope 內預檢——失敗即拋 [ServiceException]，由 GlobalExceptionMapper
+     * 轉為 HTTP 400，避免先建立執行紀錄再失敗（spec §5）。
+     */
+    fun validateForExecution(workflowId: String, triggerNodeKey: String? = null) {
+        workflowRepository.findOptionalById(workflowId)
+            ?: throw ServiceException(AppMessage.WORKFLOW_NOT_FOUND)
+        val nodes = workflowNodeRepository.findByWorkflowId(workflowId)
+        val edges = workflowEdgeRepository.findByWorkflowId(workflowId)
+        validateNodes(nodes, edges, triggerNodeKey?.takeIf { it.isNotBlank() })
+    }
+
+    /**
+     * 無 TRIGGER 節點檢查 + 指定觸發點檢查 + 逐節點 parse/必填驗證（同啟用等級）+ 巢狀 LOOP 檢查
+     *
+     * @param triggerNodeKey 已正規化（空白轉 null）的指定觸發點；非 null 時額外驗證它存在且型別為 TRIGGER
+     */
+    private fun validateNodes(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<WorkflowEdgeEntity>,
+        triggerNodeKey: String? = null
+    ) {
+        if (nodes.none { it.type == NodeType.TRIGGER }) {
+            throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_REQUIRED)
+        }
+        // 置於「至少一顆 TRIGGER」之後：空白畫布回報 WORKFLOW_TRIGGER_NODE_REQUIRED
+        // 比「找不到指定的觸發節點」更能讓呼叫端據以修正。
+        if (triggerNodeKey != null) {
+            val selected = nodes.firstOrNull { it.nodeKey == triggerNodeKey }
+                ?: throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_NOT_FOUND, triggerNodeKey)
+            if (selected.type != NodeType.TRIGGER) {
+                throw ServiceException(AppMessage.WORKFLOW_TRIGGER_NODE_INVALID, triggerNodeKey, selected.type.name)
+            }
+        }
+        nodes.forEach { n ->
+            val configObj = mapToJsonObject(n.config) ?: JsonObject(emptyMap())
+            val parsed = runCatching { NodeConfigRegistry.parse(n.type, configObj) }
+                .getOrElse { e -> throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_INVALID, n.nodeKey, e.message.orEmpty()) }
+            val missing = parsed.missingRequiredFields()
+            if (missing.isNotEmpty()) {
+                throw ServiceException(AppMessage.WORKFLOW_NODE_CONFIG_REQUIRED_MISSING, n.nodeKey, missing.joinToString(", "))
+            }
+        }
+        // 孤兒 SKILL 檢查（規則見 [findUnmountedSkillNodeKey]）。
+        // 啟用時（WorkflowService.switchStatus）已先擋過一次，此處為執行前的最後防線——
+        // 涵蓋「啟用後才被改壞」與 DRAFT 直接 execute 兩種情形。
+        findUnmountedSkillNodeKey(nodes, edges)?.let {
+            throw ServiceException(AppMessage.WORKFLOW_SKILL_NODE_NOT_MOUNTED, it)
+        }
+        // 提示接線檢查（規則見 [findUnconnectedPromptNodeKey] / [findPromptlessLlmNodeKey]）。
+        // 順序須與 WorkflowService.switchStatus 一致，兩條路徑才會對同一張圖回報同一個錯誤。
+        findUnconnectedPromptNodeKey(nodes, edges)?.let {
+            throw ServiceException(AppMessage.WORKFLOW_PROMPT_NODE_NOT_CONNECTED, it)
+        }
+        findPromptlessLlmNodeKey(nodes, edges)?.let {
+            throw ServiceException(AppMessage.WORKFLOW_LLM_PROMPT_REQUIRED, it)
+        }
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
+        // 巢狀 LOOP 不支援：任一 LOOP 子圖內含另一 LOOP 節點即報錯
+        computeLoopSubgraphs(nodes, edges).forEach { (_, body) ->
+            body.firstOrNull { typeByKey[it] == NodeType.LOOP }?.let { nested ->
+                throw ServiceException(AppMessage.WORKFLOW_LOOP_NESTED_NOT_SUPPORTED, nested)
+            }
+        }
+    }
+
+    /**
+     * 解析 Agent 模式的能力掛載（spec：LLM 助手節點簡化）。
+     *
+     * 能力掛載邊 = `targetHandle == in:tool` 且 target 為 [NodeType.LLM_ASSISTANT]、
+     * source ∈ {TOOL, MCP_SERVER, SKILL}。依此：
+     * - [capabilityMounts]：llmNodeKey → 掛載的能力節點解析後 config（[MountedCapability]）。
+     * - [capabilityKeys]：「純能力節點」——某能力來源節點的**所有**出邊皆為 in:tool 邊時納入，
+     *   代表它只作為工具掛載、不參與資料流，故排除主遍歷、不落執行紀錄。
+     *   同時作管線用途（另有 out:main 出邊）的 TOOL/MCP 不納入，仍照常執行並額外充當能力。
+     *
+     * @return capabilityKeys 與 capabilityMounts
+     */
+    private fun resolveCapabilityMounts(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+    ): Pair<Set<String>, Map<String, List<MountedCapability>>> {
+        val nodeByKey = nodes.associateBy { it.nodeKey }
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
+        val capabilityEdges = edges.filter {
+            it.targetHandle == TOOL_INPUT_HANDLE &&
+                typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT &&
+                typeByKey[it.sourceNodeKey] in CAPABILITY_SOURCE_TYPES
+        }
+        val outgoingByKey = edges.groupBy { it.sourceNodeKey }
+        // 純能力節點：確實被掛載（≥1 in:tool 出邊）且所有出邊皆為 in:tool
+        val capabilityKeys = capabilityEdges.map { it.sourceNodeKey }.toSet().filter { key ->
+            outgoingByKey[key].orEmpty().all { it.targetHandle == TOOL_INPUT_HANDLE }
+        }.toSet()
+        val capabilityMounts = capabilityEdges.groupBy { it.targetNodeKey }
+            .mapValues { (_, es) ->
+                es.mapNotNull { e -> nodeByKey[e.sourceNodeKey] }.map { src ->
+                    MountedCapability(src.type, parseNodeConfig(src))
+                }
+            }
+        return capabilityKeys to capabilityMounts
+    }
+
+    /**
+     * 解析各 LLM 節點的提示來源：`targetHandle == in:prompt` 且 target 為 LLM_ASSISTANT、
+     * source 為 PROMPT 的邊。
+     *
+     * 與 [resolveCapabilityMounts] 不同，這裡**不排除任何節點於主遍歷之外**——提示邊是資料流邊，
+     * PROMPT 節點照常執行並落紀錄，本方法只負責告訴 LLM executor「該去哪些節點的輸出取提問」。
+     *
+     * 各組依 [order]（拓撲序）排序，使「多個提示來源皆活化時取第一個有輸出者」的規則 deterministic。
+     * 來源節點自訂的 outputKey 於此一併解析，executor 不需再讀 config。
+     */
+    private fun resolvePromptSources(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<WorkflowEdgeEntity>,
+        order: List<WorkflowNodeEntity>
+    ): Map<String, List<PromptSource>> {
+        val nodeByKey = nodes.associateBy { it.nodeKey }
+        val typeByKey = nodes.associate { it.nodeKey to it.type }
+        val rank = order.withIndex().associate { (index, node) -> node.nodeKey to index }
+        return edges.filter {
+            it.targetHandle == PROMPT_INPUT_HANDLE &&
+                typeByKey[it.targetNodeKey] == NodeType.LLM_ASSISTANT &&
+                typeByKey[it.sourceNodeKey] == NodeType.PROMPT
+        }.groupBy { it.targetNodeKey }
+            .mapValues { (_, promptEdges) ->
+                promptEdges.sortedBy { rank[it.sourceNodeKey] ?: Int.MAX_VALUE }
+                    .mapNotNull { e ->
+                        nodeByKey[e.sourceNodeKey]?.let { src ->
+                            val outputKey = (parseNodeConfig(src) as? PromptNodeConfig)
+                                ?.outputKey?.takeIf { it.isNotBlank() }
+                                ?: PromptExecutor.DEFAULT_OUTPUT_KEY
+                            PromptSource(src.nodeKey, outputKey)
+                        }
+                    }
+            }
+    }
+
+    /**
+     * 計算各 LOOP 節點的迴圈子圖：自 loopBodyEntryNodeKey 起沿出邊可達、
+     * 不含 LOOP 節點本身（亦不越過它續遍歷）的節點鍵集合。
+     */
+    private fun computeLoopSubgraphs(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+    ): Map<String, Set<String>> {
+        val outgoing = edges.groupBy { it.sourceNodeKey }
+        val nodeKeys = nodes.map { it.nodeKey }.toSet()
+        return nodes.filter { it.type == NodeType.LOOP }.associate { loopNode ->
+            val entry = loopNode.config?.get("loopBodyEntryNodeKey") as? String
+            val body = mutableSetOf<String>()
+            if (entry != null && entry in nodeKeys) {
+                val queue = ArrayDeque<String>().apply { add(entry) }
+                while (queue.isNotEmpty()) {
+                    val key = queue.removeFirst()
+                    if (key == loopNode.nodeKey || !body.add(key)) continue
+                    outgoing[key].orEmpty().forEach { queue.add(it.targetNodeKey) }
+                }
+            }
+            loopNode.nodeKey to body
+        }
+    }
+
+    /**
+     * LOOP 節點的迭代編排（spec §2.2）：解析輸入陣列後逐項迭代，每迭代以 itemAlias 注入
+     * 當前項並依子圖拓撲序執行各節點（紀錄帶 loopIndex、SSE 事件照發）；
+     * 各迭代取子圖拓撲序最後節點的輸出彙集為 List，放入 collectOutputKey 回傳。
+     * 迭代中任一節點失敗 → 例外上拋，由主迴圈轉為 LOOP 節點 FAILED（整體 FAILED）。
+     */
+    private fun executeLoopNode(
+        loopNode: WorkflowNodeEntity,
+        cfg: LoopNodeConfig,
+        bodyOrder: List<WorkflowNodeEntity>,
+        context: ExecutionContext,
+        executionId: String,
+        workflowId: String,
+        sink: ExecutionEventSink,
+        seq: AtomicInteger
+    ): Map<String, Any?> {
+        val loopExecutor = executorMap[NodeType.LOOP] as? LoopExecutor
+            ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, NodeType.LOOP.name)
+        val items = loopExecutor.resolveItems(cfg, context)
+        val limit = cfg.maxIterations ?: LoopExecutor.DEFAULT_MAX_ITERATIONS
+        val effective = if (items.size > limit) {
+            logger.warn("LOOP ${loopNode.nodeKey} 輸入 ${items.size} 項超過迭代上限 $limit，僅執行前 $limit 項")
+            items.take(limit)
+        } else {
+            items
+        }
+        val alias = cfg.itemAlias?.takeIf { it.isNotBlank() } ?: LoopExecutor.DEFAULT_ITEM_ALIAS
+        val collected = mutableListOf<Any?>()
+        try {
+            effective.forEachIndexed { index, item ->
+                context.putValue(alias, item)
+                var lastOutput: Map<String, Any?> = emptyMap()
+                bodyOrder.forEach { bodyNode ->
+                    lastOutput = executeLoopBodyNode(bodyNode, index, context, executionId, workflowId, sink, seq)
+                }
+                collected.add(lastOutput)
+            }
+        } finally {
+            context.removeValue(alias)
+        }
+        val collectKey = cfg.collectOutputKey?.takeIf { it.isNotBlank() } ?: LoopExecutor.DEFAULT_COLLECT_KEY
+        return mapOf(collectKey to collected)
+    }
+
+    /** 執行單一迴圈子圖節點：紀錄帶 loopIndex、事件照發；失敗落 FAILED 紀錄後包 nodeKey 上拋 */
+    private fun executeLoopBodyNode(
+        node: WorkflowNodeEntity,
+        loopIndex: Int,
+        context: ExecutionContext,
+        executionId: String,
+        workflowId: String,
+        sink: ExecutionEventSink,
+        seq: AtomicInteger
+    ): Map<String, Any?> {
+        val seqNo = seq.incrementAndGet()
+        sink.emit(ExecutionEvent("node.started", executionId, node.nodeKey, seqNo, ts = now()))
+        val nodeStart = System.currentTimeMillis()
+        val record = WorkflowNodeExecutionEntity().apply {
+            this.executionId = executionId
+            this.workflowId = workflowId
+            nodeKey = node.nodeKey
+            nodeType = node.type
+            this.seqNo = seqNo
+            this.loopIndex = loopIndex
+            status = NodeExecutionStatus.RUNNING
+            this.input = mapOf(
+                "config" to maskedConfig(node),
+                "contextKeys" to context.allOutputs().keys.toList()
+            )
+            this.startedAt = LocalDateTime.now()
+        }
+        try {
+            val executor = executorMap[node.type]
+                ?: throw ServiceException(AppMessage.WORKFLOW_NODE_TYPE_NOT_SUPPORTED, node.type.name)
+            val parsed = parseNodeConfig(node)
+            val output = executeWithTimeout(executor, node, parsed, context)
+            context.putOutput(node.nodeKey, output)
+            val duration = System.currentTimeMillis() - nodeStart
+            record.apply {
+                status = NodeExecutionStatus.SUCCESS
+                this.output = output
+                finishedAt = LocalDateTime.now()
+                durationMs = duration
+            }
+            persist { nodeExecutionRepository.saveOrUpdate(record) }
+            sink.emit(ExecutionEvent("node.completed", executionId, node.nodeKey, seqNo, "SUCCESS", output, durationMs = duration, ts = now()))
+            return output
+        } catch (e: Exception) {
+            val message = failureMessage(e)
+            logger.error("迴圈子圖節點 ${node.nodeKey}（迭代 $loopIndex）執行失敗", e)
+            record.apply {
+                status = NodeExecutionStatus.FAILED
+                errorMessage = message
+                finishedAt = LocalDateTime.now()
+                durationMs = System.currentTimeMillis() - nodeStart
+            }
+            persist { nodeExecutionRepository.saveOrUpdate(record) }
+            sink.emit(ExecutionEvent("node.failed", executionId, node.nodeKey, seqNo, "FAILED", error = message, ts = now()))
+            throw ServiceException(AppMessage.WORKFLOW_NODE_EXEC_FAILED, node.nodeKey, message)
+        }
+    }
+
+    /**
+     * 節點逾時通用機制（spec §2.2 + 追記）：以 [managedExecutor] submit 後 `future.get` 套用逾時，
+     * config 有 timeoutMs（HTTP / CODE 型別）用之，否則預設 [DEFAULT_NODE_TIMEOUT_MS]。
+     * executor 內部依賴 CDI request context 與登入身分，故必須用 Quarkus ManagedExecutor
+     * （自動傳播 CDI + security context）而非一般執行緒池。
+     * 逾時 → `future.cancel(true)` 中斷工作執行緒，拋 [ServiceException]（訊息含逾時毫秒數），
+     * 由主迴圈轉為節點 FAILED。CODE 節點自身已有內層腳本逾時，外層仍照套（取 config timeoutMs）。
+     */
+    private fun executeWithTimeout(
+        executor: NodeExecutor,
+        node: WorkflowNodeEntity,
+        parsed: NodeConfig,
+        context: ExecutionContext
+    ): Map<String, Any?> {
+        val timeoutMs = when (parsed) {
+            is HttpRequestNodeConfig -> parsed.timeoutMs
+            is CodeNodeConfig -> parsed.timeoutMs
+            else -> null
+        } ?: DEFAULT_NODE_TIMEOUT_MS
+        val future = managedExecutor.submit(Callable { executor.execute(node, parsed, context) })
+        return try {
+            future.get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            future.cancel(true)
+            throw ServiceException(AppMessage.WORKFLOW_NODE_TIMEOUT, node.nodeKey, timeoutMs.toString())
+        } catch (e: ExecutionException) {
+            // 解包實際例外，維持 failureMessage 對例外型別的判斷（如 VariableNotFoundException）
+            throw (e.cause as? Exception ?: e)
+        }
+    }
+
+    /** 節點失敗訊息：插值變數不存在轉 i18n 訊息，其餘取例外訊息 */
+    private fun failureMessage(e: Exception): String = if (e is VariableNotFoundException) {
+        MessageUtil.get(AppMessage.WORKFLOW_VARIABLE_NOT_FOUND, e.path)
+    } else {
+        e.message ?: e.javaClass.simpleName
+    }
+
+    /**
+     * OUTPUT 節點輸出合併；恰一個直接用；零個取「實際執行成功的最後一個節點」輸出。
+     * 分支情境下 OUTPUT 節點可能被 SKIPPED，故僅計入實際執行成功者。
+     */
+    private fun collectFinalOutput(
+        order: List<WorkflowNodeEntity>,
+        context: ExecutionContext,
+        executedKeys: Set<String>
+    ): Map<String, Any?> {
+        val outputNodes = order.filter { it.type == NodeType.OUTPUT && it.nodeKey in executedKeys }
+        return when {
+            outputNodes.size == 1 -> context.getOutput(outputNodes[0].nodeKey) ?: emptyMap()
+            outputNodes.size > 1 -> outputNodes.associate { it.nodeKey to context.getOutput(it.nodeKey) }
+            else -> order.lastOrNull { it.nodeKey in executedKeys }?.let { context.getOutput(it.nodeKey) } ?: emptyMap()
+        }
+    }
+
+    /** Kahn 拓撲排序（同層依 nodeKey 排序，結果 deterministic）；有環拋既有例外 */
+    private fun topologicalOrder(
+        nodes: List<WorkflowNodeEntity>,
+        edges: List<tw.zipe.bastpartner.entity.WorkflowEdgeEntity>
+    ): List<WorkflowNodeEntity> {
+        val nodeMap = nodes.associateBy { it.nodeKey }
+        val indegree = nodes.associateTo(HashMap()) { it.nodeKey to 0 }
+        val adj = HashMap<String, MutableList<String>>()
+        edges.forEach { e ->
+            adj.getOrPut(e.sourceNodeKey) { mutableListOf() }.add(e.targetNodeKey)
+            indegree[e.targetNodeKey] = (indegree[e.targetNodeKey] ?: 0) + 1
+        }
+        val queue = sortedSetOf<String>()
+        indegree.filterValues { it == 0 }.keys.forEach { queue.add(it) }
+        val order = mutableListOf<WorkflowNodeEntity>()
+        while (queue.isNotEmpty()) {
+            val key = queue.first().also { queue.remove(it) }
+            nodeMap[key]?.let { order.add(it) }
+            adj[key]?.forEach { next ->
+                val deg = (indegree[next] ?: 0) - 1
+                indegree[next] = deg
+                if (deg == 0) queue.add(next)
+            }
+        }
+        if (order.size != nodes.size) throw ServiceException(AppMessage.WORKFLOW_GRAPH_HAS_CYCLE)
+        return order
+    }
+
+    /** 落庫失敗不中斷執行（spec §2.6） */
+    private fun persist(block: () -> Unit) {
+        runCatching(block).onFailure { logger.error("執行紀錄落庫失敗", it) }
+    }
+
+    private fun now(): String = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+    private fun mapToJsonObject(map: Map<String, Any?>?): JsonObject? {
+        if (map == null) return null
+        return json.parseToJsonElement(objectMapper.writeValueAsString(map)).jsonObject
+    }
+
+    /**
+     * 解析節點 config 供執行使用：機密欄位（secretHeaders）先解密還原明文再反序列化。
+     * 執行路徑一律經此，避免有分支拿到密文當 header 值送出。
+     */
+    private fun parseNodeConfig(node: WorkflowNodeEntity): NodeConfig {
+        val decrypted = workflowSecretConverter.decryptForExecution(node.type, node.config)
+        return NodeConfigRegistry.parse(node.type, mapToJsonObject(decrypted) ?: JsonObject(emptyMap()))
+    }
+
+    /**
+     * 節點 config 之可落庫版本：機密欄位遮罩後才寫入執行紀錄，避免金鑰流入 node_execution.input。
+     */
+    private fun maskedConfig(node: WorkflowNodeEntity): Map<String, Any?> =
+        workflowSecretConverter.maskForResponse(node.type, node.config)
+}

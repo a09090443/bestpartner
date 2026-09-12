@@ -39,6 +39,9 @@ class LLMUserResource(
             throwOnInvalid()
         }
         llmUserService.register(userDTO)
+        // 回應不得帶出明文密碼：userDTO 是請求物件本身，原樣回傳會把使用者送來的密碼回顯，
+        // 進到前端記憶體、devtools 與任何記錄回應的日誌／APM。比照 /get 一律清成 null。
+        userDTO.password = null
         return ApiResponse.success(userDTO)
     }
 

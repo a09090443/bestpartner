@@ -1,0 +1,29 @@
+/**
+ * Element Plus 與 Workflow 編輯器主題的橋接。
+ *
+ * 深色本體由 element-plus/theme-chalk/dark/css-vars.css 提供（選擇器為 html.dark，
+ * 由 composables/useEditorTheme.ts 掛上）。本檔只補兩類 EP 預設對不上設計稿之處：
+ *   1. 編輯器內的 el-switch（Active 切換）設計稿是綠色、34×19 軌道，EP 預設是藍色
+ *   2. teleport 到 body 的 ElMessage / ElMessageBox 字型需與編輯器一致
+ *
+ * ⚠️ 字型在此寫字面值而非 var(--wf-font)：--wf-* 的作用域限定於 .wf-editor，
+ * 而這些元件在 body 底下，取不到該變數。
+ */
+
+/* ---- Active 切換：設計稿為綠色軌道 ---- */
+.wf-editor .el-switch__core {
+  min-width: 34px;
+  height: 19px;
+  border-radius: 20px;
+}
+
+.wf-editor .el-switch.is-checked .el-switch__core {
+  background: var(--wf-success);
+  border-color: var(--wf-success);
+}
+
+/* ---- teleport 到 body 的元件：字型對齊編輯器 ---- */
+.el-message,
+.el-message-box {
+  font-family: 'Manrope', 'Helvetica Neue', Arial, 'Microsoft JhengHei', sans-serif;
+}

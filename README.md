@@ -69,8 +69,9 @@ BestPartner project
 - 可由資料庫設定 LLM 模型並動態切換
 - 支援 MCP Server 整合（[MCP Server 範例](https://github.com/a09090443/mcp-servers)）
 - 支援 RAG（檢索增強生成）
+- 視覺化 Workflow 引擎（n8n-like，節點＋連線自訂流程；定義 CRUD、畫布驗證與執行引擎已完成，13 種節點型別含條件分支／迴圈／GraalJS 程式碼／資料轉換；LLM 節點採 Agent 模式，工具／MCP／Skill 以獨立節點掛載到工具埠由 LLM 自主呼叫，提問內容可抽成獨立的提示詞節點連到提示埠，搭配分支即可一顆 LLM 對應多種對話）
 - RBAC 權限管理
-- Swagger UI（dev / sit 環境）
+- Swagger UI（dev / docker / sit 環境；uat / prod 關閉）
 
 ## 內建 Tools 工具
 
@@ -117,6 +118,18 @@ bestpartner/
 ├── bestpartner-mcp-servers/                # MCP Server 範例
 │   ├── quarkus-example/                    # Quarkus MCP Server 範例
 │   └── spring-example/                     # Spring Boot MCP Server 範例
+├── bestpartner-ui/                         # 前端 (Vue 3 + Vite + TS)
+│   └── src/
+│       ├── api/                            # 後端 API client（axios 攔截器、workflow）
+│       ├── components/
+│       │   ├── canvas/                     # Vue Flow 節點面板與自訂節點
+│       │   └── inspector/                  # 屬性面板與 JSON 設定編輯器
+│       ├── composables/                    # nodeKey、畫布↔DTO 轉換、畫布驗證
+│       ├── constants/                      # 節點型別顯示 meta
+│       ├── router/                         # 路由與登入守衛
+│       ├── stores/                         # Pinia（auth、workflow）
+│       ├── types/                          # 對應後端 DTO 的 TS 型別
+│       └── views/                          # 登入、列表、Workflow 編輯器
 ├── docs/
 │   ├── docker/                             # Docker Compose 設定
 │   ├── postman/                            # Postman Collection
@@ -168,7 +181,7 @@ bestpartner/
 |------|------|
 | 語言 | Kotlin 2.1.0 |
 | 框架 | Quarkus 3.21.0 |
-| AI 函式庫 | Langchain4j 1.13.0 |
+| AI 函式庫 | Langchain4j 1.17.2 |
 | JDK | OpenJDK 21 |
 | 資料庫 | PostgreSQL latest |
 | 建置工具 | Gradle latest |
@@ -177,22 +190,65 @@ bestpartner/
 
 ## 程式執行注意事項
 
-- 目前使用 PostgreSQL Database，可在 `application.properties` 中設定連線資訊
-- 無自動 Flyway 遷移（`migrate-at-start=false`），需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
+- 目前使用 PostgreSQL Database，連線資訊由 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 環境變數設定（見下方 `.env` 說明）
+- 無 Flyway，需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
 
-### 敏感金鑰管理（.env 檔案）
+### 環境設定與敏感金鑰（.env 檔案）
 
-專案使用 `.env` 管理 API Key 等敏感設定，避免明文寫入版本控制：
+專案以 `.env` 管理**跨環境會變動的設定**（連線位址、路徑）與 **API Key 等機密**，避免明文寫入版本控制：
 
 ```bash
 # 1. 複製範本
 cp .env.example .env
 
-# 2. 編輯 .env，填入實際金鑰
+# 2. 編輯 .env，填入實際值
 # OPENROUTER_API_KEY=your-openrouter-api-key-here
 ```
 
-`.env` 已列入 `.gitignore`，不會被提交；`.env.example` 為範本，提交至版本控制供參考。Quarkus 啟動時會自動載入 `.env`。
+`application.properties` 以 `${ENV_VAR:預設值}` 引用，**不設定任何環境變數也能直接啟動**（每個鍵都有本機開發預設值）。
+
+多環境各用一份 `.env.<profile>`：
+
+| 檔案 | profile | 用途 |
+|------|---------|------|
+| `.env` | dev | 本機開發（Quarkus 自動載入） |
+| `.env.docker` | docker | 本機容器測試 |
+| `.env.sit` | sit | 整合測試 |
+| `.env.uat` | uat | 使用者驗收 |
+| `.env.prod` | prod | 生產 |
+
+`.env` 與 `.env.*` 已列入 `.gitignore`；只有 `.env.example` 進版控，該檔列出所有可用變數與預設值。
+
+> ⚠️ `CRYPTO_SECRET_KEY` 在 sit 以上環境務必替換為高強度隨機字串，且各環境不同。變更此值會使既有加密資料無法解密。
+
+### 設定檔機密值加密
+
+`.env.<profile>` 中的機密（`DB_PASSWORD`、`OPENROUTER_API_KEY` 等）可寫成密文，啟動時自動解密：
+
+```dotenv
+DB_PASSWORD=${enc::<密文>}
+```
+
+產生密文（金鑰與明文走環境變數，避免留下 shell 歷史紀錄）：
+
+```powershell
+$env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
+$env:CONFIG_SECRET_VALUE='<機密明文>'
+cd bestpartner-service; ./gradlew encryptConfigSecret -q
+```
+
+> ⚠️ **這個機制擋得住什麼**：解密金鑰 `CONFIG_ENCRYPTION_KEY` 就放在同一個 `.env.<profile>` 內，
+> 所以能防的是「明文密碼被瞥見、截圖、誤貼、寫進日誌」與「設定檔不得存明文密碼」的要求；
+> **不防 `.env` 檔案本身外洩**（拿到檔案即可解密）。要防到那個層級，金鑰須改為與 `.env` 分離
+> （獨立檔案、Vault、KMS），部署時單獨注入。
+> ⚠️ 解密根金鑰 `CONFIG_ENCRYPTION_KEY` 與資料庫欄位金鑰 `CRYPTO_SECRET_KEY` **是兩把不同的金鑰**，請勿填成相同值。
+> ⚠️ **金鑰遺失即無法解密既有密文**，需以原始明文重新加密。
+> ⚠️ `application.properties` 的 datasource 預設值也已密文化（`${DB_USERNAME:${enc::<密文>}}`），
+> 使版控中的設定檔不出現 `pguser` / `pgpass` 字樣。該密文以**檔內的預設金鑰**加密，
+> 屬**衛生措施而非安全措施**（金鑰與密文同在版控，clone 即可解密）；
+> 全新 clone 不帶任何 `.env` 仍可直接啟動。
+
+詳見 [`.claude/rules/configuration-and-profiles.md`](.claude/rules/configuration-and-profiles.md)。
 
 ---
 
@@ -235,6 +291,38 @@ npm run serve
 
 ---
 
+## 前端應用（bestpartner-ui）
+
+BestPartner 提供基於 Vue 3 的前端應用，位於 `bestpartner-ui/` 目錄，提供登入、Workflow 列表與 n8n-like 視覺化 Workflow 編輯器（Vue Flow 深色畫布、分類節點庫、型別化屬性面板與自動排版）。
+
+### 環境需求
+
+| 類別 | 版本 |
+|------|------|
+| Node.js | >= 20.0 |
+| 建置工具 | Vite |
+| 框架 | Vue 3 + TypeScript + Pinia + Vue Router + Element Plus + Vue Flow |
+
+### 啟動開發伺服器
+
+```bash
+cd bestpartner-ui
+npm install
+npm run dev
+```
+
+開發伺服器透過 Vite proxy 將 API 請求轉發至後端（預設 port 80）。
+
+### 測試與建置
+
+```bash
+cd bestpartner-ui
+npm run test     # Vitest 單元測試
+npm run build    # vue-tsc 型別檢查 + production 建置
+```
+
+---
+
 ## Swagger UI
 
 在 **dev** 與 **sit** 環境，服務啟動後可透過以下位址存取 API 文件：
@@ -259,19 +347,86 @@ npm run serve
    ```bash
    ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
    ```
-   `${profile}` 可替換為 `dev`、`sit`、`prod`
+   `${profile}` 可替換為 `dev`、`docker`、`sit`、`uat`、`prod`
 
 2. 打包完成後，JAR 位於：
    ```
-   bestpartner-service/build/bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+   bestpartner-service/build/bestpartner-service-0.1.8-runner.jar
    ```
 
 3. 執行：
    ```bash
-   java -jar bestpartner-service-0.1.7-SNAPSHOT-runner.jar
+   java -jar bestpartner-service-0.1.8-runner.jar
    ```
 
 服務預設埠：**port 80**
+
+---
+
+## Docker 部署
+
+**一份 image 跑所有環境**，環境差異由 runtime 決定，不為個別環境重建 image。
+**打包指令不隨環境變化**——環境是在 `docker run` 時才選的。
+
+### 打包
+
+```bash
+./scripts/docker-package.sh          # Linux / macOS（原生 bash）
+pwsh ./scripts/docker-package.ps1    # Windows
+```
+
+一支腳本涵蓋建置、啟動驗證、清理與帶時戳匯出 tar。
+
+常用參數：`--no-tar` / `-NoTar`（只建 image）、`--verify-port <埠>` / `-VerifyPort <埠>`
+（驗證埠被占用時）。詳見 [`scripts/README.md`](scripts/README.md)。
+
+手動執行等同於：
+
+```bash
+cd bestpartner-service
+./gradlew clean build -x test -Dquarkus.package.type=uber-jar \
+  -Dorg.gradle.daemon=false -Dquarkus.profile=prod
+docker build -f src/main/docker/Dockerfile.uber-jar -t bestpartner-service:latest .
+```
+
+### 部署（這裡才分環境）
+
+```bash
+docker run -d -p 80:80 \
+  -e QUARKUS_PROFILE=uat \
+  --env-file .env.uat \
+  -v bestpartner-data:/opt/bestpartner \
+  bestpartner-service:latest
+```
+
+| 參數 | 決定 |
+|------|------|
+| `-e QUARKUS_PROFILE=<env>` | 行為：Swagger 開關、SQL 日誌、log 等級 |
+| `--env-file .env.<env>` | 連線：DB 位址、密文密碼、路徑，以及解密金鑰 |
+
+> `.env` 中 `${enc::...}` 的密文由同檔的 `CONFIG_ENCRYPTION_KEY` 解密，無需額外注入。
+> 金鑰錯誤或缺漏時，啟動會以 `AEADBadTagException` 明確失敗，不會靜默使用密文當密碼。
+
+> 建置 profile 固定用 `prod`：它會成為 image 的預設 runtime profile，
+> 讓部署時漏帶 `QUARKUS_PROFILE` 也落在「Swagger 關閉、log INFO」的安全側。
+
+搬遷至其他機器：
+
+```bash
+docker save -o bestpartner-service-0.1.8-prod-$(date +%Y%m%d%H%M).tar \
+  bestpartner-service:latest
+# 目標機器
+docker load -i bestpartner-service-0.1.8-prod-202607162330.tar
+```
+
+檔名格式：`bestpartner-service-<版本>-<建置profile>-<YYYYMMDDHHmm>.tar`
+
+> 檔名的 `-prod` 是**建置 profile**，不是部署目標。這份 tar 全環境通用，
+> 跑哪個環境由 `QUARKUS_PROFILE` 與 `.env.<profile>` 決定。
+
+> ⚠️ tar 內含 JWT 簽章私鑰（`privateKey.pem` 隨 uber-jar 打包），等同憑證，勿在不受控管道流通。
+
+存活探測請用 `/view/chat`；`/q/openapi` 與 `/swagger-ui` 在 prod 回 404 屬正確行為。
 
 ---
 

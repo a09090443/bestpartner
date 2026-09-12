@@ -91,16 +91,36 @@ description: Use when user wants to start a test cycle, record API test results,
 
 > ⚠️ 不可等到所有模組測完才統一更新；違反視同測試流程違規。詳細規則與範例見 checklist「模組完成檢查清單」章節。
 
-### Step 8：測試完成後關閉服務
+### Step 8：測試資料處置詢問（強制停點，清理前必做）
+
+**所有測試案例執行完畢、清理測試資料之前，必須用 `AskUserQuestion` 詢問使用者本次資料要清理還是保留**
+（保留是為了讓使用者接著自行手動測試）。不得逕自清理，也不得逕自保留。
+
+1. 先整理**本次建立的資料清單**（資源類型／名稱／id），來源是各案例執行時逐筆記錄的 id，不是事後掃描猜的。
+2. 以 `AskUserQuestion` 提問，至少提供三個選項：
+   - 全部清理（預設建議）
+   - 全部保留（供後續手動測試）
+   - 部分保留（列出清單讓使用者挑）
+3. 依使用者決議執行：
+   - **清理**：呼叫對應刪除 API，只刪清單內的 id（見「測試資料清理規則」）。
+   - **保留**：不清理；把決議、保留清單與理由寫入確認表的「測試資料處置」欄位。
+4. 無論保留與否，**服務仍一律關閉**（Step 9）；回報時附上重啟指令供使用者手動測試時自行啟動。
+
+> ⚠️ 未詢問即清理或即保留，視同測試流程違規。完整規則見 [`test-data-retention.md`](../../rules/test-data-retention.md)。
+
+### Step 9：測試完成後關閉服務
 
 **所有測試案例執行完畢後，必須強制關閉服務。**
 
 執行順序：
 1. 確認所有測試已記錄至確認表
-2. 強制停止服務（port 80）
-3. 確認服務已停止，不再回應請求
+2. 確認 Step 8 的資料處置決議已執行並寫入確認表
+3. 強制停止服務（port 80）
+4. 確認服務已停止，不再回應請求
 
 > ⚠️ 測試完成後不得遺留服務在背景執行。
+> ⚠️ **保留資料 ≠ 保留服務**：使用者選擇保留資料時服務照關，回報中附上重啟指令：
+> `cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-runner.jar`
 
 
 ---
@@ -119,7 +139,9 @@ description: Use when user wants to start a test cycle, record API test results,
 |------|---------|
 | 建立 `api-test-checklist.md` 固定名稱 | 使用帶日期的 `docs/test-confirmations/test-confirmation-YYYYMMDDHHmm.md` |
 | 自行設計表格格式 | 從 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 完整複製 |
-| 只列出主要 7 個模組 | 必須包含整合測試與安全性測試（共 12 個模組） |
+| 只列出主要 7 個模組 | 必須包含 WORKFLOW、SKILL、整合測試與安全性測試（共 **14** 個模組） |
 | 先建檔再詢問 metadata | 先詢問 metadata（Step 1），再建立檔案（Step 2） |
 | 先標記狀態才記錄 curl | 先執行 curl 並寫入完整記錄，才能標記狀態（Step 7） |
 | response body 只記錄摘要或省略 | 必須記錄完整 response body 原始內容，不得截斷（Step 7） |
+| 測完直接清理測試資料 | Step 8 先用 `AskUserQuestion` 問清理或保留，等使用者回覆再動手 |
+| 使用者要保留資料就順手把服務留著 | 服務一律關閉（Step 9），回報附重啟指令 |

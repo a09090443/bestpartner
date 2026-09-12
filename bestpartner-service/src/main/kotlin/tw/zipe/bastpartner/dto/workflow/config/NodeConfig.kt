@@ -1,0 +1,263 @@
+package tw.zipe.bastpartner.dto.workflow.config
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import tw.zipe.bastpartner.enumerate.NodeType
+import tw.zipe.bastpartner.enumerate.TriggerType
+
+/**
+ * Workflow 節點 config 的強型別契約。
+ *
+ * 事實來源：本檔案即各 NodeType config schema 的唯一事實來源，
+ * `docs/workflow-engine/system-design.md` §2 為對照說明文件。
+ *
+ * 欄位一律 nullable 以支援兩段式驗證：save（DRAFT）僅驗型別與未知欄位，
+ * 必填檢核（[NodeConfig.missingRequiredFields]）於 switchStatus 啟用時執行。
+ *
+ * @author Gary
+ * @created 2026/7/4
+ */
+sealed interface NodeConfig {
+    /** 回傳缺席的必填欄位名稱；空清單代表滿足啟用條件 */
+    fun missingRequiredFields(): List<String>
+}
+
+@Serializable
+data class TriggerNodeConfig(
+    val triggerType: TriggerType? = null,
+    val inputSchema: JsonObject? = null,
+    val webhook: JsonObject? = null,
+    val cron: JsonObject? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (triggerType == null) add("triggerType")
+    }
+}
+
+/**
+ * LLM 助手節點（Agent 模式）：只負責呼叫指定 LLM。
+ * 工具、MCP、Skill 改為獨立節點（TOOL / MCP_SERVER / SKILL），透過連線掛載到本節點的
+ * 專用工具輸入埠（targetHandle = `in:tool`），由引擎於執行前解析為能力清單，
+ * 交本節點 executor 於推論前組裝成 langchain4j 工具集，由 LLM 自主決定何時呼叫。
+ * 故此 config 不再內嵌 toolIds/mcpIds/skillIds/knowledgeId/files。
+ *
+ * [userPrompt] 為提問內容的**後備**來源：有 [PromptNodeConfig] 節點連到本節點的提示輸入埠
+ * （`in:prompt`）時以該節點輸出為準，沒接才用本欄位。兩者皆無時無法啟用（見
+ * `WorkflowEngine.findPromptlessLlmNodeKey`），故本欄位不列為無條件必填。
+ */
+@Serializable
+data class LlmAssistantNodeConfig(
+    val llmId: String? = null,
+    val systemPrompt: String? = null,
+    val userPrompt: String? = null,
+    val enableMemory: Boolean? = null,
+    val memoryId: String? = null,
+    val responseFormat: String? = null,
+    val outputSchema: JsonObject? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (llmId.isNullOrBlank()) add("llmId")
+    }
+}
+
+/**
+ * 提示詞節點：把 LLM 的「提問內容」抽成獨立節點，讓同一顆 LLM 節點可由不同的提示節點驅動
+ * （例如 CONDITION 兩個分支各接一個提示節點，再匯入同一顆 LLM）。
+ *
+ * 以 `out:main` 連到 LLM 節點的提示輸入埠（targetHandle = `in:prompt`）。
+ * 與 `in:tool` 的能力掛載不同，**此邊為一般資料流邊**：會參與節點活化判斷與拓撲排序，
+ * 故分支只活化其中一個提示節點時，LLM 取的即是該分支的提示。
+ *
+ * [prompt] 支援 `{{nodeKey.key}}` 插值，由 executor 於執行期解析一次。
+ */
+@Serializable
+data class PromptNodeConfig(
+    val prompt: String? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (prompt.isNullOrBlank()) add("prompt")
+    }
+}
+
+/**
+ * Skill 節點：能力提供者。作為獨立節點連到 LLM 節點的 `in:tool` 埠，
+ * 由 [LlmAssistantNodeConfig] 對應的 executor 延遲讀取 skillId 掛載，本身不獨立執行、不落執行紀錄。
+ */
+@Serializable
+data class SkillNodeConfig(
+    val skillId: String? = null,
+    /** 保留以維持 config 形狀一致性；能力掛載模式下不使用 */
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (skillId.isNullOrBlank()) add("skillId")
+    }
+}
+
+@Serializable
+data class ToolNodeConfig(
+    val toolId: String? = null,
+    val toolSettingId: String? = null,
+    val arguments: JsonObject? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (toolId.isNullOrBlank()) add("toolId")
+    }
+}
+
+@Serializable
+data class McpServerNodeConfig(
+    val mcpId: String? = null,
+    val userSettingId: String? = null,
+    val toolName: String? = null,
+    val arguments: JsonObject? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (mcpId.isNullOrBlank()) add("mcpId")
+        if (toolName.isNullOrBlank()) add("toolName")
+    }
+}
+
+@Serializable
+data class KnowledgeRagNodeConfig(
+    val knowledgeId: String? = null,
+    val embeddingModelId: String? = null,
+    val query: String? = null,
+    val topK: Int? = null,
+    val minScore: Double? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        // knowledgeId 為兩種模式（pipeline 檢索／LLM 外掛自動注入）共通的唯一無條件必填。
+        // query 僅 pipeline 檢索需要（由 executor 執行時驗證）；embeddingModelId 於外掛模式由知識庫
+        // 自身 embedding 設定決定，故皆不列為無條件必填。
+        if (knowledgeId.isNullOrBlank()) add("knowledgeId")
+    }
+}
+
+@Serializable
+data class ConditionExpressionConfig(
+    val left: String? = null,
+    val operator: String? = null,
+    val right: String? = null
+)
+
+@Serializable
+data class ConditionNodeConfig(
+    val conditions: List<ConditionExpressionConfig>? = null,
+    val logic: String? = null,
+    val trueHandle: String? = null,
+    val falseHandle: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (conditions.isNullOrEmpty()) add("conditions")
+    }
+}
+
+@Serializable
+data class LoopNodeConfig(
+    val inputArrayPath: String? = null,
+    val itemAlias: String? = null,
+    val loopBodyEntryNodeKey: String? = null,
+    val maxIterations: Int? = null,
+    val collectOutputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (inputArrayPath.isNullOrBlank()) add("inputArrayPath")
+        if (loopBodyEntryNodeKey.isNullOrBlank()) add("loopBodyEntryNodeKey")
+    }
+}
+
+@Serializable
+data class CodeNodeConfig(
+    val language: String? = null,
+    val source: String? = null,
+    val timeoutMs: Long? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (language.isNullOrBlank()) add("language")
+        if (source.isNullOrBlank()) add("source")
+    }
+}
+
+@Serializable
+data class HttpRequestNodeConfig(
+    val method: String? = null,
+    val url: String? = null,
+    val headers: Map<String, String>? = null,
+    val secretHeaders: Map<String, String>? = null,
+    val body: JsonElement? = null,
+    val timeoutMs: Long? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        if (method.isNullOrBlank()) add("method")
+        if (url.isNullOrBlank()) add("url")
+    }
+}
+
+@Serializable
+data class DataTransformMappingConfig(
+    val targetKey: String? = null,
+    val expression: String? = null
+)
+
+@Serializable
+data class DataTransformNodeConfig(
+    val mappings: List<DataTransformMappingConfig>? = null,
+    val template: String? = null,
+    val outputKey: String? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        // mappings 與 template 至少擇一
+        if (mappings.isNullOrEmpty() && template.isNullOrBlank()) add("mappings|template")
+    }
+}
+
+@Serializable
+data class OutputNodeConfig(
+    val template: String? = null,
+    val mappings: Map<String, String>? = null
+) : NodeConfig {
+    override fun missingRequiredFields() = buildList {
+        // template 與 mappings 至少擇一
+        if (template.isNullOrBlank() && mappings.isNullOrEmpty()) add("template|mappings")
+    }
+}
+
+/**
+ * NodeType -> config 反序列化的映射入口。
+ *
+ * 嚴格度說明（ignoreUnknownKeys = false）：
+ * - 拒絕未知欄位與結構性型別錯誤（如字串給 List 欄位、非法 enum 值），拋 [kotlinx.serialization.SerializationException]。
+ * - 注意：kotlinx tree decoding 對 scalar 有寬鬆轉型——數字/布林形式的字串
+ *   （如 `topK: "5"`、`enableMemory: "true"`）會被轉型接受，不會拋例外。
+ */
+object NodeConfigRegistry {
+
+    private val strictJson = Json { ignoreUnknownKeys = false }
+
+    fun parse(type: NodeType, config: JsonObject): NodeConfig = when (type) {
+        NodeType.TRIGGER -> strictJson.decodeFromJsonElement<TriggerNodeConfig>(config)
+        NodeType.LLM_ASSISTANT -> strictJson.decodeFromJsonElement<LlmAssistantNodeConfig>(config)
+        NodeType.PROMPT -> strictJson.decodeFromJsonElement<PromptNodeConfig>(config)
+        NodeType.TOOL -> strictJson.decodeFromJsonElement<ToolNodeConfig>(config)
+        NodeType.MCP_SERVER -> strictJson.decodeFromJsonElement<McpServerNodeConfig>(config)
+        NodeType.SKILL -> strictJson.decodeFromJsonElement<SkillNodeConfig>(config)
+        NodeType.KNOWLEDGE_RAG -> strictJson.decodeFromJsonElement<KnowledgeRagNodeConfig>(config)
+        NodeType.CONDITION -> strictJson.decodeFromJsonElement<ConditionNodeConfig>(config)
+        NodeType.LOOP -> strictJson.decodeFromJsonElement<LoopNodeConfig>(config)
+        NodeType.CODE -> strictJson.decodeFromJsonElement<CodeNodeConfig>(config)
+        NodeType.HTTP_REQUEST -> strictJson.decodeFromJsonElement<HttpRequestNodeConfig>(config)
+        NodeType.DATA_TRANSFORM -> strictJson.decodeFromJsonElement<DataTransformNodeConfig>(config)
+        NodeType.OUTPUT -> strictJson.decodeFromJsonElement<OutputNodeConfig>(config)
+    }
+}

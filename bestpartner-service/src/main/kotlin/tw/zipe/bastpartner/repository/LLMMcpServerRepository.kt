@@ -20,6 +20,7 @@ class LLMMcpServerRepository : BaseRepository<LLMMcpServerEntity, String>() {
         mcpDto.commandSetting?.let { entity.commandSetting = it }
         // type 為 lateinit，僅在 DTO 有值時才更新
         mcpDto.type?.let { entity.type = it }
+        mcpDto.description?.let { entity.description = it }
         // @PreUpdate 自動設定 updatedAt / updatedBy
         update(entity)
         return 1

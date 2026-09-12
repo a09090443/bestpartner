@@ -1,0 +1,41 @@
+step 1 action: [RAG-01] login-page (RAG-01-01-login-page.png)
+step 2 action: [RAG-01] login-filled (RAG-01-02-login-filled.png)
+step 3 action: [RAG-01] workflow-list (RAG-01-03-workflow-list.png)
+CP1 ok: logged in, workflow list visible
+step 4 action: [RAG-01] editor-created (RAG-01-04-editor-created.png)
+CP2 ok: editor opened, name=e2e-RAG-plugin-202607272132-r2
+step 5 action: [RAG-01] five-nodes-dropped (RAG-01-05-five-nodes-dropped.png)
+CP3 ok: node count = 5
+llmKey = JOiZXKMt
+step 6 action: [RAG-01] edge-rag1-to-llm-intool (RAG-01-06-edge-rag1-to-llm-intool.png)
+step 7 action: [RAG-01] edge-rag2-to-llm-intool (RAG-01-07-edge-rag2-to-llm-intool.png)
+step 8 action: [RAG-01] four-edges-connected (RAG-01-08-four-edges-connected.png)
+CP4 ok: edge count = 4, ui console errors = 0
+step 9 action: [RAG-01] cfg-trigger (RAG-01-09-cfg-trigger.png)
+step 10 action: [RAG-01] cfg-rag1-knowledge-only (RAG-01-10-cfg-rag1-knowledge-only.png)
+CP5a: rag1 query="" embeddingModelId="" (皆應為空)
+step 11 action: [RAG-01] cfg-rag2-knowledge-only (RAG-01-11-cfg-rag2-knowledge-only.png)
+CP5b: rag2 query="" embeddingModelId="" (皆應為空)
+step 12 action: [RAG-01] cfg-llm (RAG-01-12-cfg-llm.png)
+step 13 action: [RAG-01] cfg-output (RAG-01-13-cfg-output.png)
+CP6 ok: llm + output configured
+step 14 action: [RAG-01] saved (RAG-01-14-saved.png)
+CP7 ok: saved
+step 15 action: [RAG-02] active-toggled (RAG-02-01-active-toggled.png)
+CP8: active-toggle state = el-switch el-switch--small is-checked (RAG-02-01-active-toggled.png)
+step 16 action: [RAG-03] running-node-states-t1 (RAG-03-01-running-node-states-t1.png)
+step 17 action: [RAG-03] running-node-states-t2 (RAG-03-02-running-node-states-t2.png)
+step 18 action: [RAG-03] drawer-open (RAG-03-03-drawer-open.png)
+step 19 action: [RAG-03] final-status-SUCCESS (RAG-03-04-final-status-SUCCESS.png)
+CP9: drawer status = SUCCESS; executeHttp = 200
+CP9 output: {
+  "result": "20歲"
+}
+step 20 action: [RAG-04] llm-node-exec-section (RAG-04-01-llm-node-exec-section.png)
+step 21 action: [RAG-04] rag1-node-no-exec-section (RAG-04-02-rag1-node-no-exec-section.png)
+step 22 action: [RAG-04] rag2-node-no-exec-section (RAG-04-03-rag2-node-no-exec-section.png)
+CP10: llmHasExec=true rag1HasExec=false rag2HasExec=false
+step 23 action: [RAG-05] output-content (RAG-05-01-output-content.png)
+CP-RAG05 output = {
+  "result": "20歲"
+}

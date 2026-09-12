@@ -1,5 +1,7 @@
 ---
 sidebar_position: 5
+description: BestPartner Skill API，管理個人與全域 Skill 的上傳、查詢與刪除，Skill 以 zip 壓縮檔上傳，端點前綴 /llm/skill。
+keywords: [Skill API, 技能, 上傳, zip, 全域 Skill]
 ---
 
 # Skill API

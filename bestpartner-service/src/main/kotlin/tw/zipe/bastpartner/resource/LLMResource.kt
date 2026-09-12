@@ -1,6 +1,5 @@
 package tw.zipe.bastpartner.resource
 
-import dev.langchain4j.mcp.McpToolProvider
 import dev.langchain4j.mcp.client.McpClient
 import dev.langchain4j.model.chat.ChatModel
 import dev.langchain4j.model.chat.StreamingChatModel
@@ -105,15 +104,17 @@ class LLMResource(
         validateChatRequest(chatRequestDTO)
         val aiService = llmService.buildAIService(chatRequestDTO, ModelType.STREAMING_CHAT)
         val mcpClients = setupMcpClients(chatRequestDTO, requestId)
-
-        mcpClients.let {
-            logger.debug("[REQ:$requestId] 已配置 ${mcpClients.size} 個MCP客戶端")
-            val toolProvider = McpToolProvider.builder().mcpClients(it).build()
-            aiService.toolProvider(toolProvider)
-        }
+        logger.debug("[REQ:$requestId] 已配置 ${mcpClients.size} 個MCP客戶端")
+        // Skill 與 MCP 的工具集統一組裝（避免 toolProvider 單插槽互相覆蓋）
+        llmService.applyToolProviders(aiService, chatRequestDTO, mcpClients)
 
         return Multi.createFrom().emitter<String?> { emitter: MultiEmitter<in String?> ->
             logger.debug("[REQ:$requestId] 開始自定義助手串流聊天")
+            // streamingChat 為非同步：MCP 客戶端須待串流終止（完成/失敗/取消）才關閉，
+            // 否則工具呼叫發生時 MCP 行程已被提早結束
+            emitter.onTermination {
+                CompletableFuture.runAsync { closeMcpClients(mcpClients, requestId) }
+            }
             try {
                 aiService.build().streamingChat(chatRequestDTO.memory.id, chatRequestDTO.message.orEmpty())
                     .onPartialResponse { emitter.emit(it) }
@@ -134,8 +135,6 @@ class LLMResource(
             } catch (e: Exception) {
                 logger.error("[REQ:$requestId] 處理自定義助手串流聊天請求時發生異常", e)
                 emitter.fail(e)
-            }finally {
-                mcpClients.forEach { mcpServer -> mcpServer.close() }
             }
         }
     }
@@ -151,11 +150,9 @@ class LLMResource(
         val mcpClients = setupMcpClients(chatRequestDTO, requestId)
 
         try {
-            if (mcpClients.isNotEmpty()) {
-                logger.debug("[REQ:$requestId] 已配置 ${mcpClients.size} 個MCP客戶端")
-                val toolProvider = McpToolProvider.builder().mcpClients(mcpClients).build()
-                aiService.toolProvider(toolProvider)
-            }
+            logger.debug("[REQ:$requestId] 已配置 ${mcpClients.size} 個MCP客戶端")
+            // Skill 與 MCP 的工具集統一組裝（避免 toolProvider 單插槽互相覆蓋）
+            llmService.applyToolProviders(aiService, chatRequestDTO, mcpClients)
 
             logger.debug("[REQ:$requestId] 開始自定義助手聊天")
             val response = aiService.build()

@@ -76,4 +76,45 @@ class CryptoUtilsTest {
         val decryptedData = CryptoUtils.decryptAesGCM(encryptedData, aesKey, iv)
         assert(dataToEncrypt == decryptedData)
     }
+
+    @Test
+    fun `v2 AES-GCM + PBKDF2 加解密可還原`() {
+        val key = "master-secret-key"
+        val plaintext = "sk-or-v1-abcdef0123456789"
+
+        val result = CryptoUtils.encryptAesGCMv2(plaintext, key)
+        // 三段皆存在且密文不含明文
+        assert(result["salt"]!!.isNotEmpty())
+        assert(result["iv"]!!.isNotEmpty())
+        assert(!result["encrypted"]!!.contains(plaintext))
+
+        val decrypted = CryptoUtils.decryptAesGCMv2(result["encrypted"]!!, key, result["iv"]!!, result["salt"]!!)
+        assert(plaintext == decrypted)
+    }
+
+    @Test
+    fun `v2 每次加密使用不同 salt 與 iv，密文不重複`() {
+        val key = "master-secret-key"
+        val plaintext = "same-plaintext"
+
+        val a = CryptoUtils.encryptAesGCMv2(plaintext, key)
+        val b = CryptoUtils.encryptAesGCMv2(plaintext, key)
+
+        // 相同明文＋相同金鑰，兩次密文因隨機 salt/iv 而不同
+        assert(a["salt"] != b["salt"])
+        assert(a["iv"] != b["iv"])
+        assert(a["encrypted"] != b["encrypted"])
+        // 但皆可正確解回原值
+        assert(CryptoUtils.decryptAesGCMv2(a["encrypted"]!!, key, a["iv"]!!, a["salt"]!!) == plaintext)
+        assert(CryptoUtils.decryptAesGCMv2(b["encrypted"]!!, key, b["iv"]!!, b["salt"]!!) == plaintext)
+    }
+
+    @Test
+    fun `v2 錯誤金鑰無法解密`() {
+        val result = CryptoUtils.encryptAesGCMv2("secret", "right-key")
+        val failed = runCatching {
+            CryptoUtils.decryptAesGCMv2(result["encrypted"]!!, "wrong-key", result["iv"]!!, result["salt"]!!)
+        }
+        assert(failed.isFailure) { "錯誤金鑰應因 GCM 完整性驗證失敗而拋錯" }
+    }
 }

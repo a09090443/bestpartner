@@ -8,6 +8,8 @@ bestpartner/
 ├── bestpartner-mcp-servers/      # MCP server 範例
 │   ├── quarkus-example/          # Quarkus MCP server 範例
 │   └── spring-example/           # Spring MCP server 範例
+├── bestpartner-ui/               # 前端應用 (Vue 3 + Vite + TS)
+│   └── src/                      # api / components(canvas,common,inspector,nodeDesigner) / composables / constants / stores / styles / types / utils / views
 └── docs/                         # 文件資料
     ├── docker/                   # Docker Compose 設定 (chroma, milvus, mysql, ollama)
     ├── postman/                  # Postman Collection
@@ -33,6 +35,8 @@ bestpartner-service/src/main/resources/
 ---
 
 ## 原始碼架構（bestpartner-service）
+
+> ⚠️ **查閱原始碼前，先確認 `docs-site/` 與 `.claude/rules/` 文件是否已說明；文件查無才看程式碼。**
 
 基底路徑：`bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/`
 
@@ -68,16 +72,18 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── builder/
 │   ├── llm/        # AnthropicModelBuilder, GeminiModelBuilder, GrokModelBuilder, OllamaModelBuilder, OpenaiModelBuilder
 │   └── vector/     # ChromaBuilder, MilvusBuilder
-├── config/
+├── config/         # EncSecretKeysHandlerFactory（設定檔機密值解密的短名 handler `enc`）
 │   ├── chatmodel/
 │   ├── embedding/
 │   ├── security/
 │   └── vector/
 ├── constant/       # LLMConstant
-├── converter/          # PermissionSetConverter, PasswordEncryptConverter
-├── dto/            # ApiResponse, ChatRequestDTO, LLMDTO, McpDTO, SkillDTO, ToolDTO ...
-├── entity/         # BaseEntity, LLMSettingEntity, LLMPlatformEntity, LLMSkillEntity, LLMSkillResourceEntity, LLMToolEntity ...
-├── enumerate/      # Platform, ModelType, VectorStore, ToolsType, AppMessage ...
+├── converter/          # PermissionSetConverter, PasswordEncryptConverter（AES-256-GCM 透明加解密的共用原語，金鑰經 PBKDF2＋per-record salt 衍生，v2 密文格式 `v2$salt$iv$ct`、相容 legacy 兩段格式；提供 isCiphertext 供沿用既有值時避免重複加密）, McpSettingEncryptConverter（llm_mcp_user_setting.setting_content 整欄 AES-256-GCM 加解密，儲存為密文文字非 JSON）, WorkflowSecretConverter（workflow 節點 secretHeaders 加解密與遮罩）, SensitiveValueCodec（tool 設定 JSON 內敏感 key 逐值加解密與遮罩；MCP 設定僅用於 env 值遮罩與舊資料還原）
+├── dto/            # ApiResponse, ChatRequestDTO, KnowledgeMount（LLM 外掛型 RAG 掛載規格）, LLMDTO, McpDTO, SkillDTO, ToolDTO, WorkflowDTO ...
+│   └── workflow/
+│       └── config/ # NodeConfig（13 種 NodeType 的強型別 config DTO + NodeConfigRegistry，節點 config schema 的事實來源）
+├── entity/         # BaseEntity, LLMSettingEntity, LLMPlatformEntity, LLMSkillEntity, LLMSkillResourceEntity, LLMToolEntity, WorkflowEntity, WorkflowNodeEntity, WorkflowEdgeEntity, WorkflowExecutionEntity, WorkflowNodeExecutionEntity ...
+├── enumerate/      # Platform, ModelType, VectorStore, ToolsType, AppMessage, WorkflowStatus, NodeType, TriggerType, ExecutionStatus, NodeExecutionStatus ...
 ├── exception/      # LLMException, ServiceException, GlobalExceptionMapper ...
 ├── filter/         # JwtFilter
 ├── form/           # FilesFromRequest, SkillUploadForm
@@ -85,11 +91,13 @@ bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 │   └── tool/
 ├── properties/     # OllamaProp, OpenaiProp, ChromaProp, MilvusProp ...
 ├── provider/       # ModelProvider, VectorStoreProvider
-├── repository/     # LLMUserRepository, LLMSkillRepository, LLMSkillResourceRepository, VectorStoreSettingRepository ...
-├── resource/       # LLMResource, LLMSettingResource, LLMSkillResource, LLMToolResource, LoginResource ...
-├── service/        # LLMService, EmbeddingService, SkillService, ToolService, McpServerService ...
+├── repository/     # LLMUserRepository, LLMSkillRepository, LLMSkillResourceRepository, VectorStoreSettingRepository, WorkflowRepository, WorkflowNodeRepository, WorkflowEdgeRepository ...
+├── resource/       # LLMResource, LLMSettingResource, LLMSkillResource, LLMToolResource, LoginResource, WorkflowResource ...
+├── service/        # LLMService, EmbeddingService, SkillService, ToolService, McpServerService, WorkflowService ...
+│   └── workflow/   # WorkflowEngine, ExecutionContext, ExecutionEvent(+ExecutionEventSink), NodeExecutor
+│       └── executor/ # TriggerExecutor, OutputExecutor, ConditionExecutor, LoopExecutor, CodeExecutor, HttpRequestExecutor, DataTransformExecutor, ToolNodeExecutor, McpServerNodeExecutor, KnowledgeRagExecutor, LlmAssistantExecutor, PromptExecutor（共 12 個）
 ├── tool/
-│   ├── config/     # Google, Tavily
+│   ├── config/     # Google, Tavily, ToolConfigField（settingSchema 的 UI 提示 annotation）
 │   └── text2sql/
-└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, OkHttpUtil, MessageUtil ...
+└── util/           # ChatModelBuilder, LLMBuilder, CryptoUtils, ConfigSecretUtil（設定值機密加密 CONFIG_ENCRYPTION_KEY，開發／維運用）, DataSecretUtil（資料庫欄位機密加解密 CRYPTO_SECRET_KEY，開發／維運用）, OkHttpUtil, MessageUtil, ToolSchemaGenerator ...
 ```

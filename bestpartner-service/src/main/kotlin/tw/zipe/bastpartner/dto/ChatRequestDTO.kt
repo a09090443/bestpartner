@@ -17,6 +17,8 @@ class ChatRequestDTO(
     val embeddingDocIds: List<String>? = null,
     val embeddingModelId: String? = null,
     val knowledgeId: String? = null,
+    /** 多知識庫外掛（自動注入型 RAG）掛載規格；與單數 knowledgeId 併用時一併掛載並去重 */
+    val knowledgeMounts: List<KnowledgeMount>? = null,
     val mcpIds: List<String>? = null,
     val mcpSettingIds: List<String>? = null,
     val files: List<String>? = null,

@@ -114,7 +114,13 @@ class SkillService(
 
     fun buildSkills(skillIds: List<String>): Skills {
         val globalEntities = skillRepository.findAllByScope(SkillScope.GLOBAL)
-        val userEntities = skillIds.mapNotNull { skillRepository.findById(it) }
+        // findById 回 null 時原本會被 mapNotNull 靜默丟棄，skill 沒掛上卻無任何線索
+        val userEntities = skillIds.mapNotNull { id ->
+            skillRepository.findById(id) ?: run {
+                logger.warn("Skill [$id] 不存在，本次不會掛載此 skill")
+                null
+            }
+        }
         val allEntities = (globalEntities + userEntities).distinctBy { it.id }
 
         val skillList = allEntities.mapNotNull { entity ->

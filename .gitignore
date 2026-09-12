@@ -33,7 +33,16 @@ nb-configuration.xml
 *.rej
 
 # Local environment
-.env
+# 各環境的實際值不進版控，只保留 .env.example 範本。
+# 路徑錨定根目錄（開頭的 /），避免影響已追蹤的 bestpartner-ui/.env.development
+/.env
+/.env.*
+!/.env.example
+
+# 本機金鑰／憑證等機密檔案的存放目錄，任何情況都不進版控。
+# （目前 CONFIG_ENCRYPTION_KEY 直接寫在 .env.<profile> 內，此目錄未使用；
+#   保留規則作為安全網，避免日後放置機密時誤提交。）
+/.secrets/
 
 # Plugin directory
 /.quarkus/cli/plugins/
@@ -43,3 +52,6 @@ nb-configuration.xml
 # Git worktrees
 .worktrees/
 /bestpartner-service/.kotlin/
+
+# Docker compose 產生的容器持久化資料（Milvus / etcd / MinIO 等），屬本機執行期產物
+docs/docker/*/volumes/

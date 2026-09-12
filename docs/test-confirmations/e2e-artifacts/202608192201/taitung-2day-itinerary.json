@@ -1,0 +1,33 @@
+{
+  "days": [
+    {
+      "day": 1,
+      "place": {
+        "name": "臺東池上錦新三號道路 伯朗大道",
+        "placeId": "ChIJZatyKu4JbzQRyHuSojQ6qQ0",
+        "lat": 23.0988065,
+        "lng": 121.2130022,
+        "address": "958台灣臺東縣池上鄉錦新三號道路",
+        "rating": 0
+      }
+    },
+    {
+      "day": 2,
+      "place": {
+        "name": "三仙台",
+        "placeId": "ChIJ5RcBzEhwbzQRSWjpXLndbWU",
+        "lat": 23.120627900000002,
+        "lng": 121.40275740000001,
+        "address": "台灣臺東縣三仙台",
+        "rating": 0
+      }
+    }
+  ],
+  "events": [
+    {
+      "title": "2026臺灣國際熱氣球嘉年華-熱氣球光雕音樂會",
+      "date": "2026-08-13",
+      "sourceUrl": "https://tour.taitung.gov.tw/zh-tw/event-calendar"
+    }
+  ]
+}

@@ -6,10 +6,18 @@
 1. 詢問測試環境、人員、LLM 平台等 metadata
 2. 自動以當下時間建立 `docs/test-confirmations/test-confirmation-YYYYMMDDHHmm.md`
 3. 強制重啟服務（port 80）再開始測試
-4. 測試完成後強制停止服務
-5. 提醒清理測試產生的資料
+4. 測試完成後**先詢問是否保留本次測試資料**（供後續手動測試），再依決議清理或保留
+5. 測試完成後強制停止服務（無論資料保留與否，服務一律關閉）
 
 > ⚠️ 若未透過此 skill 啟動測試流程，視同違規。
+
+> ⚠️ **收尾必問資料處置**：所有案例測完、清理測試資料**之前**，必須以 `AskUserQuestion`
+> 詢問使用者要清理還是保留本次資料（保留供其手動驗證）。完整規則（選項、保留時的改名與記錄、
+> 服務仍一律關閉）見 [`test-data-retention.md`](test-data-retention.md)。
+
+> **與 UI / E2E 測試互斥**：本文件只管 API 測試。UI（E2E）測試走 `e2e-test-confirmation` skill，
+> 並由 `.claude/hooks/e2e-flow-guard.ps1` 機械化守門（開測前停服務、失敗分流後先報告再修、收尾關服務）。
+> 「執行測試」觸發 API 流程、「跑 E2E / UI 測試」觸發 E2E 流程，兩者不共用狀態，不可混用模板。
 
 ## Postman Collection
 
@@ -35,6 +43,7 @@
 | TOOL | `/llm/tool` |
 | MCP SERVER | `/llm/mcpServer` |
 | PERMISSION | `/llm/permission` |
+| WORKFLOW | `/llm/workflow` |
 | SYSTEM SETTING | `/systemSetting` |
 | VIEW | `/view` |
 

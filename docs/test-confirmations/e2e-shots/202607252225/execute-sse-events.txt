@@ -1,0 +1,16 @@
+data:{"event":"execution.started","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","ts":"2026-07-26T11:31:33.2772324"}
+
+data:{"event":"node.started","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","nodeKey":"trigger","seqNo":1,"ts":"2026-07-26T11:31:33.2843984"}
+
+data:{"event":"node.completed","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","nodeKey":"trigger","seqNo":1,"status":"SUCCESS","output":{},"durationMs":43,"ts":"2026-07-26T11:31:33.3426678"}
+
+data:{"event":"node.started","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","nodeKey":"llm","seqNo":2,"ts":"2026-07-26T11:31:33.3442781"}
+
+data:{"event":"node.completed","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","nodeKey":"llm","seqNo":2,"status":"SUCCESS","output":{"reply":"18歲"},"durationMs":4145,"ts":"2026-07-26T11:31:37.4977816"}
+
+data:{"event":"node.started","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","nodeKey":"out","seqNo":3,"ts":"2026-07-26T11:31:37.4994295"}
+
+data:{"event":"node.completed","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","nodeKey":"out","seqNo":3,"status":"SUCCESS","output":{"result":"18歲"},"durationMs":3,"ts":"2026-07-26T11:31:37.5076758"}
+
+data:{"event":"execution.completed","executionId":"f4977f8f-e164-4f52-9ccf-4f6e52f80056","status":"SUCCESS","output":{"result":"18歲"},"durationMs":4240,"ts":"2026-07-26T11:31:37.5190553"}
+

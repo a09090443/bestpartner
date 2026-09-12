@@ -1,5 +1,7 @@
 ---
 sidebar_position: 2
+description: BestPartner 專案模組結構說明，涵蓋 bestpartner-service 主服務、bestpartner-mcp-servers 範例與 bestpartner-ui 前端各模組的職責劃分。
+keywords: [模組, 專案結構, bestpartner-service, bestpartner-ui, MCP Server]
 ---
 
 # 模組說明
@@ -8,11 +10,33 @@ sidebar_position: 2
 
 ```
 bestpartner/
-├── bestpartner-service/       # 主服務
-└── bestpartner-mcp-servers/   # MCP Server 範例
-    ├── quarkus-example/       # Quarkus MCP Server 範例
-    └── spring-example/        # Spring MCP Server 範例
+├── bestpartner-service/       # 主服務 (Quarkus)
+├── bestpartner-mcp-servers/   # MCP Server 範例
+│   ├── quarkus-example/       # Quarkus MCP Server 範例
+│   └── spring-example/        # Spring MCP Server 範例
+└── bestpartner-ui/            # 前端應用 (Vue 3 + Vite + TS)
 ```
+
+## bestpartner-ui 前端模組
+
+基於 Vue 3 + Vite + TypeScript，提供登入、Workflow 列表與 n8n-like 視覺化 Workflow 編輯器。
+
+| 目錄 | 職責 |
+|------|------|
+| `api/` | 後端 API client（axios 實例與認證攔截器；workflow、llmSetting、tool、mcpServer 端點封裝） |
+| `components/canvas/` | Vue Flow 節點面板（NodePalette，Trigger／Action／AI／Logic 分類＋搜尋）與自訂節點（WorkflowNode，依 meta 動態渲染多連接點、深色卡片） |
+| `components/inspector/` | 屬性面板（InspectorPanel，含節點複製／刪除與未選取時的 Workflow overview 統計）、型別化節點設定表單（`forms/`）與通用 JSON 設定編輯器（JsonConfigEditor，作為 fallback） |
+| `composables/` | nodeKey 產生、畫布↔DTO 雙向轉換、輕量畫布驗證、下拉選項快取（useNodeOptions）、dagre 自動排版（useCanvasLayout） |
+| `constants/` | 節點型別顯示 meta（label/color/icon/category 與 inputs/outputs 連接點）、handle 編碼工具 |
+| `styles/` | 編輯器深色主題（`workflow-theme.css`，n8n 風格；token 以 `.wf-editor` 作用域界定） |
+| `router/` | 路由定義與登入守衛 |
+| `stores/` | Pinia 狀態（auth、workflow） |
+| `types/` | 對應後端 DTO 的 TypeScript 型別、下拉 Option 型別 |
+| `views/` | 登入頁、Workflow 列表頁、Workflow 編輯器 |
+
+技術棧：Pinia、Vue Router、Element Plus、Vue Flow（`@vue-flow/core` 及 `background`/`minimap`/`controls`）、`@dagrejs/dagre`（自動排版）、axios、nanoid；測試使用 Vitest + `@vue/test-utils`。
+
+> 完整前端架構（開發啟動、核心設計慣例、測試策略）見 [前端架構（bestpartner-ui）](./frontend.md)。
 
 ## bestpartner-service 核心 Package
 
@@ -95,8 +119,9 @@ bestpartner/
 tool/
 ├── DateTool.kt              # 日期時間工具
 ├── config/
-│   ├── Google.kt            # Google 搜尋設定
-│   └── Tavily.kt            # Tavily 搜尋設定
+│   ├── Google.kt            # Google 搜尋設定（settingSchema 事實來源）
+│   ├── Tavily.kt            # Tavily 搜尋設定（settingSchema 事實來源）
+│   └── ToolConfigField.kt   # 設定欄位 UI 提示 annotation（description/sensitive）
 └── text2sql/
     ├── Text2SQLTool.kt      # Text2SQL 工具實作
     ├── config/
@@ -113,6 +138,8 @@ JPA Entity 對應資料庫表格，Repository 使用 Hibernate Panache 提供 CR
 ### `dto/` / `form/` / `model/` — 資料傳輸物件
 
 - `dto/`：API 回應資料物件
+  - `dto/workflow/config/`：workflow 節點 config 的強型別契約（`NodeConfig.kt`——13 種 NodeType 各一個 `@Serializable` DTO + `NodeConfigRegistry`，為節點 config schema 的唯一事實來源）
+  - `service/workflow/`：執行引擎（`WorkflowEngine` 編排＋拓撲活化遍歷、`ExecutionContext` 插值、`executor/` 下 11 種 NodeExecutor，含 CONDITION 分支、LOOP 子圖迭代、CODE GraalJS sandbox、DATA_TRANSFORM、TOOL 動態呼叫）
 - `form/`：API 請求參數物件
 - `model/`：業務模型物件
 

@@ -1,5 +1,7 @@
 ---
 sidebar_position: 1
+description: 安裝 BestPartner 前的環境需求，包含 OpenJDK 21、PostgreSQL 資料庫與 Node.js 等必要軟體與版本確認方式。
+keywords: [環境需求, 前置作業, JDK 21, PostgreSQL, 安裝準備]
 ---
 
 # 環境需求

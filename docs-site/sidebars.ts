@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
         'architecture/modules',
         'architecture/tech-stack',
         'architecture/i18n-messages',
+        'architecture/frontend',
       ],
     },
     {
@@ -30,6 +31,7 @@ const sidebars: SidebarsConfig = {
         'features/rag',
         'features/tools',
         'features/mcp-servers',
+        'features/workflow',
       ],
     },
     {
@@ -37,9 +39,11 @@ const sidebars: SidebarsConfig = {
       label: 'API 文件',
       items: [
         'api/authentication',
+        'api/llm-setting',
         'api/assistant',
         'api/knowledge-base',
         'api/skills',
+        'api/workflow',
         'api/swagger',
       ],
     },

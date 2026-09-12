@@ -1,5 +1,7 @@
 ---
 sidebar_position: 4
+description: BestPartner 整合 Model Context Protocol（MCP）Server，支援 SSE 與 STDIO 傳輸模式，擴充 AI 模型的外部工具能力。
+keywords: [MCP, Model Context Protocol, MCP Server, SSE, STDIO, 外部工具]
 ---
 
 # MCP Server
@@ -39,6 +41,16 @@ MCP Server 設定儲存在 `llm_mcp_server` 表：
 | `name` | MCP Server 名稱 |
 | `type` | McpType（STDIO / SSE）|
 | `command_setting` | JSON，包含連線設定（URL 或命令）|
+
+使用者個人設定另存於 `llm_mcp_user_setting.setting_content`（`saveSetting` / `updateSetting` 寫入）。
+
+### setting_content 整欄加密儲存
+
+`setting_content` **整欄**以 AES-GCM 加密落地（含 env 的 token/key 與 args 的路徑、參數），儲存為不透明密文文字（欄位型別為 `text`，非 JSON）。加密透過 JPA `@Convert` 透明處理，實作見 `converter/McpSettingEncryptConverter.kt`；加密強度取決於 `crypto.secret-key`。
+
+`getSetting` 回傳時，屬 **env 分類**（`command_setting.env` 的 key，通常是 token/key）的值一律遮罩為 `__SECRET_KEPT__`，明文不外流；`updateSetting` 送回遮罩值即沿用既有值。實際建立 MCP client（`buildMcpServer`）時使用還原後的明文。
+
+> 相容性：加密上線前存入的明文 JSON（或 env 值為舊版逐值密文者）仍可正常讀取——讀取時自動容錯還原，下次存檔即整包轉為密文，毋須停機遷移。
 
 ## 範例：Quarkus MCP Server（STDIO 模式）
 

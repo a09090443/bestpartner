@@ -15,6 +15,7 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 import javax.naming.AuthenticationException
+import kotlin.io.AccessDeniedException
 import org.apache.http.HttpStatus
 import org.hibernate.exception.ConstraintViolationException
 import tw.zipe.bastpartner.dto.ApiResponse
@@ -76,17 +77,20 @@ class GlobalExceptionMapper : ExceptionMapper<Exception> {
                 message = exception.message ?: MessageUtil.get(AppMessage.HTTP_FORBIDDEN)
             )
             // 新增更詳細的權限相關異常處理
+            // 僅 io.quarkus.security 的 UnauthorizedException / ForbiddenException 繼承 SecurityException，
+            // 後者已於上方先行攔截；其餘 SecurityException 一律走 else。
             is SecurityException -> {
                 ApiResponse<Nothing>(
                     code = 403,
                     message = when (exception) {
                         is UnauthorizedException -> MessageUtil.get(AppMessage.HTTP_AUTHENTICATION_FAILED)
-                        is AccessDeniedException -> MessageUtil.get(AppMessage.HTTP_ACCESS_DENIED)
-                        is AuthenticationException -> MessageUtil.get(AppMessage.HTTP_AUTHENTICATION_REQUIRED)
                         else -> exception.message ?: MessageUtil.get(AppMessage.HTTP_SECURITY_VALIDATION_FAILED)
                     }
                 )
             }
+            // ⚠️ 此處為 kotlin.io.AccessDeniedException（檔案系統存取失敗，繼承 IOException），
+            // 並非授權失敗——Kotlin 預設匯入 kotlin.io.* 使裸寫的 AccessDeniedException 解析至此。
+            // 已改為顯式 import 避免誤讀；授權失敗一律由上方的 Forbidden / Security 分支處理。
             is AccessDeniedException -> {
                 ApiResponse<Nothing>(
                     code = 403,

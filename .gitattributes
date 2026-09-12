@@ -1,0 +1,20 @@
+# 行尾正規化
+#
+# 本 repo 以 Windows 為主要開發環境（core.autocrlf 常為 true），但 scripts/*.sh
+# 必須在 Linux / macOS 原生執行。若 .sh 帶著 CRLF 進版控，Linux 的 bash 會在
+# shebang 就失敗，且錯誤訊息極難懂：
+#
+#   ./scripts/harness-drift-scan.sh: /usr/bin/env: 'bash\r': No such file or directory
+#
+# 明確釘死 eol=lf，讓結果不依賴每位開發者的 core.autocrlf 設定。
+*.sh text eol=lf
+
+# Gradle wrapper 是 POSIX shell script，同理
+gradlew text eol=lf
+
+# .bat / .cmd 只在 Windows 執行，需要 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# PowerShell 腳本跨平台，pwsh 兩種行尾都能處理；統一為 LF 以免無謂 diff
+*.ps1 text eol=lf

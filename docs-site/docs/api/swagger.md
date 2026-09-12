@@ -1,5 +1,7 @@
 ---
-sidebar_position: 5
+sidebar_position: 7
+description: BestPartner 整合 SmallRye OpenAPI 提供互動式 Swagger UI，於 dev、docker 與 sit 環境開放瀏覽 API 並發送測試請求。
+keywords: [Swagger, OpenAPI, API 文件, SmallRye, 互動測試]
 ---
 
 # Swagger UI
@@ -14,8 +16,15 @@ BestPartner 整合了 SmallRye OpenAPI（`quarkus-smallrye-openapi`），在開�
 | `/q/openapi` | OpenAPI 規格（YAML 格式） |
 
 :::info 環境限制
-Swagger UI 僅在 **dev** 與 **sit** 環境開放。生產環境（prod）不對外提供 Swagger UI。
+Swagger UI 與 OpenAPI spec 僅在 **dev**、**docker**、**sit** 環境開放；**uat** 與 **prod** 不對外提供。
+
+未指定 profile 時視同 prod（安全預設），兩者皆回 **404**。
 :::
+
+| Profile | `/swagger-ui` | `/q/openapi` |
+|---------|--------------|-------------|
+| dev / docker / sit | 開放 | 開放 |
+| uat / prod / 未指定 | 404 | 404 |
 
 ## 使用 JWT 認證
 
@@ -65,5 +74,21 @@ Swagger 功能透過以下設定管理，位於 `application.properties`：
 | `quarkus.smallrye-openapi.security-scheme` | `jwt` | 安全認證方案類型 |
 | `quarkus.smallrye-openapi.security-scheme-name` | `bearerAuth` | 安全方案名稱 |
 | `quarkus.smallrye-openapi.auto-add-security` | `true` | 自動為受保護端點加上安全需求 |
-| `%dev.quarkus.swagger-ui.always-include` | `true` | dev 環境啟用 Swagger UI |
-| `%sit.quarkus.swagger-ui.always-include` | `true` | sit 環境啟用 Swagger UI |
+| `quarkus.swagger-ui.always-include` | `true` | **build-time**：一律將 Swagger UI 打包進 image |
+| `quarkus.swagger-ui.enable` | `false` | **runtime**：全域預設關閉（安全預設） |
+| `%dev` / `%docker` / `%sit`.`quarkus.swagger-ui.enable` | `true` | 這三個 profile 才對外開放 |
+| `quarkus.smallrye-openapi.enable` | `false` | **runtime**：`/q/openapi` 同步管制，規則同上 |
+
+### 為何分成 always-include 與 enable？
+
+本專案採「一份 image 跑所有環境」，環境差異由 runtime 的 `QUARKUS_PROFILE` 決定。
+但 `quarkus.swagger-ui.always-include` 是 **build-time** 設定——它由建置當下的 profile 凍結，
+之後切 profile 改不動（實測：以 dev 建置的 image 用 `QUARKUS_PROFILE=prod` 執行，Swagger 仍可存取）。
+
+因此改為：`always-include` 全域 `true`（一律打包），實際是否對外交由 **runtime** 的
+`quarkus.swagger-ui.enable` 依 profile 決定。
+
+:::warning
+這代表 Swagger UI 的靜態資源**實際存在於 prod image 內**，只是被設定關閉，並非物理移除。
+修改設定時務必確認 `enable` 的全域預設維持 `false`。
+:::

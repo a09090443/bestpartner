@@ -8,6 +8,7 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import tw.zipe.bastpartner.converter.SensitiveValueCodec
 import tw.zipe.bastpartner.dto.ApiResponse
 import tw.zipe.bastpartner.dto.LLMDTO
 import tw.zipe.bastpartner.dto.PlatformDTO
@@ -38,7 +39,22 @@ class LLMSettingResource(
             null,
             llmDTO.llmId
         )
-        return ApiResponse.success(result)
+        return ApiResponse.success(result.map { it?.let(::maskApiKey) })
+    }
+
+    /**
+     * 對外回應一律遮罩 apiKey，明文不跨越 HTTP 邊界。
+     *
+     * 遮罩僅施加於此處（resource 層）而非 [LLMService.getLLMSetting]：該方法另有
+     * 非 REST 的呼叫端（`LLMStore`），service 層維持回傳明文，避免內部消費者靜默拿到遮罩值。
+     * 未設定金鑰者維持空值，不遮罩，以免誤以為其中存有金鑰。
+     *
+     * 存回時客戶端可原樣傳回遮罩值，[LLMService.updateLLMSetting] 會沿用既有金鑰。
+     */
+    private fun maskApiKey(dto: LLMDTO): LLMDTO = dto.also { d ->
+        if (!d.llmModel.apiKey.isNullOrEmpty()) {
+            d.llmModel.apiKey = SensitiveValueCodec.SECRET_MASK
+        }
     }
 
     @POST
@@ -56,7 +72,8 @@ class LLMSettingResource(
         llmDTO.llmModel.let {
             llmService.saveLLMSetting(llmDTO)
         }
-        return ApiResponse.success(llmDTO)
+        // saveLLMSetting 會還原明文 apiKey 供 caller 使用，回應前一併遮罩
+        return ApiResponse.success(maskApiKey(llmDTO))
     }
 
     @POST

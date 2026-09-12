@@ -11,8 +11,11 @@ import java.security.cert.X509Certificate
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
+import java.util.Collections
 import javax.crypto.Cipher
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -24,6 +27,26 @@ class CryptoUtils {
         private const val AES_KEY_SIZE = 256 // 預設 AES 金鑰大小（256 位元）
         private const val GCM_IV_LENGTH = 12 // GCM 建議使用 12 位元組 IV
         private const val GCM_TAG_LENGTH = 16 // GCM 標籤長度（位元組）
+        private const val PBKDF2_ITERATIONS = 120_000 // PBKDF2 迭代次數，抵禦對主金鑰的暴力破解
+        private const val SALT_LENGTH = 16 // 每筆密文獨立 salt 長度（位元組）
+        private const val PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256"
+
+        // 衍生金鑰快取：per-record salt 使每筆金鑰各異，快取避免同一密文重複讀取時重跑昂貴的 PBKDF2
+        // （如 buildLLM 每次聊天皆解 api_key）。cacheKey 含 sha256(secret)，換主金鑰或換 salt 皆不會命中舊金鑰。
+        private val derivedKeyCache: MutableMap<String, ByteArray> =
+            Collections.synchronizedMap(object : LinkedHashMap<String, ByteArray>(128, 0.75f, true) {
+                override fun removeEldestEntry(eldest: Map.Entry<String, ByteArray>?): Boolean = size > 512
+            })
+
+        // 以 PBKDF2-HMAC-SHA256 + salt 由主金鑰衍生 256-bit AES 金鑰（取代單次 SHA-256、無 salt 的舊做法）
+        private fun deriveKeyPbkdf2(secret: String, salt: ByteArray): ByteArray {
+            val cacheKey = "${sha256(secret)}:${Base64.getEncoder().encodeToString(salt)}"
+            derivedKeyCache[cacheKey]?.let { return it }
+            val spec = PBEKeySpec(secret.toCharArray(), salt, PBKDF2_ITERATIONS, AES_KEY_SIZE)
+            val keyBytes = SecretKeyFactory.getInstance(PBKDF2_ALGORITHM).generateSecret(spec).encoded
+            derivedKeyCache[cacheKey] = keyBytes
+            return keyBytes
+        }
 
         // SHA-512 雜湊
         fun sha512(input: String): String {
@@ -75,6 +98,35 @@ class CryptoUtils {
         fun decryptAesGCM(encryptedData: String, key: String, iv: String): String {
             val keyBytes = sha256(key).substring(0, 32).toByteArray()
             val secretKey = SecretKeySpec(keyBytes, "AES")
+            val ivBytes = Base64.getDecoder().decode(iv)
+
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_LENGTH * 8, ivBytes))
+
+            val decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData))
+            return String(decryptedBytes)
+        }
+
+        // AES-256-GCM 加密（v2）：per-record 隨機 salt + PBKDF2 衍生金鑰，回傳 salt / iv / encrypted 三段（皆 Base64）
+        fun encryptAesGCMv2(data: String, key: String): Map<String, String> {
+            val saltBytes = ByteArray(SALT_LENGTH).also { SecureRandom().nextBytes(it) }
+            val secretKey = SecretKeySpec(deriveKeyPbkdf2(key, saltBytes), "AES")
+
+            val ivBytes = ByteArray(GCM_IV_LENGTH).also { SecureRandom().nextBytes(it) }
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_LENGTH * 8, ivBytes))
+
+            val encryptedBytes = cipher.doFinal(data.toByteArray())
+            return mapOf(
+                "salt" to Base64.getEncoder().encodeToString(saltBytes),
+                "iv" to Base64.getEncoder().encodeToString(ivBytes),
+                "encrypted" to Base64.getEncoder().encodeToString(encryptedBytes)
+            )
+        }
+
+        // AES-256-GCM 解密（v2）：以密文攜帶的 salt 還原 PBKDF2 衍生金鑰
+        fun decryptAesGCMv2(encryptedData: String, key: String, iv: String, salt: String): String {
+            val secretKey = SecretKeySpec(deriveKeyPbkdf2(key, Base64.getDecoder().decode(salt)), "AES")
             val ivBytes = Base64.getDecoder().decode(iv)
 
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")

@@ -1,5 +1,7 @@
 ---
 sidebar_position: 3
+description: BestPartner 助手 API，提供 AI 對話與 SSE 串流對話能力，端點前綴 /llm，含通用 ApiResponse 回應格式說明。
+keywords: [助手 API, 對話, 串流, SSE, Chat, ApiResponse]
 ---
 
 # 助手 API

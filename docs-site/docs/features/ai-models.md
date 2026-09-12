@@ -1,5 +1,7 @@
 ---
 sidebar_position: 1
+description: BestPartner 支援 OpenAI、Anthropic、Gemini、Grok、Ollama 等多種 AI 模型，設定儲存於資料庫可透過 API 動態切換而無需重啟服務。
+keywords: [AI 模型, OpenAI, Anthropic, Gemini, Ollama, Grok, 模型設定]
 ---
 
 # AI 模型設定
