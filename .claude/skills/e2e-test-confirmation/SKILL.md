@@ -64,9 +64,10 @@ E2E 執行入口為 **`webwright` skill**（code-as-action、一次一個 bash �
 | J12 | P1/P2 | 7 | 迴圈批次處理（LOOP） |
 | J13 | P1/P2 | 5 | 條件分流資料管線（CONDITION） |
 | J14 | P1/P2 | 6 | CODE 節點沙箱（含安全性驗證） |
+| J15 | P1/P2 | 9 | 知識庫＋MCP 併掛同一 LLM（Milvus + MCP + 真實 LLM） |
 
-- 選項至少提供「全部（120 案例）」「核心 P0（J1/J2/J3/J5）」「不需 LLM 金鑰（J1/J2/J3/J4/J6/J7/J9/J11/J12/J13/J14）」「依變更範圍」四種常見組合，並允許自訂。
-- **依變更範圍**時，先看 `git diff --name-only HEAD` 推薦旅程（如 `inspector/`→J6、`canvas/`→J3+J9、`workflow/executor/`→J5、RAG 相關→J8、能力節點→J10、`HttpRequestExecutor`/`DataTransformExecutor`→J11、`LoopExecutor`→J12、`ConditionExecutor`→J13、`CodeExecutor`→J14），仍須讓使用者確認。
+- 選項至少提供「全部（129 案例）」「核心 P0（J1/J2/J3/J5）」「不需 LLM 金鑰（J1/J2/J3/J4/J6/J7/J9/J11/J12/J13/J14）」「**能力面（J5/J8/J10/J15）**」「依變更範圍」五種常見組合，並允許自訂。
+- **依變更範圍**時，先看 `git diff --name-only HEAD` 推薦旅程（如 `inspector/`→J6、`canvas/`→J3+J9、`workflow/executor/`→J5、RAG 相關→J8、能力節點→J10、`HttpRequestExecutor`/`DataTransformExecutor`→J11、`LoopExecutor`→J12、`ConditionExecutor`→J13、`CodeExecutor`→J14、`LlmAssistantExecutor`/`McpServerService`/`ToolService` 的能力建構→J10+J15），仍須讓使用者確認。
 - **J11–J14 不需任何 LLM／embedding 金鑰**（全程無模型呼叫），是金鑰不可用時仍能驗證執行引擎的唯一選擇；
   其中 **J11 為確定性回歸基準**，引擎壞掉時會比任何 LLM 旅程更早紅燈，建議任何範圍組合都納入。
 - 選定後回寫狀態檔，供 hook 與收尾檢查使用：

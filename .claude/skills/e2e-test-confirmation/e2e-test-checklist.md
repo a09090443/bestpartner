@@ -64,6 +64,7 @@
 | E2E_LLM_ID（J5） | |
 | 登入身分（設定擁有者） | |
 | J10 資源 ID（mcp/userSetting/tool/toolSetting/skill） | |
+| J15 資源 ID（embedding/vectorStore/knowledge/mcp/userSetting） | |
 | **測試資料處置（清理／保留）** | |
 | **保留清單（名稱／id／改名後名稱／理由）** | |
 | 測試結束時間 | |
@@ -86,6 +87,12 @@
 □ J10 可用：google_map MCP jar 可啟動（`java -jar` 不報 manifest 錯）、google_map userSetting 與
    TavilySearch toolSetting 皆存在且金鑰有效、pdf skill 已上傳，且四者與 LLM setting **同屬登入者**
    ⚠️ D:/MCP 的 jar 須為 `build/*-runner.jar`（uber-jar），誤放 `build/libs/*.jar`（thin jar）會無 Main-Class
+□ J15 可用：Milvus 檢索命中「年滿二十歲」（`getDataFromEmbeddingStore` 實際命中，非只看列得出知識庫）
+   ＋ google_map MCP 可啟動且 userSetting 有效；embedding／CHAT／mcp userSetting **四者同屬登入者**
+   ⚠️ Milvus collection dimension 須等於 embedding 實際輸出維度（本機 nemotron ＝ 2048），不一致要到檢索才炸
+   ⚠️ Attu 與 Chroma 都佔 port 8000，兩者不可同時起
+□ J15 已知風險：J15-08／J15-09 會改動圖形（刪 MCP 節點／清空 userSettingId），須排在該旅程**最後**，
+   跑完不需還原（收尾即刪）
 □ 前端已 build 並可由 baseURL 存取
 □ Playwright 瀏覽器已安裝（npx playwright install）
 □ storageState 已由 API 登入（admin/admin）產生
@@ -116,7 +123,8 @@
 | J12 迴圈批次處理（LOOP） | P1/P2 | 7 | | | | |
 | J13 條件分流資料管線（CONDITION） | P1/P2 | 5 | | | | |
 | J14 CODE 節點沙箱（含安全性） | P1/P2 | 6 | | | | |
-| **合計** | | **120** | | | | |
+| J15 知識庫＋MCP 併掛同一 LLM（Milvus + MCP + LLM） | P1/P2 | 9 | | | | |
+| **合計** | | **129** | | | | |
 
 ### 通過標準
 
@@ -387,6 +395,36 @@
 | J14-04 | P2 | **逾時**：無窮迴圈＋`timeoutMs=2000` | FAILED `workflow.code.timeout`；**後續案例仍可正常執行**（執行緒與 context 已回收） | | |
 | J14-05 | P2 | **沙箱越界**：`Java.type('java.io.File')` 等 | 被擋下，FAILED `workflow.code.script.error`；檔案系統無任何副作用 | | |
 | J14-06 | P2 | **輸出上限**：產生 >256KB 字串 | FAILED `workflow.code.output.too.large`；非靜默截斷 | | |
+
+### J15 知識庫（Milvus）＋ MCP 併掛同一 LLM（P1，真實 embedding + Milvus + 真實 MCP + 真實 LLM）
+
+> 圖形：`TRIGGER → LLM_ASSISTANT → OUTPUT`，`PROMPT → in:prompt`，
+> **`KNOWLEDGE_RAG` 與 `MCP_SERVER(google_map)` 併掛同一 LLM 的 `in:tool`**（6 節點 / 5 edge）。
+> 情境：19 歲能否開渣打數位存款帳戶（RAG 答「年滿二十歲」）→ 不符則找臺北市信義區渣打分行（MCP 給 `place_id`）。
+> 前端無 LLM／向量庫／MCP 管理頁，三者一律 **API 前置**；UI 只負責建圖與執行。詳見 `docs/e2e-test-plan.md` §3-J15、§18。
+>
+> ⚠️ **輪數預算只有 1 輪**（RAG 注入 0 輪 ＋ `searchPlaces` 1 輪）：`LLM_ASSISTANT` 受 120s 硬逾時且無法覆寫 `timeoutMs`。
+> PROMPT 必須明文限制「只呼叫一次 `searchPlaces`、`maxResults` 最多 3」。
+> ⚠️ **必填契約相反**：MCP 即使純能力掛載仍必填 `toolName`；RAG 外掛模式不需 `query`／`embeddingModelId`。
+> ⚠️ **J15-08／J15-09 會改動圖形，排在本旅程最後**；跑完不需還原（收尾即刪）。
+
+| 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
+|------|:---:|------|------|:---:|------------|
+| J15-01 | P1 | 前置(API)：建 EMBEDDING 設定（OpenRouter nemotron, dim 2048）+ Milvus 向量庫(dimension 2048) + 上傳 `tw-online-tnc.pdf` 建**新** knowledgeId | `getDataFromEmbeddingStore` 檢索「年齡條件」**命中「年滿二十歲」原句**（回空即前置不成立，勿只看 `getKnowledgeStore`） | | |
+| J15-02 | P1 | 前置(API)：確認 google_map MCP 可用 | `java -jar` 不報 manifest 錯；`getSetting` 回 200 且 env 遮罩 `__SECRET_KEPT__`；mcpId／userSettingId／embedding／CHAT **四者同屬登入者** | | |
+| J15-03 | P1 | UI 建圖：6 節點 5 edge，RAG 與 MCP 併掛同一 LLM `in:tool` | 兩條 `in:tool` 皆放行、無相容性 toast、console error=0；Overview 顯示 **6 NODES / 5 CONNECTIONS**；存檔成功 version 1 | | |
+| J15-04 | P1 | **異質能力併掛的必填契約（核心 A）**：RAG 只填 `knowledge-id`；MCP 填 `mcp-select`＋`tool-name`(searchPlaces)＋`mcp-setting-id` 後啟用 | 啟用成功。⚠️ 兩者規則**相反**：MCP 必填 `mcpId`+`toolName`（純掛載也不例外）、RAG 外掛免填 `query` | | |
+| J15-05 | P1 | execute（真實 embedding + 真實 MCP + 真實 LLM） | SSE started → **僅 TRIGGER/PROMPT/LLM/OUTPUT 四節點** node.* → completed(SUCCESS)；**記錄實際耗時**（預期 <120s） | | |
+| J15-06 | P1 | **兩種能力節點皆不落主遍歷** | RAG 與 MCP 節點 Inspector 皆無 `node-exec-section`；`llm_workflow_node_execution` **恰 4 筆**，無 KNOWLEDGE_RAG／MCP_SERVER | | |
+| J15-07 | P1 | **deep-verify：雙來源同時生效（核心 B）** | `finalOutput` **同時**含 ①「20／二十歲」判定 19 歲不符（非常識的 18 歲）②真實分行含「臺北市信義區」、帶 `place_id` 與經緯度 | | |
+| J15-08 | P2 | **來源鑑別對照組**：刪除 MCP 節點（連同其 `in:tool` 邊）後同一提問重跑 | 仍含文件事實（20 歲）但**不再有 `place_id`** → 反證分行資料來自 MCP 非模型臆造 | | |
+| J15-09 | P2 | **`userSettingId` 迴歸**：清空 `mcp-setting-id`、只留 `mcpId`+`toolName` 後重跑 | 走 `buildDefaultMcpClient`，`${google_maps_api_key}` 不替換 → Places API 認證失敗。⚠️ **確切樣態未曾記錄，如實記錄並回寫計畫 §12**；**先看後端 WARN 日誌**再判斷 | | |
+
+> ⚠️ **J15-09 有兩條不同路徑，勿混淆**：清空 `userSettingId` → `buildDefaultMcpClient`（佔位符原樣傳入、API 認證失敗）；
+> 填**不存在**的 `userSettingId` → `buildUserSpecificMcpClient` 回 null 被 `mapNotNull` **靜默丟棄、只留 WARN**，模型連工具都看不到。
+> 兩者外顯都像「模型不肯呼叫工具」——診斷入口是 `D:/tmp/bestpartner/bestpartner.log` 的 WARN。
+>
+> ⚠️ **不可用模型自述判斷工具有沒有被呼叫**（計畫 §15-4）：判準是 `place_id` 是否存在，模型無法臆造。
 
 ---
 

@@ -488,6 +488,95 @@ TRIGGER(MANUAL, inputPayload) ──► CODE ──► OUTPUT
 > （屬產品缺陷，走 §Step 5.7 失敗分流，不得自行修復後重跑掩蓋）。
 
 ---
+
+### J15 知識庫（Milvus）＋ MCP 併掛同一 LLM（P1，**真實 embedding + Milvus + 真實 MCP + 真實 LLM**）
+
+> 業務情境：**渣打數位存款帳戶開戶資格查核 ＋ 就近分行查詢**。使用者自述 19 歲、想線上開立
+> 渣打數位存款帳戶；若不符資格，請系統找出臺北市信義區可臨櫃辦理的渣打分行。
+>
+> **與既有旅程的分工**：J5 驗**單一 MCP** 掛載的 plumbing、J8-B 驗 **RAG 外掛**的注入正確性、
+> J10 驗 MCP+TOOL+SKILL **三種工具型能力**併掛。本旅程首次驗
+> **「注入型能力（KNOWLEDGE_RAG，推論前由框架自動注入）＋ 呼叫型能力（MCP_SERVER，推論中由模型主動呼叫）
+> 併掛同一顆 LLM 的 `in:tool`」**——這兩者在 `LlmAssistantExecutor` 走的是不同機制，
+> 且**必填契約相反**（見 J15-04）。此路徑在 J15 之前從未被端到端驗證過。
+>
+> 亦是本計畫中**唯一同時斷言兩個獨立資料來源都出現在同一份輸出**的旅程。
+
+圖形（6 節點 / 5 edge）：
+
+```
+TRIGGER(MANUAL) ──► LLM_ASSISTANT ──► OUTPUT(JSON)
+                          ▲ in:prompt
+                       PROMPT（19 歲開戶提問 ＋ 分行查詢要求）
+                          ▲ in:tool
+        KNOWLEDGE_RAG(渣打 TNC 知識庫)   ·   MCP_SERVER(google_map)
+```
+
+edge 組成：2 條 `out:main → in:tool`、1 條 `out:main → in:prompt`、2 條一般 `out:main`。
+
+#### 情境為何這樣設計（兩個來源必須各自可辨識）
+
+| 來源 | 只有它才知道／拿得到的東西 | 鑑別依據 |
+|------|--------------------------|---------|
+| KNOWLEDGE_RAG（Milvus） | `docs/rag/doc/scb/tw-online-tnc.pdf` 原文「立約人應為……**年滿二十歲**自然人」 | **文件事實（20 歲）≠ LLM 常識（民法成年 18 歲）**。此鑑別點已於週期 202607252225／202607272132 兩次坐實：向量庫故障時模型答 18 歲，修復後答 20 歲（§14-3） |
+| MCP_SERVER（google_map） | 分行的 `place_id` 與經緯度 | **模型無法臆造合法 `place_id`**。不可改用「模型是否自述呼叫了工具」當判準（§15-4 教訓） |
+
+#### ⚠️ 工具往返輪數預算（設計上的硬約束，改題目前必讀）
+
+`WorkflowEngine.DEFAULT_NODE_TIMEOUT_MS = 120_000`，且 `LLM_ASSISTANT` **無法覆寫 `timeoutMs`**
+（只有 `HttpRequestNodeConfig` / `CodeNodeConfig` 可以，§15-5 ISSUE-3）。實測：**約 3 輪安全、5 輪即逾時**。
+
+本旅程預算：KNOWLEDGE_RAG 外掛 = **0 輪**（推論前自動注入，不是工具呼叫）＋
+`searchPlaces` = **1 輪**，合計 **1 輪**，餘裕充足。
+
+> **PROMPT 節點必須明文限制「只呼叫一次 `searchPlaces`、`maxResults` 最多 3」**，
+> 否則模型可能逐間分行分開查詢而炸開輪數。
+
+| 案例 | 優先 | 案例 | 預期 |
+|:---:|:---:|------|------|
+| J15-01 | P1 | **前置（API）**：建 EMBEDDING 設定（OpenRouter `nvidia/nemotron-3-embed-1b:free`）＋ Milvus 向量庫（dimension **2048**）＋ 上傳 `tw-online-tnc.pdf` 建**新** knowledgeId | `getDataFromEmbeddingStore` 以「開立數位存款帳戶的年齡條件」檢索，Top-K **命中「年滿二十歲」原句**。⚠️ 回空陣列即前置不成立，**不得只看 `getKnowledgeStore` 列得出知識庫**（metadata 在 Postgres、向量在 Milvus，會不同步） |
+| J15-02 | P1 | **前置（API）**：確認 google_map MCP 可用 | `java -jar D:/MCP/google-map-1.0-SNAPSHOT.jar` 不報 manifest 錯；`/llm/mcpServer/getSetting` 回 200 且 env 值遮罩為 `__SECRET_KEPT__`；**mcpId／userSettingId／embedding 設定／CHAT 設定四者同屬登入者**（§12-2） |
+| J15-03 | P1 | UI 建圖：6 節點 5 edge，**KNOWLEDGE_RAG 與 MCP_SERVER 併掛同一 LLM 的 `in:tool`** | 兩條 `in:tool` 皆放行、無相容性 toast、console error = 0；Overview 顯示 **6 NODES / 5 CONNECTIONS**；存檔成功、version 1 |
+| J15-04 | P1 | **異質能力併掛的必填契約（核心 A）**：RAG 只填 `knowledge-id`（`query` / `embedding-model-select` 留空）、MCP 填 `mcp-select` ＋ `tool-name`(`searchPlaces`) ＋ `mcp-setting-id` 後啟用 | 啟用成功。⚠️ **兩者規則相反正是本案例的實質內容**：`McpServerNodeConfig` 必填 **`mcpId` ＋ `toolName`**，即使純能力掛載也不例外（§11-1，缺則 execute 直接 400）；`KnowledgeRagNodeConfig` 外掛模式則**只必填 `knowledgeId`**（§14-1） |
+| J15-05 | P1 | execute（真實 embedding + 真實 MCP + 真實 LLM） | SSE `execution.started` → **僅 TRIGGER / PROMPT / LLM_ASSISTANT / OUTPUT 四節點** `node.*` → `execution.completed`(SUCCESS)；**記錄實際耗時**（預期 < 120s，超過即代表輪數預算被打破） |
+| J15-06 | P1 | **兩種能力節點皆不落主遍歷** | RAG 與 MCP 節點的 Inspector **皆無**「本次執行」區塊（`data-test="node-exec-section"`）；`llm_workflow_node_execution` **恰 4 筆**，無 `KNOWLEDGE_RAG` / `MCP_SERVER` 型別列 |
+| J15-07 | P1 | **deep-verify：雙來源同時生效（核心 B）** | `finalOutput` 必須**同時**滿足：①依文件判定 19 歲**不符**資格並引用「20／二十歲」（**不是**常識的 18 歲）②列出真實渣打分行，地址含「臺北市信義區」、每筆帶 `place_id` 與經緯度，且 **`place_id` 須與後端日誌中 `searchPlaces` 的實際回傳值逐字元相符**（見 J15-08：只驗「有 place_id」不足以排除幻覺） |
+| J15-08 | P2 | **來源鑑別對照組**：刪除 MCP 節點（連同其 `in:tool` 邊，避免留下孤兒）後以同一提問重跑 | 輸出**仍含**文件事實（20 歲），但分行資料**不可信**。⚠️ **實測推翻原預期**：模型並非「不再輸出 `place_id`」，而是**照樣輸出、只是全屬捏造**（尾碼流水 `…Q6/Q7/Q8`、三筆座標完全相同）。故判準必須是「`place_id` **與 MCP 工具實際回傳值逐字元相符**」，只檢查「有無 place_id」會被幻覺矇混 |
+| J15-09 | P2 | **`userSettingId` 迴歸**（§12-1 已知陷阱）：MCP 節點清空 `mcp-setting-id`、只留 `mcpId` ＋ `toolName` 後重跑 | 走 `buildDefaultMcpClient`，`${google_maps_api_key}` 佔位符不替換 → Places API 認證失敗。⚠️ **確切失敗樣態未曾記錄**，本案例預期為「**如實記錄實際樣態**」並回寫 §12 |
+
+> **斷言策略**：J15-05／06 比照 J5 只驗 plumbing（事件序列、節點狀態、DB 落庫），**不比對文字**；
+> J15-07／08 為 deep-verify，依賴有效的 OpenRouter 金鑰與 Google Places 金鑰，任一缺席即標 ⏭️ 並註明。
+> J15-09 是「記錄行為」而非「驗證既有規格」，結果無論如何都不計為 ❌，但**必須把實測樣態回寫 §12**。
+
+> ⚠️ **J15-09 有兩條不同的失敗路徑，務必分辨清楚，否則會誤判**：
+> ①**清空 `userSettingId`** → 走 `buildDefaultMcpClient`，env 佔位符原樣傳入，MCP 子行程起得來但 Places API 認證失敗；
+> ②**填一個不存在的 `userSettingId`** → 走 `buildUserSpecificMcpClient`，查無設定時**回 null 被 `mapNotNull` 靜默丟棄、只留 WARN log**，模型連工具都看不到。
+> 兩者的外顯症狀都像「模型不肯呼叫工具」——**失敗時務必先看後端 WARN 日誌**（`D:/tmp/bestpartner/bestpartner.log`），這正是 §15 ISSUE-1／ISSUE-2 當初誤判的來源。
+
+> **節點表單選擇器**（撰寫腳本時直接引用；前端**無** LLM／向量庫／MCP 管理頁，三者一律 API 前置）：
+>
+> | 節點 | 表單檔 | `data-test` 欄位 | 後端必填 |
+> |------|--------|-----------------|---------|
+> | `LLM_ASSISTANT` | `inspector/forms/LlmAssistantForm.vue` | `llm-select`、`system-prompt`、`user-prompt`、`response-format`、`output-schema`、`output-key`、`enable-memory` | 僅 `llmId` |
+> | `KNOWLEDGE_RAG` | `inspector/forms/KnowledgeRagForm.vue` | `knowledge-id`、`embedding-model-select`、`query`、`topk`（預設 4）、`min-score`、`output-key` | 僅 `knowledgeId` |
+> | `MCP_SERVER` | `inspector/forms/McpServerForm.vue` | `mcp-select`、`tool-name`（**自由文字非下拉**）、`mcp-setting-id`（**手打 UUID**）、`arguments`、`output-key` | `mcpId` ＋ `toolName` |
+> | `PROMPT` | `inspector/forms/PromptForm.vue` | `prompt-text`、`output-key` | `prompt` |
+>
+> `tool-name` 是自由文字，因為 MCP 工具清單只在執行期才發現、後端無查詢端點。J15 一律填 `searchPlaces`。
+
+> **環境前置的易錯處**：
+> - Milvus：`cd docs/docker/milvus && docker-compose up -d`，gRPC **19530**、healthz 9091、Attu **8000**，
+>   healthcheck `start_period: 90s` → 前置等待抓 **≥90s**。⚠️ **Attu 與 Chroma 都佔 8000，不可同時起**。
+> - `POST /llm/vector/uploadFiles` 必填是 **`files`（複數）＋ `embeddingModelId` ＋ `embeddingStoreId`** 三個
+>   （`docs-site/docs/features/rag.md` 寫成單數 `file`、只列一個參數，照抄會 400）。
+> - `/llm/vector` **沒有列出向量庫設定的端點**，`embeddingStoreId` 只能查 DB 的 `vector_store_setting`。
+> - **維度不會自動校驗**：`MilvusBuilder` 直接把 `dimension` 餵給 `MilvusEmbeddingStore`，不一致要到
+>   `addAll`／`search` 才炸。建 collection 前**先打一次 `/embeddings` 量測實際維度**最保險。
+> - **InMemory 不是可選項**：`VectorStore` enum 只有 `CHROMA` / `MILVUS`，必須真的起 Milvus。
+> - **重建知識庫必須換新 knowledgeId**：`deleteData` 不刪 `llm_knowledge` 列，同 id 重上傳會撞唯一鍵（§14-5）。
+> - **勿硬編 id**：運行 dev DB 的 `llmId` / `mcpId` 與種子檔會漂移，沿用 `global-setup.ts` 的動態解析。
+
+---
 ## 4. 測試資料策略
 
 - **命名**：測試建立的 workflow 一律以 `e2e-<caseId>-<runTag>` 前綴命名，便於識別與掃描殘留。
@@ -597,7 +686,8 @@ E2E 需真實後端 + Postgres + 有效 LLM api_key，較重，分兩階段落�
 - **`in:tool` 能力來源白名單（`CAPABILITY_SOURCE_TYPES`）異動時**，§J3（能力掛載）、§J4（不相容連線 + 白名單註）、§J5（Agent 模式）、§J8（若涉及 RAG）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此白名單前後端各有一份（`WorkflowEngine.kt` / `useGraphValidation.ts`），改一邊必改另一邊。
 - **`in:prompt` 提示埠規則異動時**（允許來源、提問優先序、兩項提示接線驗證），§J3（提示接線）、§J4（負向案例 + 兩埠對照表）、§J5（分支擇一執行）、§J6（PromptForm 與徽章）四處案例須一併更新，並同步 `e2e-test-checklist.md`。此規則前後端各有一份（`WorkflowEngine.kt` 的 `PROMPT_INPUT_HANDLE` ＋兩個純函式 / `useGraphValidation.ts` 的相容性與 `PROMPT_WIRING_INCOMPLETE`），改一邊必改另一邊。
 - **編輯器外觀／互動殼層異動時**（主題切換、縮放列、Node Designer 的開關入口或三欄內容），§J9 與 `e2e-test-checklist.md` 的對應項目須一併更新；新增可互動元素一律補 `data-test` 並登錄於 §6 的清單。
-- **能力節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`）的設定解析或加解密方式異動時**，§J10 的資源前置與 deep-verify 案例須一併檢視（三種能力併掛的路徑只在此覆蓋），並同步 `e2e-test-checklist.md`。
+- **能力節點（`TOOL` / `MCP_SERVER` / `SKILL` / `KNOWLEDGE_RAG`）的設定解析或加解密方式異動時**，§J10 與 **§J15** 的資源前置與 deep-verify 案例須一併檢視（工具型三種併掛的路徑只在 §J10 覆蓋，注入型＋呼叫型併掛只在 §J15 覆蓋），並同步 `e2e-test-checklist.md`。
+- **能力掛載的建構機制異動時**（`LlmAssistantExecutor` 的 RAG 注入時機、`McpServerService.buildUserSpecificMcpClient` / `buildDefaultMcpClient` 的分支條件與 `(userSettingId, userId)` 配對、`ToolService.buildToolWithSetting` 的查詢鍵），§J5（Agent 模式）、§J8-B（自動注入）、§J10、**§J15**（含 J15-09 的 `userSettingId` 迴歸）須一併檢視。⚠️ 這條路徑的失敗多為**靜默**（查無設定時 `mapNotNull` 丟棄、只留 WARN log），案例務必保留「先看後端日誌」的指引。
 - **旅程矩陣（§3）增刪旅程或案例數異動時**，除 `e2e-test-checklist.md` 摘要表外，還須同步
   `e2e-test-confirmation` skill 的 **Step 1.5 範圍選單**（旅程清單與案例數），否則使用者選到的範圍與實際案例數會漂移。
 - **失敗分流判準異動時**（API 直呼／後端日誌／瀏覽器 console／SSE 事件／DB 落庫這五類訊號），
@@ -863,7 +953,7 @@ R1／R2 合計有 **6 類**首輪誤判最後都證實是腳本問題，不是�
 ### 16.4 案例數的權威來源
 
 本文件 §3 的旅程矩陣為**唯一權威**。截至本週期，各旅程案例數為
-J1 9／J2 6／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8／**J11 8／J12 7／J13 5／J14 6**，**合計 120**。
+J1 9／J2 6／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10 8／J11 8／J12 7／J13 5／J14 6／**J15 9**，**合計 129**。
 `e2e-test-confirmation` skill 的 `e2e-test-checklist.md` 摘要表與 Step 1.5 範圍選單須與此一致
 （202608192201 週期修正前三處數字互不相同：摘要表寫 83、各列相加為 86、明細表實為 92）。
 
@@ -872,6 +962,10 @@ J1 9／J2 6／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10
 > 在此之前這五種節點在本計畫中**只出現在拉線反例與「製造未存變更的道具」，從未真的執行過**。
 > 四條旅程已於 **2026-08-20 週期 202608202139 首次實測，26/26 全數通過**（實測發現見 §17）。
 > 先行標註的三處偏離（J11-07、J12-06、J13-05）皆已坐實；另因實測修訂了 §J12 的圖形與 J12-03 的筆數。
+
+> **J15 於 2026-08-25 新增**（尚未實測），補上「注入型能力（`KNOWLEDGE_RAG`）＋ 呼叫型能力（`MCP_SERVER`）
+> 併掛同一顆 LLM `in:tool`」的覆蓋——在此之前 J5 只驗單一 MCP、J8-B 只驗單一種類的 RAG 外掛、
+> J10 的三種併掛**完全不含 KNOWLEDGE_RAG**，這條路徑是覆蓋圖上的空洞。設計依據見 §18。
 
 > §J4 原有一條「已連 PROMPT 的 LLM 在 Inspector 檢視」與 §J6 的同名案例為同一情境，
 > 確認表模板以 **J6-04** 收錄，J4 不重複計數，故 J4 為 12 而非 13。
@@ -940,3 +1034,130 @@ J1 9／J2 6／J3 9／J4 12／J5 12／J6 9／J7 2／J8-A 5／J8-B 5／J9 17／J10
 | 輸出 300KB | `Code script output exceeds the 256KB limit`，**非靜默截斷** |
 | `language: python` | `Code node language not supported: python`，**不執行任何腳本** |
 | 全域 `input` 與回傳值 | `input` 可讀到上游全部輸出；**最後一個表達式**即回傳值（非 `return`）；預設輸出鍵 `result`，`outputKey` 可覆寫且覆寫後預設鍵不再出現 |
+
+---
+
+## 18. J15 設計依據與首次實測發現（2026-08-25，週期 202608252128）
+
+本節前半記錄 J15 **為什麼長這樣**（供日後維護者判斷能不能換題目），後半 §18.6 起為**首次實測發現**。
+
+> **首次實測結果**：週期 **202608252128**，R1 單輪 **9/9 全數通過**，無產品缺陷、未改動任何產品程式碼。
+> 報告見 `docs/test-confirmations/e2e-test-confirmation-202608252128.md`（截圖 29 張）。
+
+### 18.1 為什麼需要 J15：覆蓋圖上的空洞
+
+截至週期 202608202139，LLM／Milvus／MCP 三者的覆蓋**分散且互不交集**：
+
+| 旅程 | 驗到什麼 | 沒驗到什麼 |
+|------|---------|-----------|
+| J5（12） | 真實 LLM 的 SSE 序列、Agent 模式**單一** MCP 掛載 | 不比對輸出內容 |
+| J8-A / J8-B（各 5） | Milvus RAG 的 pipeline 與外掛兩模式、內容正確性 | RAG 是 `in:tool` 上**唯一**的能力；J8-B 的 2 顆 RAG 還指向同一個知識庫（§16.3） |
+| J10（8） | MCP + TOOL + SKILL **三種工具型能力**併掛 | **完全不含 KNOWLEDGE_RAG**；另依賴 Tavily 金鑰與 pdf skill |
+
+亦即「**注入型能力（推論前由框架注入 context）＋ 呼叫型能力（推論中由模型主動呼叫、產生額外往返輪次）
+併掛同一顆 LLM**」從未被端到端驗證。兩者在 `LlmAssistantExecutor` 走不同機制，
+**必填契約甚至相反**（RAG 外掛免填 `query`；MCP 即使純掛載也必填 `toolName`）——
+契約相反這件事本身就值得一條案例釘住（J15-04）。
+
+### 18.2 為什麼選這個業務情境
+
+需要一個**同時強迫兩種能力生效、且兩者產物可各自獨立辨識**的題目。
+「19 歲能不能開渣打數位存款帳戶 → 不行的話找信義區分行」滿足三個條件：
+
+1. **RAG 側有現成且已驗證過的鑑別事實**：`tw-online-tnc.pdf` 的「年滿二十歲」，
+   與 LLM 常識（民法成年 18 歲）不同。此鑑別點在 202607252225（答 18，向量庫故障）與
+   202607272132（答 20，修復後）兩個週期形成過完整對照，可信度高（§14-3）。
+2. **MCP 側有無法臆造的產物**：`place_id`。不需要依賴「模型自述有沒有呼叫工具」——
+   §15-4 已證實模型自述完全不可靠（工具可用時答過 `NO_TOOLS`、不可用時宣稱「根據搜尋結果」）。
+3. **兩者在語意上必須串起來**：先查文件判定資格，才會需要找分行。單純把兩個無關問題並列，
+   模型可能只回答其中一個而讓案例失去鑑別力。
+
+### 18.3 輪數預算是怎麼算出來的
+
+`WorkflowEngine.DEFAULT_NODE_TIMEOUT_MS = 120_000`，且 `LLM_ASSISTANT` **無法覆寫 `timeoutMs`**
+（§15-5 ISSUE-3）。§15 實測的經驗值是 **3 輪安全、5 輪即逾時**（4 景點＋1 次搜尋＋skill 曾需 253 秒）。
+
+J15 的預算刻意壓到 **1 輪**：RAG 外掛 0 輪（推論前注入，不是工具呼叫）＋ `searchPlaces` 1 輪。
+**PROMPT 節點必須明文限制「只呼叫一次 `searchPlaces`、`maxResults` 最多 3」**——
+沒有這句話，模型會傾向逐間分行分開查詢，輪數立刻失控。
+
+> 改題目時的紅線：**任何讓模型需要多次工具往返的變體（多城市、多分行逐一查詢、加掛第三種能力）
+> 都會逼近 120 秒硬牆**。要擴大工作量請先確認 ISSUE-3 已修（`LLM_ASSISTANT` 可覆寫 `timeoutMs`）。
+
+### 18.4 J15-09 的兩條失敗路徑（寫案例前必須分清楚）
+
+`userSettingId` 缺席與 `userSettingId` 錯誤走的是**不同分支**，症狀卻都像「模型不肯呼叫工具」：
+
+| 情境 | 走哪條路 | 實際機制 |
+|------|---------|---------|
+| 清空 `userSettingId`（J15-09 採用） | `buildDefaultMcpClient` | env 佔位符 `${google_maps_api_key}` **原樣傳入**，MCP 子行程起得來但 Places API 認證失敗 |
+| 填不存在的 `userSettingId` | `buildUserSpecificMcpClient` | 以 `(userSettingId, userId)` 配對查無資料 → **回 null 被 `mapNotNull` 靜默丟棄，只留 WARN log**，模型連工具都看不到 |
+
+兩者都**不會**在 UI 上給出明確錯誤。診斷唯一可靠的入口是後端日誌
+（`D:/tmp/bestpartner/bestpartner.log` 的 WARN）——§15 的 ISSUE-1／ISSUE-2 當初正是因為
+沒先看日誌而誤判成「模型行為問題」，繞了很大一圈。
+
+### 18.5 已知的前置脆弱性
+
+- **Milvus collection 會隨容器 volume 重建而清空**，而知識庫 metadata 在 Postgres：
+  `getKnowledgeStore` 列得出知識庫**不代表**檢索有東西。前置就緒判準**只能**是
+  `getDataFromEmbeddingStore` 實際命中（§14-6）。
+- **重建知識庫必須換新 knowledgeId**：`deleteData` 不刪 `llm_knowledge` 列（§14-5）。
+- **embedding 維度不會被校驗**：`MilvusBuilder` 直接把 `dimension` 餵給 `MilvusEmbeddingStore`，
+  不一致要到 `addAll` / `search` 才炸。本機選型為 OpenRouter `nvidia/nemotron-3-embed-1b:free`
+  （實測 **2048**，種子檔的 `openrouter_local_embedding_test` 是另一個模型、dim 1536，勿混用）。
+  建 collection 前先打一次 `/embeddings` 量測最保險（§13-3）。
+- **`D:/MCP` 的 jar 不在版控**：只有 `google-map-1.0-SNAPSHOT.jar` 是可用的 uber-jar，
+  `date` / `filesystem` / `gmail` 仍是無 `Main-Class` 的 thin jar（§15-9、§16.3）。**換機器即整批失效**。
+
+### 18.6 首次實測發現（2026-08-25，週期 202608252128）
+
+**契約面全部成立**（這是 J15 存在的目的，已驗證）：
+
+- RAG 與 MCP 兩條 `out:main → LLM in:tool` **併掛皆放行**，無相容性 toast、console error = 0，
+  Overview 6 NODES / 5 CONNECTIONS，存檔 version 1。
+- **相反的必填契約同時成立**：RAG 落庫僅 `{topK, knowledgeId}`（`query` / `embeddingModelId` 全空）仍可啟用；
+  MCP 則必須帶 `toolName`。啟用後狀態轉 ACTIVE，未回 `workflow.node.config.required.missing`。
+- **兩種能力節點皆不落主遍歷**：SSE 恰 4 個節點發事件、`llm_workflow_node_execution` 恰 4 筆，
+  無 `KNOWLEDGE_RAG` / `MCP_SERVER` 型別；UI 上兩顆能力節點 Inspector 無 `node-exec-section`
+  且畫布上不帶執行勾選標記。
+- **雙來源同時生效已取得完整實證**：單一 `finalOutput` 同時含文件事實（`ageThreshold` 二十歲、判 19 歲不符）
+  與 MCP 真實資料（`place_id` `ChIJ_1dgl7qrQjQRLnEKiYk2w5o`、臺北市信義區地址、真實經緯度）。
+- **輪數預算設計正確**：`searchPlaces` 每次執行僅 1 輪，整體 8–20s，遠低於 120s 硬牆。
+
+**⚠️ 三個必須寫進計畫的實測教訓**：
+
+1. **RAG＋MCP 併掛時，LLM 最終回覆會間歇性截斷（未解，最重要）**。
+   目標配置取樣 7 次：**3 次完整（260/262/260 字元）、4 次截斷（71/73/75/73 字元）**，
+   且 4 次都截在同一語意位置（RAG 注入的條款原文中間）。呈**雙峰分布**、與節點耗時完全相關
+   （完整 12.3–17.0s／截斷 8.2–9.3s）。單一能力對照組（RAG only 549 字元、MCP only 316 字元）
+   與無工具直呼 `/llm/chat` 皆完整。已排除 DB 欄位長度、固定位元組截斷、memory 視窗、工具呼叫失敗。
+   **產品面的重點不是截斷本身，而是平台把不完整的模型回覆一律記為 SUCCESS**——
+   未檢查 `finishReason`、無任何警示，使用者無從察覺答案被截斷。
+   ⚠️ **寫 J15-07 斷言時務必容忍此不穩定性**（可重跑取樣），不要因單次截斷就判定併掛壞掉。
+
+2. **拆掉 MCP 後模型會捏造 `place_id`，不是不輸出**（原 §J15-08 預期已據此修正）。
+   實測捏造值為 `ChIJfQmJx7-qQjQRQJbQ6Q6Q6Q6/…Q7/…Q8`（尾碼流水）、三筆座標完全相同。
+   **判準必須是「與工具實際回傳值逐字元相符」**，只檢查「有無 place_id」會被幻覺矇混過去。
+
+3. **MCP 缺 `userSettingId` 是「全靜默降級」，不是失敗**（J15-09 的交付物，補充 §12-1）。
+   實測鏈路：MCP 子行程照常啟動 → `searchPlaces` 照常被呼叫 → Places API 回
+   `INVALID_ARGUMENT: API key not valid`（證實 `${google_maps_api_key}` 未替換）→
+   ⚠️ **MCP 協定層回 `isError: false`**（錯誤只包在 `content[].text` 內）→
+   **節點與整體執行皆 SUCCESS、`error_message` 為 null、後端無任何 WARN/ERROR**。
+   使用者只會看到「執行成功但答案沒有分行資料」。
+   ⚠️ 與「填**不存在**的 `userSettingId`」是**不同路徑**（後者走 `buildUserSpecificMcpClient`，
+   回 null 被 `mapNotNull` 丟棄、至少留 WARN）——寫案例時勿混為一談。
+
+**腳本層踩雷（補充 §16.2）**：
+
+- **登入頁沒有任何 `data-test`**（`LoginView.vue` 用 Element Plus 原生元件），
+  須改用 `input[type=email]` / `input[type=password]` / `button:has-text("登入")`。
+  全 repo 的 `data-test` 慣例未涵蓋登入頁，屬慣例缺口。
+- **`node-exec-section` 依賴前端 `executionStore.nodeStates`，不是後端資料**：
+  在新開分頁檢查會得到「全部都是 0」的假象（連對照組 LLM 也是 0）。
+  必須在**執行完成後、同一 session、不關結果抽屜**的狀態下檢查。
+- palette → 畫布的 DnD 鍵為 **`application/node-type`**（`components/canvas/dragKeys.ts`），
+  handle 選擇器為 `.vue-flow__handle[data-nodeid][data-handleid]`。
+- 本機無 Python Playwright，webwright 契約以 Node ＋ `bestpartner-ui/node_modules/@playwright/test`
+  ＋ chromium 履行（同 §14-7）。
