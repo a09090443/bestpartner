@@ -12,6 +12,18 @@ BestPartner project
 
 ## 版本變更說明
 
+## 1.8 版本變更說明
+1. 新增視覺化 Workflow 引擎：13 種節點型別、畫布驗證與執行引擎，支援條件分支／迴圈／GraalJS 程式碼沙箱／資料轉換
+2. 新增 Workflow 多觸發點：同一畫布可有多個 Trigger，執行時指定入口，未選中的分支落 SKIPPED
+3. 新增 PROMPT 提示詞節點：提問內容可抽成獨立節點，搭配條件分支讓一顆 LLM 對應多種對話
+4. 新增 Skill 管理：以 zip 上傳個人／全域 Skill，可掛載為 LLM 能力
+5. 新增前端應用 bestpartner-ui（Vue 3 + Vite + TypeScript）：登入、Workflow 列表與 n8n-like 視覺化編輯器
+6. 資料庫欄位加密升級為 AES-256-GCM v2（PBKDF2 ＋ per-record salt），相容既有 legacy 密文
+7. 新增設定檔機密值加密機制 `${enc::<密文>}`，`.env.<profile>` 的機密可以密文存放
+8. 新增 OpenRouter 平台支援
+9. 升級 Langchain4j 至 1.17.2 版本
+10. 修復 JWT refresh 未驗簽章的提權漏洞
+
 ## 1.7 版本變更說明
 1. 升級 Quarkus 至 3.21.0 版本
 2. 升級 Langchain4j 至 1.12.2 版本
@@ -59,6 +71,7 @@ BestPartner project
 - Anthropic
 - Gemini
 - Grok
+- OpenRouter
 
 ### 支援的向量資料庫
 - InMemoryEmbeddingStore（預設）
@@ -432,10 +445,22 @@ docker load -i bestpartner-service-0.1.8-prod-202607162330.tar
 
 ## 開發紀錄
 
-* **2025.xx.xx BestPartner 0.1.7 版本完成**
+* **2026.09.12 BestPartner 0.1.8 版本完成**
+  + 完成視覺化 Workflow 引擎（13 種節點型別、畫布驗證、執行引擎與 SSE 事件流）
+  + 完成 Workflow 多觸發點各自獨立執行
+  + 完成 PROMPT 提示詞節點與知識庫外掛掛載
+  + 完成 Skill 管理（zip 上傳、個人／全域）
+  + 完成前端應用 bestpartner-ui（Vue 3 + Vite + TypeScript）
+  + 完成資料庫欄位加密升級 AES-256-GCM v2
+  + 完成設定檔機密值加密機制
+  + 完成 OpenRouter 平台支援
+  + 升級 Langchain4j 至 1.17.2 版本
+  + 修復 JWT refresh 未驗簽章的提權漏洞
+
+* **2026.05.16 BestPartner 0.1.7 版本完成**
   + 升級 Quarkus 至 3.21.0 版本
-  + 升級 Langchain4j 至 1.4.0 版本
   + 升級 Langchain4j 至 1.12.2 版本
+  + 資料庫由 MySQL 改為 PostgreSQL
 
 * **2025.04.25 BestPartner 0.1.6 版本完成**
   + 完成 MCP Server 支援
