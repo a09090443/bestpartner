@@ -139,7 +139,7 @@ description: Use when user wants to start a test cycle, record API test results,
 |------|---------|
 | 建立 `api-test-checklist.md` 固定名稱 | 使用帶日期的 `docs/test-confirmations/test-confirmation-YYYYMMDDHHmm.md` |
 | 自行設計表格格式 | 從 `.claude/skills/test-confirmation/test-confirmation-checklist.md` 完整複製 |
-| 只列出主要 7 個模組 | 必須包含整合測試與安全性測試（共 12 個模組） |
+| 只列出主要 7 個模組 | 必須包含 WORKFLOW、SKILL、整合測試與安全性測試（共 **14** 個模組） |
 | 先建檔再詢問 metadata | 先詢問 metadata（Step 1），再建立檔案（Step 2） |
 | 先標記狀態才記錄 curl | 先執行 curl 並寫入完整記錄，才能標記狀態（Step 7） |
 | response body 只記錄摘要或省略 | 必須記錄完整 response body 原始內容，不得截斷（Step 7） |

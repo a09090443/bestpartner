@@ -82,11 +82,11 @@ echo "TEST_USER_TOKEN=${TEST_USER_TOKEN:0:30}..."
 
 | 缺陷 | 影響端點 | 影響測試 ID | 預期行為 |
 |------|---------|------------|---------|
-| `OPENROUTER_API_KEY` 環境變數未設定 | `POST /llm/admin/chat`、`POST /llm/admin/customAssistantChat` | ADCHAT-001、ADCHAT-004 | `llmStore.chatModelMap` 為空 → 500；標記為 ⏭️ 環境配置限制 |
+| ADMIN CHAT 模型未註冊 | `POST /llm/admin/chat`、`POST /llm/admin/customAssistantChat` | ADCHAT-001、ADCHAT-004 | `LLMStore.initChatModelMap()` 只註冊「系統設定 `default_llm_platform` 指定的平台」∩「**admin 名下該平台的 CHAT 設定**」。⚠️ 週期 202609122031 實測：`.env` 已有有效 `OPENROUTER_API_KEY`，但 `default_llm_platform=OPENAI` 而 admin 無 OPENAI CHAT 設定 → `chatModelMap` 空 → **400 `LLM model not found`**（非舊記載的 500）。測前先查 `/systemSetting/get` 的 `default_llm_platform` 與 admin 是否有該平台的 CHAT 設定，否則標 ⏭️ |
 | `test_user` 帳號無 `llm_user_role` 記錄 | `POST /llm/user/get`（使用 test_user token） | USER-007（test_user） | `findUserInfo()` INNER JOIN 找不到記錄 → 400；改用 `user` token 可正常使用 |
 | TOOL `saveSetting`/`updateSetting` 實際需要認證 | `POST /llm/tool/saveSetting`、`POST /llm/tool/updateSetting` | TOOL-011、TOOL-013 | API 文件標記公開，但 Service 層呼叫 `validateLoggedInUser()`；必須帶 `Authorization` header |
 | VEC uploadFiles / getDataFromEmbeddingStore 需 Ollama + Milvus/Chroma | `/llm/vector/uploadFiles`、`/llm/vector/getDataFromEmbeddingStore` | VEC-005、VEC-008、VEC-014 | 基礎設施未啟動時 ⏭️ Skip |
-| JWT Refresh 安全漏洞（P0） | 所有需認證端點 | SEC-004 | 竄改 JWT payload 後利用 Refresh 機制可取得有效 admin token（**Release Blocker**） |
+| ~~JWT Refresh 安全漏洞（P0）~~ **已修復（commit `def8f7b`，2026-05-05）** | 所有需認證端點 | SEC-004 | `JwtFilter` 進入 refresh 流程前先驗 `isTokenSignatureValid`，偽造 payload 的 token 回 401 且換不到有效 token。**週期 202609122031 實測確認**。此列保留供回歸對照，不再是 Blocker |
 
 ### 常用已知 ID 參考（test_user 帳號）
 
@@ -94,7 +94,7 @@ echo "TEST_USER_TOKEN=${TEST_USER_TOKEN:0:30}..."
 
 | 名稱 | ID | 說明 |
 |------|-----|------|
-| `CHAT_LLM_ID` | `583b9222-8cb0-4109-b072-5f0fd1e9fed9` | test_user 的 CHAT 類型 LLM 設定 |
+| `CHAT_LLM_ID` | `583b9222-8cb0-4109-b072-5f0fd1e9fed9` | ⚠️ **屬 admin，非 test_user**（週期 202609122031 更正）。OpenRouter `deepseek/deepseek-v3.2`，legacy 兩段密文，金鑰有效 |
 | `STREAMING_LLM_ID` | `2b44c811-d38c-417b-89d4-ae675b3093f5` | test_user 的 STREAMING_CHAT 類型 LLM 設定 |
 | `OPENROUTER_PLATFORM_ID` | `006f1076-b023-4197-b917-70455f2a3501` | OpenRouter 平台 ID |
 | `MCP_DATE_ID` | `4b9ba306-2fc5-4aa6-9e54-22bce834e021` | date MCP server |
@@ -120,8 +120,10 @@ echo "TEST_USER_TOKEN=${TEST_USER_TOKEN:0:30}..."
 | PERMISSION | 11 | | | | |
 | SYSTEM SETTING | 13 | | | | |
 | 跨模組整合 | 6 | | | | |
+| WORKFLOW | 21 | | | | |
+| SKILL | 10 | | | | |
 | 通用安全性 | 6 | | | | |
-| **合計** | **154** | | | | |
+| **合計** | **185** | | | | |
 
 ### 通過標準
 
@@ -185,6 +187,8 @@ echo "TEST_USER_TOKEN=${TEST_USER_TOKEN:0:30}..."
 | PERMISSION 權限管理 | [`./modules/test-module-PERMISSION.md`](./modules/test-module-PERMISSION.md) | 11 |
 | SYSTEM SETTING 系統設定 | [`./modules/test-module-SYSTEM_SETTING.md`](./modules/test-module-SYSTEM_SETTING.md) | 13 |
 | INTEGRATION 跨模組整合 | [`./modules/test-module-INTEGRATION.md`](./modules/test-module-INTEGRATION.md) | 6 |
+| WORKFLOW 工作流 | [`./modules/test-module-WORKFLOW.md`](./modules/test-module-WORKFLOW.md) | 21 |
+| SKILL 技能 | [`./modules/test-module-SKILL.md`](./modules/test-module-SKILL.md) | 10 |
 | SECURITY 通用安全性 | [`./modules/test-module-SECURITY.md`](./modules/test-module-SECURITY.md) | 6 |
 
 ---
