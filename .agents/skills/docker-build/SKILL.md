@@ -128,7 +128,7 @@ docker save -o build/bestpartner-service-${version}-prod-$(date +%Y%m%d%H%M).tar
 ```
 
 檔名格式：`bestpartner-service-<版本>-<建置profile>-<YYYYMMDDHHmm>.tar`
-例：`bestpartner-service-0.1.8-SNAPSHOT-prod-202607162330.tar`
+例：`bestpartner-service-0.1.8-prod-202607162330.tar`
 
 > 時戳格式與專案既有慣例一致（見 `test-confirmation-YYYYMMDDHHmm.md`），不另創格式。
 > 用途是檔案被複製出 `build/` 或歸檔後仍能辨識是哪次建置——

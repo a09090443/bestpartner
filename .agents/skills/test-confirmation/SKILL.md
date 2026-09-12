@@ -120,7 +120,7 @@ description: Use when user wants to start a test cycle, record API test results,
 
 > ⚠️ 測試完成後不得遺留服務在背景執行。
 > ⚠️ **保留資料 ≠ 保留服務**：使用者選擇保留資料時服務照關，回報中附上重啟指令：
-> `cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar`
+> `cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-runner.jar`
 
 
 ---

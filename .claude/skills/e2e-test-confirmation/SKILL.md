@@ -113,7 +113,7 @@ pwsh -NoProfile -File .claude/hooks/e2e-flow-guard.ps1 -HookEvent Mark -Field ru
    > 殘留的 Playwright / chromium 行程若佔用上述 port 也會一併被停掉。
 2. **起後端**（`bestpartner-service/`，dev profile，port 80，背景執行）：
    ```bash
-   java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
+   java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-runner.jar
    ```
    > ⚠️ `-Dquarkus.profile=dev` 必須在 `-jar` **之前**，否則打包 jar 走 prod、dev 專屬鍵（如 `file.upload.dir`）缺失而啟動失敗。若後端程式有異動，先重編（見 API 版 `test-confirmation` Step 5）。
 3. **起前端**（`bestpartner-ui/`，背景執行）：`npm run dev`（vite 5173）或 `npm run preview`（4173，與預設 baseURL 一致）。
@@ -263,7 +263,7 @@ Get-NetTCPConnection -LocalPort 80,5173,4173 -State Listen -ErrorAction Silently
 >
 > ⚠️ **保留資料 ≠ 保留服務**：使用者選擇保留資料時服務照關，回報中附上重啟指令供其手動測試：
 > ```bash
-> cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
+> cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-runner.jar
 > cd bestpartner-ui && npm run preview
 > ```
 

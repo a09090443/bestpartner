@@ -60,7 +60,7 @@ port 淨空才算收工（E2E 由 `e2e-flow-guard.ps1` 的 Stop hook 實測把�
 
 ```bash
 # 後端（dev profile；-D 參數必須在 -jar 之前）
-cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
+cd bestpartner-service && java -Dquarkus.profile=dev -jar build/bestpartner-service-0.1.8-runner.jar
 # 前端（E2E 情境）
 cd bestpartner-ui && npm run preview
 ```

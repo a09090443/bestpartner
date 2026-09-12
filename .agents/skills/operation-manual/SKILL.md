@@ -94,7 +94,7 @@ Get-ChildItem docs/test-confirmations/e2e-shots -Directory | ForEach-Object { "$
 ```markdown
 # <章節標題>
 
-> 適用版本：0.1.8-SNAPSHOT ｜ 畫面擷取自 E2E 驗證：<報告時戳>
+> 適用版本：0.1.8 ｜ 畫面擷取自 E2E 驗證：<報告時戳>
 
 <一段話說明這章能幫使用者完成什麼>
 

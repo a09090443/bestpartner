@@ -7,7 +7,7 @@
 
 ## 這是什麼專案
 
-AI 應用大平台（類似 Dify / Coze），可動態建立 AI agent、支援多種 AI 模型。當前版本 **0.1.8-SNAPSHOT**。
+AI 應用大平台（類似 Dify / Coze），可動態建立 AI agent、支援多種 AI 模型。當前版本 **0.1.8**。
 
 ## 模組總覽
 
@@ -57,7 +57,7 @@ Kotlin 2.1.0 · Quarkus 3.21.0 · Langchain4j 1.17.2 · JDK 21 · PostgreSQL · 
 cd bestpartner-service
 ./gradlew clean build -x test -Dquarkus.package.type=uber-jar -Dorg.gradle.daemon=false -Dquarkus.profile=${profile}
 # profile: dev(預設) / docker / sit / uat / prod
-java -jar build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar
+java -jar build/bestpartner-service-0.1.8-runner.jar
 ```
 
 **Docker 一份 image 跑所有環境**：固定以 `-Dquarkus.profile=prod` 建置（建置 profile 會成為 image 預設 runtime profile，用 prod 才能讓漏帶 `QUARKUS_PROFILE` 時落在「Swagger 關閉、log INFO」的安全側）；環境差異靠 runtime `-e QUARKUS_PROFILE=<profile>` ＋ `--env-file .env.<profile>` 決定，不為個別環境重建 image。存活探測用 `/view/chat`（`/q/openapi`、`/swagger-ui` 在 prod 回 404 是正確行為）。

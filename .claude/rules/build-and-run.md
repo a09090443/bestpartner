@@ -13,12 +13,12 @@
 
 `${profile}` 可選值：`dev`（預設）、`sit`、`prod`
 
-產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.8-SNAPSHOT-runner.jar`
+產生的 jar：`bestpartner-service/build/bestpartner-service-0.1.8-runner.jar`
 
 ## 執行
 
 ```bash
-java -jar bestpartner-service-0.1.8-SNAPSHOT-runner.jar
+java -jar bestpartner-service-0.1.8-runner.jar
 ```
 
 服務預設埠：**port 80**
@@ -58,7 +58,7 @@ pwsh ./scripts/docker-package.ps1 -VerifyPort 18085    # 驗證埠被占用時
 
 # 2. 建 image
 docker build -f src/main/docker/Dockerfile.uber-jar \
-  -t bestpartner-service:0.1.8-SNAPSHOT -t bestpartner-service:latest .
+  -t bestpartner-service:0.1.8 -t bestpartner-service:latest .
 ```
 
 > ⚠️ 在 PowerShell 手動執行第 1 步時，`-D` 參數必須加引號
@@ -97,10 +97,10 @@ profile 對照與環境變數清單 → [`configuration-and-profiles.md`](config
 ### 匯出至其他機器
 
 ```bash
-docker save -o build/bestpartner-service-0.1.8-SNAPSHOT-prod-$(date +%Y%m%d%H%M).tar \
+docker save -o build/bestpartner-service-0.1.8-prod-$(date +%Y%m%d%H%M).tar \
   bestpartner-service:latest
 # 目標機器
-docker load -i bestpartner-service-0.1.8-SNAPSHOT-prod-202607162330.tar
+docker load -i bestpartner-service-0.1.8-prod-202607162330.tar
 ```
 
 檔名格式：`bestpartner-service-<版本>-<建置profile>-<YYYYMMDDHHmm>.tar`

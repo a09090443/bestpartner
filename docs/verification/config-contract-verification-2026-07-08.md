@@ -3,7 +3,7 @@
 > **驗證日期**：2026-07-08
 > **驗證範圍**：workflow 節點 config 契約 + tool settingSchema 契約 + 前端 schema-driven 消費 + 存檔前即時必填驗證
 > **驗證方法**：三個獨立 subagent 以 fresh context 分別查證後端、前端、契約/文件三個維度，各自實跑測試並對抗性檢查程式碼（不繼承既有敘述，只信程式碼與實測結果）
-> **對應版本**：0.1.8-SNAPSHOT（分支 `0.1.8`）
+> **對應版本**：0.1.8（分支 `0.1.8`）
 
 ---
 
@@ -94,7 +94,7 @@ DB 就緒，`./gradlew test` **BUILD SUCCESSFUL**，各測試檔 JUnit XML 權�
 - **NodeType 完整性**：enum(10) = NodeConfig(10) = when 分支(10) = 文件(10)。
 - **回傳範例準確**：workflow.md 的 nodeRequiredFields JSON 範例 10 型別與後端實際輸出一致（含 `DATA_TRANSFORM: ["mappings|template"]`）。
 - **端點總數**：實際數得 **67**（WorkflowResource 8 個含 nodeRequiredFields），與 api-endpoints.md 宣稱「13 模組、67 endpoint」一致。
-- **版本**：`0.1.8-SNAPSHOT` 全域一致（build.gradle.kts、CLAUDE.md、AGENTS.md、rules、installation、jar 檔名），**無 0.1.7 殘留**（排除 test-confirmations/、build/、node_modules/）。
+- **版本**：`0.1.8` 全域一致（build.gradle.kts、CLAUDE.md、AGENTS.md、rules、installation、jar 檔名），**無 0.1.7 殘留**（排除 test-confirmations/、build/、node_modules/）。
 - **Postman**：含 nodeRequiredFields request，JSON 合法（`JSON.parse` 通過）。
 - **arguments 文件**：過時的「尚無表單」描述已清除，TOOL/MCP 欄位表已列 arguments。
 

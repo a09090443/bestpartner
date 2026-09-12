@@ -17,7 +17,7 @@
 
 > SmallRye Config Crypto 提供機密值解密的 config expression，讓 `.env.<profile>` 的機密值以密文存放、啟動時自動解密；本專案以 `config/EncSecretKeysHandlerFactory.kt` 將前綴縮短為 `${enc::<密文>}`（等價於內建的 `aes-gcm-nopadding`，密文格式相同）。版本由 Quarkus BOM 管理，**不在 `gradle.properties` 定義版本號**（依 [`gradle-conventions.md`](gradle-conventions.md)，BOM 管理的依賴不寫版本）。用法見 [`configuration-and-profiles.md`](configuration-and-profiles.md)。
 
-**當前服務版本**: 0.1.8-SNAPSHOT
+**當前服務版本**: 0.1.8
 
 ## 支援的 AI 平台
 
