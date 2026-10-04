@@ -70,7 +70,7 @@ bestpartner-service/src/main/resources/
 bestpartner-service/src/main/kotlin/tw/zipe/bastpartner/
 ├── assistant/
 ├── builder/
-│   ├── llm/        # AnthropicModelBuilder, GeminiModelBuilder, GrokModelBuilder, OllamaModelBuilder, OpenaiModelBuilder
+│   ├── llm/        # AnthropicModelBuilder, GeminiModelBuilder, GrokModelBuilder, OllamaModelBuilder, OpenaiModelBuilder, OpenrouterModelBuilder
 │   └── vector/     # ChromaBuilder, MilvusBuilder
 ├── config/         # EncSecretKeysHandlerFactory（設定檔機密值解密的短名 handler `enc`）
 │   ├── chatmodel/
