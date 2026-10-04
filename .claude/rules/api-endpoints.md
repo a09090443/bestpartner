@@ -46,8 +46,8 @@
 | POST | `/llm/user/register` | 新用戶自行註冊，傳入 username + password + email；**回應的 `password` 一律為 null**（不回顯明文密碼） | 公開（無認證需求） |
 | POST | `/llm/user/get` | 取得目前登入用戶的個人資訊 | @Authenticated |
 | POST | `/llm/user/update` | 更新目前登入用戶資訊（email、status 等） | @Authenticated |
-| POST | `/llm/user/switchStatus` | 切換指定用戶的啟用 / 停用狀態 | @RolesAllowed("all") |
-| DELETE | `/llm/user/delete` | 刪除指定用戶 | @RolesAllowed("all") |
+| POST | `/llm/user/switchStatus` | 切換指定用戶的啟用 / 停用狀態 | @RolesAllowed("admin") |
+| DELETE | `/llm/user/delete` | 刪除指定用戶 | @RolesAllowed("admin") |
 
 ---
 
