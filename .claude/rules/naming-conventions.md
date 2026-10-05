@@ -6,6 +6,8 @@
 
 ⚠️ 注意：是 `bastpartner`，**不是** `basepartner`（少了 'e'）
 
+Gradle 專案 group 是 `tw.zipe.bestpartner`，刻意與 Kotlin 套件名 `tw.zipe.bastpartner` 不同，兩者不需互相對齊。新增程式碼的 package 與 import 仍一律使用 `tw.zipe.bastpartner`。
+
 ## 各層命名規則
 
 | Package | 命名格式 | 範例 | CDI 標註 |
