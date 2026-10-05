@@ -58,7 +58,7 @@ pwsh ./scripts/docker-package.ps1 -VerifyPort 18085   # 驗證埠被占用時改
 
 ### Step 2：讀取當前版本號
 
-從 `bestpartner-service/build.gradle.kts` 讀取 `version = "x.x.x-SNAPSHOT"`（約在檔案尾端 `group = "tw.zipe.basepartner"` 附近），作為 image tag 使用。不得手動猜測或沿用先前對話中出現過的版本號，因為版本可能已變動。
+從 `bestpartner-service/build.gradle.kts` 讀取 `version = "x.x.x-SNAPSHOT"`（約在檔案尾端 `group = "tw.zipe.bestpartner"` 附近），作為 image tag 使用。不得手動猜測或沿用先前對話中出現過的版本號，因為版本可能已變動。
 
 ### Step 3：建置 uber-jar（**一律用 prod profile**）
 
