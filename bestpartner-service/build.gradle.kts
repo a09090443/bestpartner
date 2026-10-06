@@ -166,7 +166,7 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit-junit5:$archunitVersion")
 }
 
-group = "tw.zipe.basepartner"
+group = "tw.zipe.bestpartner"
 version = "0.1.8"
 
 java {
