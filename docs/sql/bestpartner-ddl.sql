@@ -1,3 +1,7 @@
+-- 建立 bestpartner schema 並設為預設 search_path，讓以下無前綴的表與索引皆建於此（對齊 init-data 的 bestpartner.* 與 currentSchema=bestpartner）
+CREATE SCHEMA IF NOT EXISTS bestpartner;
+SET search_path TO bestpartner;
+
 DROP TABLE IF EXISTS "llm_doc";
 CREATE TABLE "llm_doc" (
                            "id" varchar(36) NOT NULL,
