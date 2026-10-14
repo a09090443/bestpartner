@@ -1,3 +1,9 @@
+-- ⚠️ 本腳本會 DROP 並重建所有 BestPartner 資料表，既有資料將全部清除；
+--    只能對全新或可清空的資料庫執行。執行順序：先本檔，再 bestpartner-init-data.sql。
+-- 服務連線使用 currentSchema=bestpartner，init-data 亦寫入 bestpartner.*，故先建立並切換 schema。
+CREATE SCHEMA IF NOT EXISTS bestpartner;
+SET search_path TO bestpartner;
+
 DROP TABLE IF EXISTS "llm_doc";
 CREATE TABLE "llm_doc" (
                            "id" varchar(36) NOT NULL,

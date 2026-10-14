@@ -26,7 +26,7 @@ Content-Type: application/json
 
 ```json
 {
-  "email": "admin",
+  "email": "admin@bestpartner.com.tw",
   "password": "admin"
 }
 ```
@@ -73,8 +73,10 @@ JWT Payload 包含以下關鍵欄位：
 
 | email | 密碼 | 角色 |
 |-------|------|------|
-| `admin` | `admin` | 管理員 |
-| `test_user` | `test_user` | 一般使用者 |
+| `admin@bestpartner.com.tw` | `admin` | 管理員 |
+| `test@partmer.com.tw` | `user` | 一般使用者 |
+
+登入一律以 email 作為帳號（不是使用者名稱 `admin`／`test_user`）。
 
 :::caution 生產環境安全提醒
 請務必在正式上線前更改預設密碼。

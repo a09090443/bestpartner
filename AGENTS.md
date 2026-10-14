@@ -68,7 +68,7 @@ java -jar build/bestpartner-service-0.1.8-runner.jar
 
 13 模組、68 個 endpoint，清單 → [`api-endpoints.md`](.claude/rules/api-endpoints.md)。
 Swagger UI 與 OpenAPI spec 僅 dev/docker/sit 開放（`/swagger-ui`、`/q/openapi`），uat/prod 與未指定 profile 皆回 404 → [`api-documentation.md`](.claude/rules/api-documentation.md)。
-JWT / RBAC（預設 `admin`/`admin`）→ [`authentication-and-security.md`](.claude/rules/authentication-and-security.md)。
+JWT / RBAC（登入用 email，預設 `admin@bestpartner.com.tw`／`admin`）→ [`authentication-and-security.md`](.claude/rules/authentication-and-security.md)。
 
 ## 完整規則索引（`.claude/rules/`）
 

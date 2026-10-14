@@ -39,7 +39,7 @@ POST /login/
 Content-Type: application/json
 
 {
-  "email": "admin",
+  "email": "admin@bestpartner.com.tw",
   "password": "admin"
 }
 ```
