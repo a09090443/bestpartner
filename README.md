@@ -348,7 +348,7 @@ npm run dev      # http://localhost:5173
 cd bestpartner-ui
 npm run test     # Vitest 單元測試
 npm run build    # vue-tsc 型別檢查 + production 建置
-npm run preview  # 預覽建置結果
+npm run preview  # 預覽建置結果（預設 http://localhost:4173）
 ```
 
 完整步驟見 docs-site 的「快速開始 › 安裝與設定」（`docs-site/docs/getting-started/installation.md`）。
