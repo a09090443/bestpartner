@@ -178,10 +178,13 @@ curl -i http://localhost/view/chat
 # 預期 HTTP/1.1 200
 ```
 
-sit profile 下 Swagger 為開放狀態，可再確認：
+`/view/chat` 是公開頁面、不受 profile 影響，**存活檢查一律用它**。
+
+`/swagger-ui` 與 `/q/openapi` **只在 dev／docker／sit profile 開放**；uat、prod 或未指定 profile（預設等同 prod）皆回 404，這是正確行為，因此**不可拿這兩者當存活檢查**。sit 下可再確認：
 
 ```bash
-curl -i http://localhost/swagger-ui    # 302 導向 Swagger UI 屬正常
+curl -i http://localhost/swagger-ui    # sit：302 導向 Swagger UI 屬正常；uat/prod：404
+curl -i http://localhost/q/openapi     # sit：200；uat/prod：404
 ```
 
 接著以 email 登入取得 Token（預設帳號見 [安裝與設定 › 預設帳號](./installation.md#default-accounts)）：
