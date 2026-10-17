@@ -1,4 +1,5 @@
 ---
+title: 安裝與設定
 sidebar_position: 2
 description: BestPartner 安裝與設定步驟，涵蓋取得原始碼、初始化 PostgreSQL 資料庫、匯入初始資料與服務設定。
 keywords: [安裝, 設定, 資料庫初始化, PostgreSQL, 建置]

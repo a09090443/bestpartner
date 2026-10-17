@@ -1,4 +1,5 @@
 ---
+title: "測試環境建置（Linux / sit）"
 sidebar_position: 4
 description: 在 Linux 上從零建立 BestPartner sit 測試環境的完整步驟，涵蓋前置軟體、資料庫初始化、prod 建置、.env.sit 設定、jar 與 Docker 啟動、port 80 權限與存活檢查。
 keywords: [測試環境, sit, Linux, 部署, .env.sit, Docker, port 80]
