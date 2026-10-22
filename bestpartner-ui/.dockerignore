@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+.env
+.env.*
+e2e/.artifacts
+playwright-report
+test-results
+*.log

@@ -1,0 +1,39 @@
+# SIT 前後端整合部署：後端 bestpartner-service + 工作流程前端（nginx 靜態檔與反向代理）
+#
+# 從 repository 根目錄執行：
+#   1. ./scripts/docker-package.sh --no-tar      # 先建後端 image bestpartner-service:latest（固定 prod profile 建置）
+#   2. docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d --build
+#
+# - 根目錄 .env.sit 不進版控（.gitignore 的 /.env.* 規則），只注入 backend；frontend 不接收任何機密。
+# - .env.sit 的 DB_URL 必須是容器可達的 PostgreSQL 位址，不可使用 localhost。
+# - 對外只發布 frontend 的 80 埠；backend 只在 compose 內部網路以服務名 backend 存取。
+services:
+  backend:
+    image: bestpartner-service:latest
+    environment:
+      - QUARKUS_PROFILE=sit
+      # 容器以 uid 185 執行，日誌與上傳目錄須為 POSIX 路徑（見 configuration-and-profiles.md）
+      - LOG_DIR=/opt/bestpartner/logs
+      - FILE_UPLOAD_DIR=/opt/bestpartner/upload
+    env_file:
+      - ../../../.env.sit
+    volumes:
+      - bestpartner-data:/opt/bestpartner
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../../../bestpartner-ui
+      dockerfile: Dockerfile
+    image: bestpartner-ui:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  bestpartner-data:
+    driver: local

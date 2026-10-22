@@ -54,6 +54,29 @@ npm run test     # Vitest 單元測試
 
 開發伺服器透過 Vite proxy（`vite.config.ts`）將 `/llm/**` 與 `/login/`（僅帶尾斜線的登入 API）轉發至後端（預設 `http://localhost:80`），裸路徑 `/login` 保留給 SPA 前端路由，避免與後端登入 API 衝突。
 
+## 正式部署（nginx 容器） {#production-nginx}
+
+SIT 等容器環境不使用 Vite 開發伺服器，而是以 `bestpartner-ui/Dockerfile` 多階段建置前端 image：
+
+1. **建置階段**（`node:22-alpine`）：依 `package-lock.json` 執行 `npm ci`，再 `npm run build` 產生 `dist/`。
+2. **執行階段**（`nginx:1.27-alpine`）：只複製 `dist/` 與 `nginx/default.conf`，由 nginx 提供靜態檔並反向代理後端。
+
+`bestpartner-ui/.dockerignore` 排除 `node_modules`、`dist`、`.env`、`.env.*` 與 E2E／測試產物，前端 image 不含任何環境檔。前端程式以同源相對路徑呼叫 API（`VITE_API_BASE` 為空），因此不需修改程式碼即可在容器中運作。
+
+`nginx/default.conf` 的代理對照（後端 upstream 為 compose 服務名 `backend:80`）：
+
+| 路徑 | 處理 | 說明 |
+|------|------|------|
+| `/llm/` | 代理後端 | 全部 `/llm` 系列 API；關閉 `proxy_buffering`、讀寫逾時 3600s，讓 SSE 串流（`/llm/workflow/execute`、`/llm/chatStreaming`）不被緩衝或中斷 |
+| `/login/` | 代理後端 | 只限帶結尾斜線的登入 API；裸 `/login` 由 SPA 處理，理由同開發代理 |
+| `/view/` | 代理後端 | 存活探測 `/view/chat` 經前端 port 80 仍可到達 |
+| `/systemSetting/` | 代理後端 | 系統設定 API |
+| 其他路徑 | SPA | `try_files $uri $uri/ /index.html`，`/editor/:id` 等深層連結重新整理不會 404 |
+
+- 上傳大小上限 `client_max_body_size 12m`，不低於後端 Quarkus 預設的 10M，避免上傳端點先被 nginx 以 413 擋下。
+- 存取日誌使用自訂格式，只記錄來源、時間、方法、路徑、狀態碼與耗時，**不記錄 Authorization 標頭、cookie 與 request body**。
+- 前端容器不接收任何後端機密；`.env.sit` 只注入後端容器。部署步驟見 [安裝與設定](../getting-started/installation.md#sit-compose-deploy)。
+
 ## 核心設計慣例
 
 - **全面 Composition API**：所有元件使用 `<script setup lang="ts">`，`defineProps`/`defineEmits` 採純型別泛型宣告，不做 runtime 驗證。
