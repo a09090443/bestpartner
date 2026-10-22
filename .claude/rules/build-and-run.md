@@ -86,6 +86,34 @@ docker run -d -p 80:80 \
 
 profile 對照與環境變數清單 → [`configuration-and-profiles.md`](configuration-and-profiles.md)
 
+### SIT 前後端整合部署（Docker Compose）
+
+SIT 使用 `docs/docker/bestpartner-sit/docker-compose.yml` 同時啟動後端與工作流程前端。
+後端 image 仍依上方規則固定以 prod profile 建置；執行時由 Compose 設定
+`QUARKUS_PROFILE=sit`，並讀取根目錄中不進版控的 `.env.sit`。前端 image 則由
+`bestpartner-ui/Dockerfile` 多階段建置，使用 nginx 提供靜態檔與反向代理。
+
+從 repository 根目錄執行：
+
+```bash
+# 1. 建置後端 image（bestpartner-service:latest）
+./scripts/docker-package.sh --no-tar
+
+# 2. 建置前端 image 並啟動前後端
+docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d --build
+```
+
+- 對外只發布前端的 port 80；後端只在 Compose 內部網路以服務名 `backend` 存取。
+- 前端 nginx 將 `/llm/`、`/login/`、`/view/`、`/systemSetting/` 代理到後端；
+  裸 `/login` 與其他未匹配路徑由 SPA 處理。
+- `/view/chat` 仍是公開存活探測路徑，會經前端 port 80 轉送至後端。
+- `.env.sit` **只注入後端容器**；前端 build、前端容器與 nginx 都不得接收或包含後端機密。
+- 後端日誌與上傳資料使用具名 volume 掛載 `/opt/bestpartner`，避免 uid 185
+  對宿主 bind mount 沒有寫入權限。
+
+完整 profile、路徑與機密隔離規則見
+[`configuration-and-profiles.md`](configuration-and-profiles.md)。
+
 ### 說明
 
 - `Dockerfile.uber-jar` 專為此專案的 uber-jar 建置模式撰寫，`COPY build/*-runner.jar` 對應上方產生的單一 jar；`src/main/docker/` 下其餘 Quarkus 預設產生的 `Dockerfile` / `Dockerfile.jvm` / `Dockerfile.legacy-jar` / `Dockerfile.native*` 對應 fast-jar / legacy-jar / native 佈局，與本專案建置指令不符，**不適用**。

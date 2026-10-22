@@ -9,9 +9,18 @@ bestpartner/
 │   ├── quarkus-example/          # Quarkus MCP server 範例
 │   └── spring-example/           # Spring MCP server 範例
 ├── bestpartner-ui/               # 前端應用 (Vue 3 + Vite + TS)
+│   ├── Dockerfile                # Node 建置 + nginx runtime 的多階段前端 image
+│   ├── .dockerignore             # 排除依賴、產物、環境檔與 E2E 產物
+│   ├── nginx/
+│   │   └── default.conf          # SPA 靜態服務及後端反向代理
 │   └── src/                      # api / components(canvas,common,inspector,nodeDesigner) / composables / constants / stores / styles / types / utils / views
 └── docs/                         # 文件資料
-    ├── docker/                   # Docker Compose 設定 (chroma, milvus, mysql, ollama)
+    ├── docker/                   # Docker Compose 設定
+    │   ├── bestpartner-sit/      # SIT 前後端整合部署（後端 + 工作流程前端）
+    │   ├── chroma/
+    │   ├── milvus/
+    │   ├── mysql/
+    │   └── ollama/
     ├── postman/                  # Postman Collection
     ├── rag/                      # RAG 測試文件
     ├── sample/                   # Text2SQL 範例

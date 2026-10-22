@@ -223,6 +223,27 @@ application.properties   quarkus.datasource.password=${DB_PASSWORD:pgpass}
 - 上傳檔案與日誌需保存時，用**具名 volume**（`-v bestpartner-data:/opt/bestpartner`）；
   bind mount 的宿主目錄擁有者常非 185，會導致寫入失敗。
 
+## SIT Compose 與前端機密邊界
+
+SIT 的前後端整合部署定義在 `docs/docker/bestpartner-sit/docker-compose.yml`：
+
+- `backend` 使用 `bestpartner-service:latest`，以 `QUARKUS_PROFILE=sit` 執行，並由
+  `../../../.env.sit` 讀取根目錄環境檔。日誌與上傳資料透過具名 volume 掛載到
+  `/opt/bestpartner`；不對宿主發布 port。
+- `frontend` 從 `bestpartner-ui/Dockerfile` 建置，只發布 port 80，並透過 Compose
+  服務名 `backend` 反向代理後端；不可使用 `localhost` 或固定主機 IP 作為 upstream。
+- 前端 nginx 代理 `/llm/`、`/login/`（只限帶結尾斜線的後端 API 路徑）、
+  `/view/`、`/systemSetting/`。裸 `/login` 與其他未匹配路徑由 SPA 接手。
+- `.env.sit` 只可透過 `env_file` 注入 `backend`。`frontend` 不得設定 `env_file`，
+  前端 Docker build context 必須排除 `.env` 與 `.env.*`，nginx 日誌也不得記錄
+  Authorization、cookie 或 request body。
+
+> 根目錄 `.env.sit` 已由 `/.env.*` 規則排除在版控外；其中 `DB_URL` 必須是容器可達的
+> PostgreSQL 位址，不能使用 `localhost`。這個部署方式只把機密隔離在後端容器，
+> 不改變上方所述「`CONFIG_ENCRYPTION_KEY` 與密文同檔」的安全取捨。
+
+啟動指令與 image 建置順序見 [`build-and-run.md`](build-and-run.md)。
+
 ## 執行方式
 
 ```bash
@@ -235,6 +256,9 @@ docker run -d -p 80:80 \
   --env-file .env.uat \
   -v bestpartner-data:/opt/bestpartner \
   bestpartner-service:latest
+
+# SIT 前後端整合部署（從 repository 根目錄執行）
+docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d --build
 ```
 
 Docker image 建置與匯出 → [`build-and-run.md`](build-and-run.md)、`docker-build` skill
