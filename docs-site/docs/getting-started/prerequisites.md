@@ -1,4 +1,5 @@
 ---
+title: 環境需求
 sidebar_position: 1
 description: 安裝 BestPartner 前的環境需求，包含 OpenJDK 21、PostgreSQL 資料庫與 Node.js 等必要軟體與版本確認方式。
 keywords: [環境需求, 前置作業, JDK 21, PostgreSQL, 安裝準備]
@@ -38,12 +39,30 @@ docker run -d \
 
 或參考 [PostgreSQL 官方安裝文件](https://www.postgresql.org/download/) 手動安裝。
 
-安裝完成後，匯入初始化 SQL：
+安裝完成後，依 [安裝與設定 › 初始化資料庫](./installation.md#init-database) 匯入初始化 SQL。
+摘要如下（**先 DDL、後 init-data**；DDL 會自行建立 `bestpartner` schema）：
 
 ```bash
-psql -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
-psql -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
+psql -h localhost -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
+psql -h localhost -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
 ```
+
+:::danger
+`bestpartner-ddl.sql` 會 DROP 並重建所有資料表，只能對全新或可清空的資料庫執行。
+本機沒有 psql、PostgreSQL 跑在 Docker 時的做法見上述連結。
+:::
+
+### Node.js（前端）
+
+前端 `bestpartner-ui`（Vue 3 + Vite）需要 **Node.js `^20.19.0 || >=22.12.0`**（含 npm）。
+
+```bash
+node --version
+# 預期輸出: v20.19.x 以上的 20 版，或 v22.12.0 以上
+npm --version
+```
+
+只跑後端 API 可略過；要使用 Workflow 編輯器等網頁介面則為必要。安裝步驟見 [前端安裝與執行](./installation.md#frontend)。
 
 ## AI 模型（擇一）
 

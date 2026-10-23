@@ -78,7 +78,7 @@
 □ 開測前已停掉舊服務並通過實測（phase=services-stopped；未通過無法呼叫 webwright）
 □ 後端服務於 port 80 健康回應（HTTP 200）
 □ PostgreSQL 已初始化（bestpartner-ddl.sql + bestpartner-init-data.sql）
-□ 種子資料存在：admin/admin、test_user 及其 CHAT/STREAMING_CHAT LLM setting
+□ 種子資料存在：管理員 admin@bestpartner.com.tw（密碼 admin）、一般使用者 test@partmer.com.tw（密碼 user）及其 CHAT/STREAMING_CHAT LLM setting
 □ J5 可用：具有效 api_key 的 LLM setting（填入 E2E_LLM_ID），否則 J5 真實案例標 ⏭️
 □ J8 可用：Milvus 容器運行中，且 `getDataFromEmbeddingStore` 對目標知識庫**實際命中**（回空即不可用）
    ⚠️ 勿只看 `getKnowledgeStore` 列得出知識庫——metadata 在 Postgres、向量在 Milvus，兩者會不同步
@@ -95,7 +95,7 @@
    跑完不需還原（收尾即刪）
 □ 前端已 build 並可由 baseURL 存取
 □ Playwright 瀏覽器已安裝（npx playwright install）
-□ storageState 已由 API 登入（admin/admin）產生
+□ storageState 已由 API 登入（admin@bestpartner.com.tw／admin）產生
 ```
 
 > ⚠️ 任一項未通過即停止測試並回報。
@@ -145,7 +145,7 @@
 | 案例 | 優先 | 描述 | 預期 | 狀態 | 證據 / 備註 |
 |------|:---:|------|------|:---:|------|
 | J1-01 | P0 | 未登入直接訪 `/` | 導向 `/login` | | |
-| J1-02 | P0 | admin/admin 登入 | 導向列表 `/`，顯示已登入 | | |
+| J1-02 | P0 | admin@bestpartner.com.tw／admin 登入 | 導向列表 `/`，顯示已登入 | | |
 | J1-03 | P1 | 已登入訪 `/login` | 導回首頁 `/` | | |
 | J1-04 | P1 | 錯誤帳密登入 | 停留 `/login`，顯示錯誤 | | |
 | J1-05 | P1 | 列表頁登出（`logout-button`） | 清 token 導向 `/login`；重訪受保護頁被導回登入 | | |

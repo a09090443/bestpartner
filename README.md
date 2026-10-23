@@ -58,7 +58,7 @@ BestPartner project
 3. 增加 LLM Tools 使用者自訂工具設定值
 
 ## 1.2 版本變更說明
-1. 支援 RBAC 功能，請先使用 `POST /login` 取得 JWT 令牌，可參考 Postman 中 auth → login 範例，管理員帳號：`admin/admin`
+1. 支援 RBAC 功能，請先使用 `POST /login` 取得 JWT 令牌，可參考 Postman 中 auth → login 範例，管理員帳號：`admin@bestpartner.com.tw`／`admin`（登入使用 email）
 2. 增加系統設定表，關於系統部分設定未來皆會規劃到該表中
 
 ---
@@ -184,7 +184,15 @@ bestpartner/
 ### PostgreSQL 資料庫
 
 - 安裝 PostgreSQL：[官方文件](https://www.postgresql.org/download/)
-- 安裝完成後，建立資料庫 `pgdb`，並依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
+- 安裝完成後，建立資料庫 `pgdb`，並**依序**執行 `docs/sql/bestpartner-ddl.sql`（會自行建立 `bestpartner` schema）與 `docs/sql/bestpartner-init-data.sql`：
+  ```bash
+  psql -h localhost -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
+  psql -h localhost -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
+  ```
+- ⚠️ DDL 會 DROP 並重建所有資料表，只能對全新或可清空的資料庫執行。Docker 內的 PostgreSQL 做法與完整說明見
+  [`docs-site/docs/getting-started/installation.md`](docs-site/docs/getting-started/installation.md)；
+  在 Linux 從零建立 sit 測試環境見 [`test-environment.md`](docs-site/docs/getting-started/test-environment.md)
+- 預設帳號（登入使用 email）：管理員 `admin@bestpartner.com.tw`／`admin`、一般使用者 `test@partmer.com.tw`／`user`
 
 ---
 
@@ -204,7 +212,7 @@ bestpartner/
 ## 程式執行注意事項
 
 - 目前使用 PostgreSQL Database，連線資訊由 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 環境變數設定（見下方 `.env` 說明）
-- 無 Flyway，需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`
+- 無 Flyway，需手動依序執行 `docs/sql/bestpartner-ddl.sql` 與 `docs/sql/bestpartner-init-data.sql`（先 DDL 後 init-data，見上方「PostgreSQL 資料庫」）
 
 ### 環境設定與敏感金鑰（.env 檔案）
 
@@ -250,6 +258,13 @@ $env:CONFIG_SECRET_VALUE='<機密明文>'
 cd bestpartner-service; ./gradlew encryptConfigSecret -q
 ```
 
+```bash
+# Linux / macOS（bash）
+export CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
+export CONFIG_SECRET_VALUE='<機密明文>'
+cd bestpartner-service && ./gradlew encryptConfigSecret -q
+```
+
 > ⚠️ **這個機制擋得住什麼**：解密金鑰 `CONFIG_ENCRYPTION_KEY` 就放在同一個 `.env.<profile>` 內，
 > 所以能防的是「明文密碼被瞥見、截圖、誤貼、寫進日誌」與「設定檔不得存明文密碼」的要求；
 > **不防 `.env` 檔案本身外洩**（拿到檔案即可解密）。要防到那個層級，金鑰須改為與 `.env` 分離
@@ -273,7 +288,7 @@ BestPartner 提供基於 [Docusaurus](https://docusaurus.io/) 的線上文件網
 
 | 類別 | 版本 |
 |------|------|
-| Node.js | >= 20.0 |
+| Node.js | `^20.19.0 \|\| >=22.12.0`（與前端共用同一版本；此範圍亦滿足 docs-site 的需求） |
 | npm / yarn | 最新版 |
 
 ### 啟動開發伺服器
@@ -312,7 +327,7 @@ BestPartner 提供基於 Vue 3 的前端應用，位於 `bestpartner-ui/` 目錄
 
 | 類別 | 版本 |
 |------|------|
-| Node.js | >= 20.0 |
+| Node.js | `^20.19.0 \|\| >=22.12.0`（Vite 的引擎需求） |
 | 建置工具 | Vite |
 | 框架 | Vue 3 + TypeScript + Pinia + Vue Router + Element Plus + Vue Flow |
 
@@ -320,11 +335,12 @@ BestPartner 提供基於 Vue 3 的前端應用，位於 `bestpartner-ui/` 目錄
 
 ```bash
 cd bestpartner-ui
-npm install
-npm run dev
+npm ci           # 依 package-lock.json 安裝
+npm run dev      # http://localhost:5173
 ```
 
-開發伺服器透過 Vite proxy 將 API 請求轉發至後端（預設 port 80）。
+開發伺服器透過 Vite proxy 將 `/llm`、`/login/` 轉發至 `http://localhost:80`，**後端須在 port 80**；
+後端改埠時需同步修改 `vite.config.ts`。登入帳號為 `admin@bestpartner.com.tw`／`admin`。
 
 ### 測試與建置
 
@@ -332,7 +348,10 @@ npm run dev
 cd bestpartner-ui
 npm run test     # Vitest 單元測試
 npm run build    # vue-tsc 型別檢查 + production 建置
+npm run preview  # 預覽建置結果（預設 http://localhost:4173）
 ```
+
+完整步驟見 docs-site 的「快速開始 › 安裝與設定」（`docs-site/docs/getting-started/installation.md`）。
 
 ---
 
@@ -347,7 +366,7 @@ npm run build    # vue-tsc 型別檢查 + production 建置
 
 ### 使用 JWT 認證
 
-1. 呼叫 `POST /login/`（帳號：`admin/admin`）取得 JWT Token
+1. 呼叫 `POST /login/`（email：`admin@bestpartner.com.tw`、密碼：`admin`）取得 JWT Token
 2. 開啟 Swagger UI，點擊右上角 **Authorize** 按鈕
 3. 在 `bearerAuth` 欄位貼入 Token（不需加 `Bearer` 前綴）
 4. 即可直接測試所有受保護的 API
