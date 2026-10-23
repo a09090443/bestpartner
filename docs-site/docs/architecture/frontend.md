@@ -68,7 +68,8 @@ SIT 等容器環境不使用 Vite 開發伺服器，而是以 `bestpartner-ui/Do
 | 路徑 | 處理 | 說明 |
 |------|------|------|
 | `/llm/` | 代理後端 | 全部 `/llm` 系列 API；關閉 `proxy_buffering`、讀寫逾時 3600s，讓 SSE 串流（`/llm/workflow/execute`、`/llm/chatStreaming`）不被緩衝或中斷 |
-| `/login/` | 代理後端 | 只限帶結尾斜線的登入 API；裸 `/login` 由 SPA 處理，理由同開發代理 |
+| `/login/` | 代理後端 | 只限帶結尾斜線的登入 API 及其子路徑 |
+| `/login`（裸路徑） | SPA | `location = /login` 精確匹配回 `index.html`。不可省略：只有帶尾斜線且含 `proxy_pass` 的 `/login/` 時，nginx 會把裸 `/login` 自動 301 轉址到 `/login/`，登入頁直接開啟或重新整理就會進後端代理 |
 | `/view/` | 代理後端 | 存活探測 `/view/chat` 經前端 port 80 仍可到達 |
 | `/systemSetting/` | 代理後端 | 系統設定 API |
 | 其他路徑 | SPA | `try_files $uri $uri/ /index.html`，`/editor/:id` 等深層連結重新整理不會 404 |

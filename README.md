@@ -447,6 +447,8 @@ SIT 以 `docs/docker/bestpartner-sit/docker-compose.yml` 同時啟動後端與�
 後端沿用上方的 `bestpartner-service:latest`（`QUARKUS_PROFILE=sit`），前端由
 `bestpartner-ui/Dockerfile` 多階段建置（Node 建置 → nginx 提供靜態檔並反向代理後端）。
 
+> 需要 **Docker Compose 2.30.0 以上**（`env_file` 的 `format: raw`），部署前先以 `docker compose version` 確認。
+
 ```bash
 # 0. 在 repository 根目錄準備 .env.sit（不進版控；DB_URL 必須是容器可達位址，不可用 localhost）
 # 1. 建置後端 image
@@ -459,14 +461,15 @@ docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d --build
 |------|------|
 | 對外入口 | 只發布前端的 port 80：首頁 `http://<主機>/`、存活探測 `http://<主機>/view/chat` |
 | 後端 | 不對宿主發布 port，只在 compose 內部網路以服務名 `backend` 存取；日誌與上傳使用具名 volume `bestpartner-data:/opt/bestpartner` |
-| 機密 | `.env.sit` 只以 `env_file` 注入後端；前端 image（`.dockerignore` 排除 `.env*`）、前端容器與 nginx 不接收任何機密 |
+| 機密 | `.env.sit` 只以 `env_file` 注入後端，採長語法 `path: ../../../.env.sit` ＋ `format: raw`，未加引號的 `${enc::<密文>}` 原樣交給後端解密（一般 `env_file` 會插值而失敗）；前端 image（`.dockerignore` 排除 `.env*`）、前端容器與 nginx 不接收任何機密 |
 
 前端 nginx（`bestpartner-ui/nginx/default.conf`）代理對照：
 
 | 路徑 | 處理 |
 |------|------|
 | `/llm/` | 代理後端（SSE 串流關閉緩衝、讀寫逾時 3600s） |
-| `/login/` | 代理後端登入 API（只限帶結尾斜線；裸 `/login` 由 SPA 處理） |
+| `/login/` | 代理後端登入 API（帶結尾斜線及其子路徑） |
+| `/login`（裸路徑） | 以 `location = /login` 精確匹配回 `index.html` 交給 SPA；否則 nginx 會因上方 `/login/` 代理自動 301 轉址到 `/login/` |
 | `/view/`、`/systemSetting/` | 代理後端 |
 | 其他路徑 | SPA（`try_files` 回 `index.html`） |
 

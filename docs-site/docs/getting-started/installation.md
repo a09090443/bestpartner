@@ -294,6 +294,7 @@ cp .env.example .env.sit    # 再填入 sit 的連線位址與金鑰
 - `.env.sit` 已由 `.gitignore` 的 `/.env.*` 規則排除，**不可提交**。
 - `DB_URL` 必須是容器可達的 PostgreSQL 位址，**不可使用 `localhost`**。
 - `.env.sit` 只以 `env_file` 注入後端容器；前端容器與 nginx 不接收任何機密。
+- compose 以 `env_file` 長語法（`path: ../../../.env.sit` ＋ `format: raw`）載入，未加引號的 `${enc::<密文>}` 會原樣交給後端解密；一般 `env_file` 寫法會對值做插值而失敗。`format` 需要 **Docker Compose 2.30.0 以上**，部署前先以 `docker compose version` 確認。
 
 ### 6.2 建置兩個 image
 

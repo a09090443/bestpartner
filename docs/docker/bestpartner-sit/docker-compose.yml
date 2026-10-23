@@ -15,8 +15,11 @@ services:
       # 容器以 uid 185 執行，日誌與上傳目錄須為 POSIX 路徑（見 configuration-and-profiles.md）
       - LOG_DIR=/opt/bestpartner/logs
       - FILE_UPLOAD_DIR=/opt/bestpartner/upload
+    # 長語法 + format: raw：不對值做插值，未加引號的 ${enc::<密文>} 原樣交給 SmallRye Config 解密
+    # （一般 env_file 會插值而解析失敗）。format 需要 Docker Compose 2.30.0 以上。
     env_file:
-      - ../../../.env.sit
+      - path: ../../../.env.sit
+        format: raw
     volumes:
       - bestpartner-data:/opt/bestpartner
     expose:
