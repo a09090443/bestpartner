@@ -90,8 +90,10 @@ profile 對照與環境變數清單 → [`configuration-and-profiles.md`](config
 
 SIT 使用 `docs/docker/bestpartner-sit/docker-compose.yml` 同時啟動後端與工作流程前端。
 後端 image 仍依上方規則固定以 prod profile 建置；執行時由 Compose 設定
-`QUARKUS_PROFILE=sit`，並讀取根目錄中不進版控的 `.env.sit`。前端 image 則由
-`bestpartner-ui/Dockerfile` 多階段建置，使用 nginx 提供靜態檔與反向代理。
+`QUARKUS_PROFILE=sit`，並以 `env_file` 長語法的 `format: raw` 讀取根目錄中不進版控的
+`.env.sit`，確保 `${enc::...}` 不會被 Compose 插值而是原樣交給後端。`format` 需要
+**Docker Compose 2.30.0 以上**；執行前請先以 `docker compose version` 確認版本。
+前端 image 則由 `bestpartner-ui/Dockerfile` 多階段建置，使用 nginx 提供靜態檔與反向代理。
 
 從 repository 根目錄執行：
 
@@ -105,7 +107,8 @@ docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d --build
 
 - 對外只發布前端的 port 80；後端只在 Compose 內部網路以服務名 `backend` 存取。
 - 前端 nginx 將 `/llm/`、`/login/`、`/view/`、`/systemSetting/` 代理到後端；
-  裸 `/login` 與其他未匹配路徑由 SPA 處理。
+  `/login/` 及其 API 子路徑維持代理，裸 `/login` 則以 `location = /login` 精確匹配交由
+  SPA 處理，避免 nginx 將它自動 301 轉址到 `/login/`；其他未匹配路徑也由 SPA 處理。
 - `/view/chat` 仍是公開存活探測路徑，會經前端 port 80 轉送至後端。
 - `.env.sit` **只注入後端容器**；前端 build、前端容器與 nginx 都不得接收或包含後端機密。
 - 後端日誌與上傳資料使用具名 volume 掛載 `/opt/bestpartner`，避免 uid 185

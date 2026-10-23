@@ -228,15 +228,24 @@ application.properties   quarkus.datasource.password=${DB_PASSWORD:pgpass}
 SIT 的前後端整合部署定義在 `docs/docker/bestpartner-sit/docker-compose.yml`：
 
 - `backend` 使用 `bestpartner-service:latest`，以 `QUARKUS_PROFILE=sit` 執行，並由
-  `../../../.env.sit` 讀取根目錄環境檔。日誌與上傳資料透過具名 volume 掛載到
-  `/opt/bestpartner`；不對宿主發布 port。
+  `env_file` 長語法的 `path: ../../../.env.sit` 與 `format: raw` 讀取根目錄環境檔，
+  讓未加引號的 `${enc::...}` 保持字面值並交由 SmallRye Config 解密。`format` 需要
+  **Docker Compose 2.30.0 以上**；部署前須以 `docker compose version` 確認版本。
+  日誌與上傳資料透過具名 volume 掛載到 `/opt/bestpartner`；不對宿主發布 port。
 - `frontend` 從 `bestpartner-ui/Dockerfile` 建置，只發布 port 80，並透過 Compose
   服務名 `backend` 反向代理後端；不可使用 `localhost` 或固定主機 IP 作為 upstream。
 - 前端 nginx 代理 `/llm/`、`/login/`（只限帶結尾斜線的後端 API 路徑）、
-  `/view/`、`/systemSetting/`。裸 `/login` 與其他未匹配路徑由 SPA 接手。
+  `/view/`、`/systemSetting/`。裸 `/login` 必須以 `location = /login` 精確匹配交由 SPA
+  接手；若只保留帶結尾斜線且含 `proxy_pass` 的 `/login/` location，nginx 會自動將
+  裸 `/login` 以 301 轉址到 `/login/`。其他未匹配路徑同樣由 SPA 接手。
 - `.env.sit` 只可透過 `env_file` 注入 `backend`。`frontend` 不得設定 `env_file`，
   前端 Docker build context 必須排除 `.env` 與 `.env.*`，nginx 日誌也不得記錄
   Authorization、cookie 或 request body。
+
+> Compose 的一般 `env_file` 會對未加引號或雙引號值套用插值，不可用來載入
+> `${enc::...}`。SIT Compose 必須使用同一項內含 `path` 與 `format: raw` 的長語法；
+> 不可退回 `env_file: - ../../../.env.sit` 短語法。這項限制只適用 Compose；上方
+> `docker run --env-file` 的字面值傳遞行為不變。
 
 > 根目錄 `.env.sit` 已由 `/.env.*` 規則排除在版控外；其中 `DB_URL` 必須是容器可達的
 > PostgreSQL 位址，不能使用 `localhost`。這個部署方式只把機密隔離在後端容器，
