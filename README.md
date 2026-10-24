@@ -132,6 +132,9 @@ bestpartner/
 │   ├── quarkus-example/                    # Quarkus MCP Server 範例
 │   └── spring-example/                     # Spring Boot MCP Server 範例
 ├── bestpartner-ui/                         # 前端 (Vue 3 + Vite + TS)
+│   ├── Dockerfile                          # Node 建置 + nginx runtime 的多階段前端 image
+│   ├── .dockerignore                       # 排除依賴、產物、環境檔與 E2E 產物
+│   ├── nginx/default.conf                  # SPA 靜態服務及後端反向代理
 │   └── src/
 │       ├── api/                            # 後端 API client（axios 攔截器、workflow）
 │       ├── components/
@@ -145,6 +148,7 @@ bestpartner/
 │       └── views/                          # 登入、列表、Workflow 編輯器
 ├── docs/
 │   ├── docker/                             # Docker Compose 設定
+│   │   └── bestpartner-sit/                # SIT 前後端整合部署（後端 + 工作流程前端）
 │   ├── postman/                            # Postman Collection
 │   ├── rag/                                # RAG 測試文件
 │   ├── sample/                             # Text2SQL 範例
@@ -455,6 +459,41 @@ docker load -i bestpartner-service-0.1.8-prod-202607162330.tar
 
 > 檔名的 `-prod` 是**建置 profile**，不是部署目標。這份 tar 全環境通用，
 > 跑哪個環境由 `QUARKUS_PROFILE` 與 `.env.<profile>` 決定。
+
+### SIT 前後端部署（compose）
+
+SIT 以 `docs/docker/bestpartner-sit/docker-compose.yml` 同時啟動後端與工作流程前端：
+後端沿用上方的 `bestpartner-service:latest`（`QUARKUS_PROFILE=sit`），前端由
+`bestpartner-ui/Dockerfile` 多階段建置（Node 建置 → nginx 提供靜態檔並反向代理後端）。
+
+> 需要 **Docker Compose 2.30.0 以上**（`env_file` 的 `format: raw`），部署前先以 `docker compose version` 確認。
+
+```bash
+# 0. 在 repository 根目錄準備 .env.sit（不進版控；DB_URL 必須是容器可達位址，不可用 localhost）
+# 1. 建置後端 image
+./scripts/docker-package.sh --no-tar
+# 2. 建置前端 image 並啟動前後端
+docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d --build
+```
+
+| 項目 | 說明 |
+|------|------|
+| 對外入口 | 只發布前端的 port 80：首頁 `http://<主機>/`、存活探測 `http://<主機>/view/chat` |
+| 後端 | 不對宿主發布 port，只在 compose 內部網路以服務名 `backend` 存取；日誌與上傳使用具名 volume `bestpartner-data:/opt/bestpartner` |
+| 機密 | `.env.sit` 只以 `env_file` 注入後端，採長語法 `path: ../../../.env.sit` ＋ `format: raw`，未加引號的 `${enc::<密文>}` 原樣交給後端解密（一般 `env_file` 會插值而失敗）；前端 image（`.dockerignore` 排除 `.env*`）、前端容器與 nginx 不接收任何機密 |
+
+前端 nginx（`bestpartner-ui/nginx/default.conf`）代理對照：
+
+| 路徑 | 處理 |
+|------|------|
+| `/llm/` | 代理後端（SSE 串流關閉緩衝、讀寫逾時 3600s） |
+| `/login/` | 代理後端登入 API（帶結尾斜線及其子路徑） |
+| `/login`（裸路徑） | 以 `location = /login` 精確匹配回 `index.html` 交給 SPA；否則 nginx 會因上方 `/login/` 代理自動 301 轉址到 `/login/` |
+| `/view/`、`/systemSetting/` | 代理後端 |
+| 其他路徑 | SPA（`try_files` 回 `index.html`） |
+
+上傳大小上限 `client_max_body_size 12m`（不低於後端 Quarkus 預設 10M）；
+存取日誌不記錄 Authorization、cookie 與 request body。
 
 > ⚠️ tar 內含 JWT 簽章私鑰（`privateKey.pem` 隨 uber-jar 打包），等同憑證，勿在不受控管道流通。
 

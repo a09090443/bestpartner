@@ -366,6 +366,52 @@ npm run preview     # 以 dist/ 啟動預覽伺服器（終端機會顯示網址
 
 前端開啟後，以預設管理員 **`admin@bestpartner.com.tw`／`admin`** 登入（見 [預設帳號](#default-accounts)）。
 
+## 7. SIT 前後端部署（Docker Compose） {#sit-compose-deploy}
+
+SIT 以 `docs/docker/bestpartner-sit/docker-compose.yml` 同時部署後端與工作流程前端。
+後端 image 一律以 prod profile 建置，執行時由 compose 指定 `QUARKUS_PROFILE=sit`；
+前端 image 由 `bestpartner-ui/Dockerfile` 建置，nginx 提供靜態檔並反向代理後端
+（代理對照見 [前端架構](../architecture/frontend.md#production-nginx)）。
+
+以下指令皆在 repository 根目錄執行。
+
+### 7.1 準備 .env.sit
+
+```bash
+cp .env.example .env.sit    # 再填入 sit 的連線位址與金鑰
+```
+
+- `.env.sit` 已由 `.gitignore` 的 `/.env.*` 規則排除，**不可提交**。
+- `DB_URL` 必須是容器可達的 PostgreSQL 位址，**不可使用 `localhost`**。
+- `.env.sit` 只以 `env_file` 注入後端容器；前端容器與 nginx 不接收任何機密。
+- compose 以 `env_file` 長語法（`path: ../../../.env.sit` ＋ `format: raw`）載入，未加引號的 `${enc::<密文>}` 會原樣交給後端解密；一般 `env_file` 寫法會對值做插值而失敗。`format` 需要 **Docker Compose 2.30.0 以上**，部署前先以 `docker compose version` 確認。
+
+### 7.2 建置兩個 image
+
+```bash
+# 後端 image（bestpartner-service:latest）
+./scripts/docker-package.sh --no-tar
+
+# 前端 image（bestpartner-ui:latest）
+docker compose -f docs/docker/bestpartner-sit/docker-compose.yml build frontend
+```
+
+### 7.3 啟動
+
+```bash
+docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d
+```
+
+| 服務 | 對外 port | 說明 |
+|------|----------|------|
+| `frontend` | 80 | 唯一對外入口 |
+| `backend` | 無 | 只在 compose 內部網路以服務名 `backend` 存取；日誌與上傳使用具名 volume `bestpartner-data:/opt/bestpartner` |
+
+### 7.4 確認服務可用
+
+- 存活探測：`http://<主機>/view/chat`（經前端 nginx 轉送至後端）
+- 前端首頁：`http://<主機>/`，可正常顯示登入頁並以預設管理員 `admin@bestpartner.com.tw`／`admin` 登入（見 [預設帳號](#default-accounts)）
+
 ---
 
 :::tip 要建立 sit 測試環境？
