@@ -1,4 +1,6 @@
--- 建立 bestpartner schema 並設為預設 search_path，讓以下無前綴的表與索引皆建於此（對齊 init-data 的 bestpartner.* 與 currentSchema=bestpartner）
+-- ⚠️ 本腳本會 DROP 並重建所有 BestPartner 資料表，既有資料將全部清除；
+--    只能對全新或可清空的資料庫執行。執行順序：先本檔，再 bestpartner-init-data.sql。
+-- 服務連線使用 currentSchema=bestpartner，init-data 亦寫入 bestpartner.*，故先建立並切換 schema。
 CREATE SCHEMA IF NOT EXISTS bestpartner;
 SET search_path TO bestpartner;
 

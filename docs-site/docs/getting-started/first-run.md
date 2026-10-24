@@ -1,4 +1,5 @@
 ---
+title: 第一次執行
 sidebar_position: 3
 description: 第一次啟動 BestPartner 服務並取得 JWT Token 的操作教學，示範服務啟動確認與登入流程。
 keywords: [第一次執行, 啟動服務, JWT Token, 登入, 快速上手]
@@ -8,39 +9,60 @@ keywords: [第一次執行, 啟動服務, JWT Token, 登入, 快速上手]
 
 ## 啟動服務
 
+於 repo 根目錄執行（jar 由 [安裝與設定](./installation.md) 第 5 步建置產生）：
+
 ```bash
-java -jar bestpartner-service/build/bestpartner-service-0.1.6-SNAPSHOT-runner.jar
+java -jar bestpartner-service/build/bestpartner-service-0.1.8-runner.jar
 ```
 
-服務啟動後，可在瀏覽器開啟 [http://localhost](http://localhost) 確認服務狀態。
+服務預設監聽 **port 80**。確認服務已啟動（存活檢查）：
+
+```bash
+curl -i http://localhost/view/chat
+# 預期 HTTP/1.1 200，回傳內建聊天測試頁的 HTML
+```
+
+也可以直接用瀏覽器開啟 [http://localhost/view/chat](http://localhost/view/chat)。
+
+:::note Swagger 依 profile 開關
+`/swagger-ui` 與 `/q/openapi` 只在 dev／docker／sit profile 開放；在 **uat／prod**（以及未指定 profile 時）
+回 **404 屬正常行為**，不可用來判斷服務是否啟動——存活檢查請一律用 `/view/chat`。
+:::
 
 ![服務啟動畫面](pathname:///img/service-start.png)
 
 ## 取得 JWT Token
 
-所有 API 都需要 JWT 認證。使用預設管理員帳號取得 Token：
+除少數公開端點外，API 都需要 JWT 認證。登入**以 email 作為帳號**，使用預設管理員取得 Token：
 
 ```bash
 curl -X POST http://localhost/login/ \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "admin",
+    "email": "admin@bestpartner.com.tw",
     "password": "admin"
   }'
 ```
 
-回應範例：
+回應為統一的 `ApiResponse` 結構，Token 位於 `data` 欄位：
 
 ```json
 {
-  "token": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+  "code": 200,
+  "message": "success",
+  "data": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
 }
 ```
 
+之後的請求以 `Authorization: Bearer <data 的值>` 帶入。
+
 :::info 預設帳號
-初始化 SQL 包含兩個預設帳號：
-- `admin` / `admin`（管理員）
-- `test_user` / `test_user`（一般使用者）
+初始化 SQL（`bestpartner-init-data.sql`）包含兩組預設帳號，登入時填 email：
+
+| 角色 | email | 密碼 |
+|------|-------|------|
+| 管理員 | `admin@bestpartner.com.tw` | `admin` |
+| 一般使用者 | `test@partmer.com.tw` | `user` |
 :::
 
 :::tip 使用 Postman
@@ -55,12 +77,13 @@ curl -X POST http://localhost/llm/chat \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
     "message": "你好，請介紹一下你自己",
-    "modelId": "YOUR_MODEL_ID"
+    "llmId": "YOUR_LLM_ID"
   }'
 ```
 
-:::info 模型 ID
-`modelId` 對應資料庫 `llm_setting` 表中的記錄 ID（UUID）。請先確認資料庫中已設定好 AI 模型。
+:::info LLM 設定 ID
+`llmId` 對應資料庫 `llm_setting` 表中的記錄 ID（UUID），可用 `POST /llm/setting/get` 查詢目前帳號的 LLM 設定。
+請先確認資料庫中已設定好 AI 模型（含有效的 API Key）。
 :::
 
 ## 主要對話 API
@@ -88,7 +111,7 @@ const response = await fetch('http://localhost/llm/chatStreaming', {
   },
   body: JSON.stringify({
     message: '請介紹台灣的歷史',
-    modelId: 'YOUR_MODEL_ID'
+    llmId: 'YOUR_LLM_ID'
   })
 });
 
@@ -102,8 +125,14 @@ while (true) {
 }
 ```
 
+## 使用前端介面
+
+要用瀏覽器操作（Workflow 編輯器等），請依 [安裝與設定 › 前端安裝與執行](./installation.md#frontend) 啟動 `bestpartner-ui`，
+開啟 http://localhost:5173 後以 `admin@bestpartner.com.tw`／`admin` 登入。
+
 ## 下一步
 
+- [測試環境建置](./test-environment.md) — 要在 Linux 從零建立 sit 測試環境時，改看此頁
 - [設定 AI 模型](../features/ai-models) — 新增或切換 AI 模型
 - [建立知識庫](../features/rag) — 上傳文件，啟用 RAG 功能
 - [使用工具](../features/tools) — 讓 AI 可以搜尋網路或查詢資料庫

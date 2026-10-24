@@ -16,7 +16,7 @@
 
 1. PostgreSQL（`localhost:5432/pgdb`）已初始化（`docs/sql/bestpartner-ddl.sql` + `bestpartner-init-data.sql`）
 2. 服務以 dev profile 啟動於 port 80
-3. 以 `admin` / `admin` 登入取得 JWT token（P0；此步失敗全部阻斷）
+3. 以 email `admin@bestpartner.com.tw`／密碼 `admin` 登入取得 JWT token（P0；此步失敗全部阻斷）
 
 ---
 

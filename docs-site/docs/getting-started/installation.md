@@ -1,4 +1,5 @@
 ---
+title: 安裝與設定
 sidebar_position: 2
 description: BestPartner 安裝與設定步驟，涵蓋取得原始碼、初始化 PostgreSQL 資料庫、匯入初始資料與服務設定。
 keywords: [安裝, 設定, 資料庫初始化, PostgreSQL, 建置]
@@ -13,14 +14,55 @@ git clone https://github.com/a09090443/bestpartner.git
 cd bestpartner
 ```
 
-## 2. 初始化資料庫
+## 2. 初始化資料庫 {#init-database}
 
-確認 PostgreSQL 已啟動，建立資料庫並匯入初始資料：
+:::danger 執行前必讀
+`bestpartner-ddl.sql` 會 **DROP 並重建所有 BestPartner 資料表**，既有資料會全部清除。
+只能對**全新或可清空**的資料庫執行；要保留資料的環境請先自行備份，不要重跑 DDL。
+:::
+
+確認 PostgreSQL 已啟動、資料庫 `pgdb` 與帳號 `pguser` 已存在後，於 repo 根目錄**依序**執行兩支 SQL：
+
+1. `docs/sql/bestpartner-ddl.sql`：建立並切換到 `bestpartner` schema，再建立所有資料表
+2. `docs/sql/bestpartner-init-data.sql`：寫入種子資料（預設帳號、平台、工具等）
+
+順序不可顛倒——init-data 寫入的是 `bestpartner.*` 資料表，DDL 尚未執行時會失敗。
+
+**方式 A：本機 psql 連線**
 
 ```bash
-psql -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
-psql -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
+psql -h localhost -U pguser -d pgdb -f docs/sql/bestpartner-ddl.sql
+psql -h localhost -U pguser -d pgdb -f docs/sql/bestpartner-init-data.sql
 ```
+
+**方式 B：PostgreSQL 跑在 Docker 容器內（本機沒有安裝 psql）**
+
+以 [環境需求](./prerequisites.md) 中的 `bestpartner-postgres` 容器為例，透過標準輸入把 SQL 送進容器：
+
+```bash
+docker exec -i bestpartner-postgres psql -U pguser -d pgdb < docs/sql/bestpartner-ddl.sql
+docker exec -i bestpartner-postgres psql -U pguser -d pgdb < docs/sql/bestpartner-init-data.sql
+```
+
+確認 schema 與種子帳號已建立：
+
+```bash
+psql -h localhost -U pguser -d pgdb -c "SELECT email FROM bestpartner.llm_user;"
+```
+
+### 預設帳號 {#default-accounts}
+
+種子資料建立兩組帳號，**登入一律使用 email**（不是使用者名稱）：
+
+| 角色 | 登入 email | 密碼 |
+|------|-----------|------|
+| 管理員 | `admin@bestpartner.com.tw` | `admin` |
+| 一般使用者 | `test@partmer.com.tw` | `user` |
+
+:::caution
+`test@partmer.com.tw` 的網域是 `partmer`（與種子資料一致），不是 `partner`。
+sit 以上環境建議登入後立即變更預設密碼。
+:::
 
 ## 3. 建立 .env 檔案（環境設定與敏感金鑰）
 
@@ -86,12 +128,26 @@ $env:CONFIG_SECRET_VALUE='<機密明文>'
 cd bestpartner-service; ./gradlew encryptConfigSecret -q
 ```
 
+```bash
+# Linux / macOS（bash）
+export CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
+export CONFIG_SECRET_VALUE='<機密明文>'
+cd bestpartner-service && ./gradlew encryptConfigSecret -q
+```
+
 驗證密文可解回原值（`CONFIG_SECRET_VALUE` 改放**密文本體**，不含 `${enc::}` 外框）：
 
 ```powershell
 $env:CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
 $env:CONFIG_SECRET_VALUE='<密文本體>'
 cd bestpartner-service; ./gradlew decryptConfigSecret -q
+```
+
+```bash
+# Linux / macOS（bash）
+export CONFIG_ENCRYPTION_KEY='<該環境的根金鑰>'
+export CONFIG_SECRET_VALUE='<密文本體>'
+cd bestpartner-service && ./gradlew decryptConfigSecret -q
 ```
 
 金鑰或密文不符時以 `AEADBadTagException: Tag mismatch` 失敗（GCM 完整性驗證），
@@ -162,54 +218,62 @@ quarkus.datasource.jdbc.url=${DB_URL:jdbc:postgresql://localhost:5432/pgdb?curre
 
 ### AI 模型設定
 
-API Key 請透過 `.env` 檔案管理（參考步驟 3），`application.properties` 以 `${VARIABLE_NAME}` 引用。
-
-**`.env`（填入實際金鑰，不提交）**
+`application.properties` **既有的系統預設模型只有 OpenRouter**（供 ADMIN CHAT `/llm/admin/*` 使用），
+各鍵皆已參數化，只需在 `.env` 填入金鑰：
 
 ```dotenv
-# OpenAI
-OPENAI_API_KEY=your-openai-api-key-here
-
-# OpenRouter
+# .env（填入實際金鑰，不提交）
 OPENROUTER_API_KEY=your-openrouter-api-key-here
+# 以下為選填，未設定時採用括號內預設值
+OPENROUTER_MODEL=openai/gpt-5.5-pro      # 預設 openai/gpt-5.5-pro
+OPENROUTER_TEMPERATURE=0.7
+OPENROUTER_MAX_TOKENS=4096
+OPENROUTER_TIMEOUT=60s
 ```
 
-**`application.properties`（使用環境變數引用）**
+對應的 `application.properties` 內容（不需修改）：
 
 ```properties
-# OpenAI 系統預設模型設定
-%dev.ai-platform.openai.api-key=${OPENAI_API_KEY}
-%dev.ai-platform.openai.model-name=gpt-4o
-%dev.ai-platform.openai.temperature=0.7
-%dev.ai-platform.openai.max-tokens=4096
-%dev.ai-platform.openai.timeout=60s
-
-# OpenRouter 系統預設模型設定
-%dev.ai-platform.openrouter.api-key=${OPENROUTER_API_KEY}
-%dev.ai-platform.openrouter.model-name=openai/gpt-4o
-%dev.ai-platform.openrouter.temperature=0.7
-%dev.ai-platform.openrouter.max-tokens=4096
-%dev.ai-platform.openrouter.timeout=60s
-
-# Ollama（本地端，無需 API Key）
-%dev.ai-platform.ollama.url=http://localhost:11434
-%dev.ai-platform.ollama.model-name=llama3
-%dev.ai-platform.ollama.timeout=60s
+ai-platform.openrouter.api-key=${OPENROUTER_API_KEY:}
+ai-platform.openrouter.model-name=${OPENROUTER_MODEL:openai/gpt-5.5-pro}
 ```
 
-> 其他平台（Anthropic、Gemini、Grok）的 API Key 透過 ADMIN 介面的 LLM Setting 儲存於資料庫，無需在設定檔中設定。
+`OPENROUTER_API_KEY` 留空時服務仍可正常啟動，只是呼叫 ADMIN CHAT 會得到 OpenRouter 401。
+
+**選用：OpenAI／Ollama 系統預設模型**
+
+`application.properties` **沒有**預先寫好 OpenAI 或 Ollama 的設定；需要時請自行加入，
+鍵名前綴分別為 `ai-platform.openai.*`、`ai-platform.ollama.*`（欄位與 OpenRouter 相同：
+`api-key`、`url`、`model-name`、`temperature`、`timeout`、`max-tokens` 等）：
+
+```properties
+# 選用：OpenAI（金鑰放 .env 的 OPENAI_API_KEY）
+ai-platform.openai.api-key=${OPENAI_API_KEY:}
+ai-platform.openai.model-name=gpt-4o
+ai-platform.openai.temperature=0.7
+ai-platform.openai.timeout=60s
+
+# 選用：Ollama（本地端，無需 API Key）
+ai-platform.ollama.url=http://localhost:11434
+ai-platform.ollama.model-name=llama3
+ai-platform.ollama.temperature=0.7
+ai-platform.ollama.timeout=60s
+```
+
+> 一般使用者對話用的模型（含 OpenAI、Anthropic、Gemini、Grok、Ollama 等）是透過 LLM Setting API／介面
+> 儲存在資料庫（`llm_setting`），不需寫進設定檔。
 
 ### 向量資料庫設定
 
+**未設定任何外部向量庫時，預設使用 InMemory**（記憶體，服務重啟後資料消失），不需要額外安裝。
+若要改用 Chroma 或 Milvus，於 `application.properties` 選用加入對應的 URL（鍵名前綴為 `vector.chroma`、`vector.milvus`）：
+
 ```properties
-# 預設使用 InMemory，若要切換請設定以下其一：
+# 選用：Chroma
+vector.chroma.url=http://localhost:8000
 
-# Chroma
-chroma.url=http://localhost:8000
-
-# Milvus
-milvus.host=localhost
-milvus.port=19530
+# 選用：Milvus
+vector.milvus.url=http://localhost:19530
 ```
 
 ### JWT 安全設定
@@ -276,7 +340,33 @@ cd bestpartner-service
 bestpartner-service/build/bestpartner-service-0.1.8-runner.jar
 ```
 
-## 6. SIT 前後端部署（Docker Compose） {#sit-compose-deploy}
+## 6. 前端安裝與執行（bestpartner-ui） {#frontend}
+
+前端為 Vue 3 + Vite 應用，位於 `bestpartner-ui/`。需要 **Node.js `^20.19.0 || >=22.12.0`**（Vite 的引擎需求），
+請先以 `node --version` 確認。
+
+```bash
+cd bestpartner-ui
+npm ci              # 依 package-lock.json 安裝相依套件
+npm run dev         # 開發模式，瀏覽 http://localhost:5173
+```
+
+其他常用指令：
+
+```bash
+npm run build       # 型別檢查（vue-tsc）＋ 產出 dist/
+npm run preview     # 以 dist/ 啟動預覽伺服器（終端機會顯示網址，預設 http://localhost:4173）
+```
+
+:::caution 前端依賴後端在 port 80
+開發代理（`vite.config.ts`）把 `/llm` 與 `/login/` 固定轉發到 **`http://localhost:80`**。
+啟動前端前請先啟動後端並確認它在 port 80；若後端改用其他埠（例如設定 `HTTP_PORT`），
+前端會連不到後端，需同步修改 `vite.config.ts` 的 proxy target。
+:::
+
+前端開啟後，以預設管理員 **`admin@bestpartner.com.tw`／`admin`** 登入（見 [預設帳號](#default-accounts)）。
+
+## 7. SIT 前後端部署（Docker Compose） {#sit-compose-deploy}
 
 SIT 以 `docs/docker/bestpartner-sit/docker-compose.yml` 同時部署後端與工作流程前端。
 後端 image 一律以 prod profile 建置，執行時由 compose 指定 `QUARKUS_PROFILE=sit`；
@@ -285,7 +375,7 @@ SIT 以 `docs/docker/bestpartner-sit/docker-compose.yml` 同時部署後端與�
 
 以下指令皆在 repository 根目錄執行。
 
-### 6.1 準備 .env.sit
+### 7.1 準備 .env.sit
 
 ```bash
 cp .env.example .env.sit    # 再填入 sit 的連線位址與金鑰
@@ -296,7 +386,7 @@ cp .env.example .env.sit    # 再填入 sit 的連線位址與金鑰
 - `.env.sit` 只以 `env_file` 注入後端容器；前端容器與 nginx 不接收任何機密。
 - compose 以 `env_file` 長語法（`path: ../../../.env.sit` ＋ `format: raw`）載入，未加引號的 `${enc::<密文>}` 會原樣交給後端解密；一般 `env_file` 寫法會對值做插值而失敗。`format` 需要 **Docker Compose 2.30.0 以上**，部署前先以 `docker compose version` 確認。
 
-### 6.2 建置兩個 image
+### 7.2 建置兩個 image
 
 ```bash
 # 後端 image（bestpartner-service:latest）
@@ -306,7 +396,7 @@ cp .env.example .env.sit    # 再填入 sit 的連線位址與金鑰
 docker compose -f docs/docker/bestpartner-sit/docker-compose.yml build frontend
 ```
 
-### 6.3 啟動
+### 7.3 啟動
 
 ```bash
 docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d
@@ -317,7 +407,14 @@ docker compose -f docs/docker/bestpartner-sit/docker-compose.yml up -d
 | `frontend` | 80 | 唯一對外入口 |
 | `backend` | 無 | 只在 compose 內部網路以服務名 `backend` 存取；日誌與上傳使用具名 volume `bestpartner-data:/opt/bestpartner` |
 
-### 6.4 確認服務可用
+### 7.4 確認服務可用
 
 - 存活探測：`http://<主機>/view/chat`（經前端 nginx 轉送至後端）
-- 前端首頁：`http://<主機>/`，可正常顯示登入頁並以 `admin` / `admin` 登入
+- 前端首頁：`http://<主機>/`，可正常顯示登入頁並以預設管理員 `admin@bestpartner.com.tw`／`admin` 登入（見 [預設帳號](#default-accounts)）
+
+---
+
+:::tip 要建立 sit 測試環境？
+本頁以本機開發（dev）為主。要在 Linux 從零建立 sit 測試環境（prod 建置、`.env.sit`、port 80 權限、Docker），
+請改看 [測試環境建置](./test-environment.md)。
+:::

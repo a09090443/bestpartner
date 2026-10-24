@@ -37,13 +37,13 @@
 2. `bestpartner-service` 以 **dev profile** 啟動於 **port 80**（健康檢查失敗即 fail-fast，輸出清楚訊息）。
 3. `bestpartner-ui` 已 build 並以 `vite preview`（或 dev server）提供前端；`baseURL` 指向該位址。
 4. 種子資料存在：
-   - `admin/admin`（RBAC 管理員）
-   - `test_user` 及其 **CHAT / STREAMING_CHAT** LLM setting（llmId 對照見既有紀錄）
+   - 管理員 `admin@bestpartner.com.tw`／`admin`（RBAC 管理員；登入一律用 email）
+   - 一般使用者 `test@partmer.com.tw`／`user`（使用者名稱 `test_user`）及其 **CHAT / STREAMING_CHAT** LLM setting（llmId 對照見既有紀錄）
    - **可實跑的 LLM setting**：具備有效 `api_key` 的平台設定，供 J5 真實執行使用
 
 ### 2.2 登入態復用（storageState）
 
-- `globalSetup` 以 API `admin/admin` 登入取得 JWT，寫入 `e2e/.auth/storageState.json`。
+- `globalSetup` 以 API `admin@bestpartner.com.tw`／`admin` 登入取得 JWT，寫入 `e2e/.auth/storageState.json`。
 - 多數測試透過 `storageState` 直接帶登入態，**不必逐條重登**（重登流程本身由 J1 專門覆蓋）。
 
 ### 2.3 環境變數
@@ -52,7 +52,7 @@
 |------|------|------|
 | `E2E_BASE_URL` | 前端位址 | 預設 `http://localhost:4173`（preview）或 dev server |
 | `E2E_API_URL` | 後端位址 | 預設 `http://localhost:80` |
-| `E2E_ADMIN_USER` / `E2E_ADMIN_PASS` | 登入帳密 | 預設 `admin` / `admin` |
+| `E2E_ADMIN_USER` / `E2E_ADMIN_PASS` | 登入帳密 | 預設 `admin@bestpartner.com.tw` / `admin`（`E2E_ADMIN_USER` 填 email） |
 | `E2E_LLM_ID` | J5 真實執行所用的 llmId | 指向具有效 api_key 的 CHAT 設定 |
 | `E2E_EMBEDDING_ID` | J8 用的 embeddingModelId | 指向具有效 api_key 的 EMBEDDING 設定；缺則 J8 skip |
 | `E2E_KNOWLEDGE_ID` / `E2E_EMBEDDING_STORE_ID` | J8 知識庫與向量庫 | 由前置 API 準備產出（或由前置步驟現建現用） |
@@ -69,7 +69,7 @@
 | 優先 | 案例 | 預期 |
 |:---:|------|------|
 | P0 | 未登入直接訪 `/` | 路由守衛導向 `/login` |
-| P0 | `admin`/`admin` 登入 | 導向 workflow 列表 `/`，顯示使用者已登入 |
+| P0 | `admin@bestpartner.com.tw`／`admin` 登入 | 導向 workflow 列表 `/`，顯示使用者已登入 |
 | P1 | 已登入訪 `/login` | 導回首頁 `/` |
 | P1 | 錯誤帳密登入 | 停留 `/login`，顯示錯誤訊息 |
 | P1 | 列表頁點登出（`data-test="logout-button"`） | 清 token 導向 `/login`；重訪受保護頁被導回登入 |

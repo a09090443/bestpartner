@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/prerequisites',
         'getting-started/installation',
         'getting-started/first-run',
+        'getting-started/test-environment',
       ],
     },
     {
